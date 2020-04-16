@@ -1,0 +1,66 @@
+#! /usr/bin/env python
+#
+
+DESCRIPTION = " ZTFPhot "
+LONG_DESCRIPTION = """ ZTF Phot """
+
+DISTNAME = 'ztfphot'
+AUTHOR = 'Mickael Rigault'
+MAINTAINER = 'Mickael Rigault' 
+MAINTAINER_EMAIL = 'm.rigault@ipnl.in2p3.fr'
+URL = 'https://github.com/MickaelRigault/ztfphot'
+LICENSE = 'BSD (3-clause)'
+DOWNLOAD_URL = 'https://github.com/MickaelRigault/ztfphot'
+VERSION = '0.1.0'
+
+try:
+    from setuptools import setup, find_packages
+    _has_setuptools = True
+except ImportError:
+    from distutils.core import setup
+    _has_setuptools = False
+    
+def check_dependencies():
+   install_requires = []
+   try:
+        import h5py
+   except ImportError:
+        install_requires.append('h5py')
+
+   return install_requires
+
+if __name__ == "__main__":
+
+    install_requires = check_dependencies()
+
+    if _has_setuptools:
+        packages = find_packages()
+        print(packages)
+    else:
+        # This should be updated if new submodules are added
+        packages = ['ztfphot']
+    
+        
+    setup(name=DISTNAME,
+          author=AUTHOR,
+          author_email=MAINTAINER_EMAIL,
+          maintainer=MAINTAINER,
+          maintainer_email=MAINTAINER_EMAIL,
+          description=DESCRIPTION,
+          long_description=LONG_DESCRIPTION,
+          license=LICENSE,
+          url=URL,
+          version=VERSION,
+          download_url=DOWNLOAD_URL,
+          install_requires=install_requires,
+          packages=packages,
+          #package_data={"zogytf":["config/*"]},#, 'data/*'
+          classifiers=[
+              'Intended Audience :: Science/Research',
+              'Programming Language :: Python :: 3.6',
+              'License :: OSI Approved :: BSD License',
+              'Topic :: Scientific/Engineering :: Astronomy',
+              'Operating System :: POSIX',
+              'Operating System :: Unix',
+              'Operating System :: MacOS'],
+      )
