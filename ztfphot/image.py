@@ -3,9 +3,14 @@
 import numpy as np
 from astropy.io import fits
 from astropy.wcs import WCS
+from astropy.nddata import bitmask
 
 class ZTFImage( object ):
     """ """
+    BITMASK_KEY = [ "tracks","sexsources","lowresponsivity","highresponsivity",
+                    "noisy","ghosts","spillage","spikes","saturated",
+                    "dead","nan","psfsources","brightstarhalo"]
+        
     def __init__(self, imagefile=None, maskfile=None):
         """ """
         if imagefile is not None:
@@ -51,14 +56,32 @@ class ZTFImage( object ):
     # -------- #
     # GETTER   #
     # -------- #
-    def get_data(self, applymask=True, maskvalue=np.NaN):
+    def get_data(self, applymask=True, maskvalue=np.NaN, **kwargs):
         """ """
         data_ = self.data.copy()
-        data_[np.asarray(self.mask, dtype="bool")] = maskvalue
+        if applymask:
+            data_[self.get_mask(**kwargs)] = maskvalue
+            
         return data_
 
 
-    def get_mask(self,)
+    def get_mask(self, tracks=True, ghosts=True, spillage=True, spikes=True,
+                     dead=True, nan=True, saturated=True, brightstarhalo=True,
+                     lowresponsivity=True, highresponsivity=True, noisy=True, 
+                     sexsources=False, psfsources=False, 
+                     alltrue=False, flip_bits=True, verbose=False, getflags=False):
+        """ """
+
+        locals_ = locals()
+        if verbose:
+            print({k:locals_[k] for k in self.BITMASK_KEY})
+
+        flags = [2**i for i,k in enumerate(self.BITMASK_KEY) if locals_[k] or alltrue]
+        if getflags:
+            return flags
+        
+        return bitmask.bitfield_to_boolean_mask(self.mask, ignore_flags=flags, flip_bits=flip_bits)
+    
     def get_associated_data(self, suffix=None, source="irsa", which="science", verbose=False, **kwargs):
         """ """
         from ztfquery import buildurl
