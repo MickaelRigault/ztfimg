@@ -1,5 +1,5 @@
 # ztfphot
-ZTF Photometry tools
+ZTF Photometry tools | simplification of astrobject dedicated to ZTF.
 
 # Installation
 ## Getting the PS1Calibrator files
