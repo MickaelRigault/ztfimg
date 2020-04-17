@@ -57,7 +57,7 @@ The `ztfphot.CatMatch` resulting instance is stored as `z.sources_ps1cat_match`.
 
 You can also directly get matched values such as (x,y) ccd positions, (ra,dec) or mag values by doing
 ```python
-z.get_source_ps1_matched_entries(["ra","dec","x","y","mag"])
+z.get_sources_ps1cat_matched_entries(["ra","dec","x","y","mag"])
 ```
 ```
 ps1_index	source_index	angsep_arcsec	ps1_ra	source_ra	ps1_dec	source_dec	ps1_x	source_x	ps1_y	source_y	ps1_mag	source_mag
