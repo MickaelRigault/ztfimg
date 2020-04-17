@@ -68,7 +68,7 @@ class ZTFImage( object ):
             self._ps1calibrators.data["x"] = x
             self._ps1calibrators.data["y"] = y
             
-        self._source_ps1_match = None
+        self._sources_ps1cat_match = None
         
     def load_sepbackground(self, **kwargs):
         """ """
@@ -85,8 +85,8 @@ class ZTFImage( object ):
             ps1mag = "%smag"%self.filtername.split("_")[-1]
         ps1cat['mag'] = ps1cat[ps1mag]
         
-        self._source_ps1_match = matching.CatMatch.from_dataframe(self.extracted_sources, ps1cat)
-        self._source_ps1_match.match()
+        self._sources_ps1cat_match = matching.CatMatch.from_dataframe(self.extracted_sources, ps1cat)
+        self._sources_ps1cat_match.match()
 
     # -------- #
     # SETTER   #
@@ -174,9 +174,9 @@ class ZTFImage( object ):
         
         raise NotImplementedError(f"method {method} has not been implemented. Use: 'std'")
 
-    def get_source_ps1_matched_entries(self, keys):
+    def get_sources_ps1cat_matched_entries(self, keys):
         """ keys could be e.g. ["ra","dec","mag"] """
-        return self.source_ps1_match.get_matched_entries(keys, "source","ps1")
+        return self.sources_ps1cat_match.get_matched_entries(keys, "source","ps1")
 
     # -------- #
     # CONVERT  #
@@ -254,7 +254,7 @@ class ZTFImage( object ):
             # Errors to be added
             
         self._extracted_sources = _extracted_sources
-        self._source_ps1_match = None
+        self._sources_ps1cat_match = None
     # -------- #
     # PLOTTER  #
     # -------- #
@@ -360,12 +360,12 @@ class ZTFImage( object ):
         return self._extracted_sources
 
     @property
-    def source_ps1_match(self):
+    def sources_ps1cat_match(self):
         """ ztfphot.CatMatch between the extracted sources and PS1Cat """
-        if not hasattr(self,"_source_ps1_match") or self._source_ps1_match is None:
+        if not hasattr(self,"_sources_ps1cat_match") or self._sources_ps1cat_match is None:
             self.match_sources_and_ps1cat()
             
-        return self._source_ps1_match
+        return self._sources_ps1cat_match
     
     @property
     def header(self):
