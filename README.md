@@ -71,3 +71,7 @@ ps1_index	source_index	angsep_arcsec	ps1_ra	source_ra	ps1_dec	source_dec	ps1_x	s
 7	7	1344	0.120711	80.904353	80.904390	58.892260	58.892233	774.908561	774.848910	855.870462	855.973706	14.542	14.543835
 8	8	970	0.173730	80.733465	80.733534	58.952595	58.952562	1067.479463	1067.365401	613.298427	613.426647	14.342	14.32015
 ```
+
+### counts<->flux<->mag
+
+you have all the `count_to_flux` or `mag_to_counts` ets combinations as methods.
