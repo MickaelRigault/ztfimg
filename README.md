@@ -6,7 +6,7 @@ ZTF Images tools | like a pure-python very simple version of ds9 for ZTF
 
 Ask Mickael
 
-# ztfphot
+# ztfimg
 
 ## usage
 
@@ -53,7 +53,7 @@ Nothing is easier, do:
 ```python
 z.match_sources_and_ps1cat()
 ```
-The `ztfphot.CatMatch` resulting instance is stored as `z.sources_ps1cat_match`. See methods inthere. 
+The `ztfimg.CatMatch` resulting instance is stored as `z.sources_ps1cat_match`. See methods inthere. 
 
 You can also directly get matched values such as (x,y) ccd positions, (ra,dec) or mag values by doing
 ```python
