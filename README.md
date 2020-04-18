@@ -1,5 +1,5 @@
-# ztfphot
-ZTF Photometry tools | simplification of astrobject dedicated to ZTF.
+# ztfimg
+ZTF Images tools | like a pure-python very simple version of ds9 for ZTF
 
 # Installation
 ## Getting the PS1Calibrator files
@@ -17,7 +17,7 @@ mask = "ztf_20200204197199_000812_zr_c04_o_q3_mskimg.fits"
 ```
 then:
 ```python
-from ztfphot import image
+from ztfimg import image
 z = image.ZTFImage(sciimg, mask)
 z.show(show_ps1cal=False) # set true if you do have the datafile
 ```
