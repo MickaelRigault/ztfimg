@@ -75,3 +75,7 @@ ps1_index	source_index	angsep_arcsec	ps1_ra	source_ra	ps1_dec	source_dec	ps1_x	s
 ### counts<->flux<->mag
 
 you have all the `count_to_flux` or `mag_to_counts` ets combinations as methods.
+
+### (x,y)<->(ra,dec)
+
+use `z.coords_to_pixels(ra, dec)` or `z.pixels_to_coords(x,y)`
