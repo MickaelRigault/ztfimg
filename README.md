@@ -40,7 +40,7 @@ z.get_mask( tracks=True, ghosts=True, spillage=True,spikes=True,
 
 You can run `sep.extract` to extract ellipses à la sextractor. simply run:
 ```python
-z.extract_sources(on="dataclean", setmag=True)
+z.extract_sources(data="dataclean", setmag=True)
 ```
 
 Access the results as:
