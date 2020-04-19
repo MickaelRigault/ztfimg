@@ -81,7 +81,8 @@ You can get a stamp of anywhere in the image, for instance center on a star matc
 stamp = z.get_stamp(x,y, dx=23, dy=23)
 stamp.show()
 ```
-The stamp is centered on the pixel containing the given coordinates. The actual requested `(x,y)` is shown with the with cross.
+The stamp is centered on the pixel containing the given coordinates. The actual requested `(x,y)` is shown with the white cross.
+
 ![](examples/StarStamp.png)
 
 You can also simply do:
