@@ -45,7 +45,7 @@ z.extract_sources(data="dataclean", setmag=True)
 
 Access the results as:
 ```python
-z.extracted_sources
+z.sources
 ```
 
 ### Matching sources and the PS1Catalog
