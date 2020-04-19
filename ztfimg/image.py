@@ -61,14 +61,12 @@ class ZTFImage( object ):
         
     def load_ps1_calibrators(self, setxy=True):
         """ """
-        from . import catalogs
-        self._ps1calibrators = catalogs.PS1CalCatalog(self.rcid, self.fieldid)
-        if setxy:
-            x,y = self.coords_to_pixels(self.ps1calibrators.data["ra"], self.ps1calibrators.data["dec"])
-            self._ps1calibrators.data["x"] = x
-            self._ps1calibrators.data["y"] = y
-            
-        self._sources_ps1cat_match = None
+        from . import io
+        ps1cat = io.PS1Calibrators(self.rcid, self.fieldid).data
+        # Set mag as the current band magnitude
+        ps1cat['mag'] = ps1cat["%smag"%self.filtername.split("_")[-1]]
+        ps1cat['e_mag'] = ps1cat["e_%smag"%self.filtername.split("_")[-1]]
+        self.set_catalog(ps1cat, "ps1cat")
         
     def load_sepbackground(self, **kwargs):
         """ """
@@ -76,17 +74,6 @@ class ZTFImage( object ):
         self._sepbackground = Background(self.get_data(rmbkgd=False, applymask=True,
                                                        alltrue=True).byteswap().newbyteorder(),
                                          **kwargs)
-
-    def match_sources_and_ps1cat(self, ps1mag=None):
-        """ """
-        from . import matching
-        ps1cat = self.ps1calibrators.data
-        if ps1mag is None:
-            ps1mag = "%smag"%self.filtername.split("_")[-1]
-        ps1cat['mag'] = ps1cat[ps1mag]
-        
-        self._sources_ps1cat_match = matching.CatMatch.from_dataframe(self.extracted_sources, ps1cat)
-        self._sources_ps1cat_match.match()
 
     # -------- #
     # SETTER   #
@@ -107,7 +94,23 @@ class ZTFImage( object ):
             self._background = background
         self._dataclean = None
             
+    def set_catalog(self, dataframe, label):
+        """ """
+        if "ra" not in dataframe.columns and "x" not in dataframe.columns:
+            raise ValueError("The dataframe must contains either (x,y) coords or (ra,dec) coords")
+        
+        if "ra" in dataframe.columns and "x" not in dataframe.columns:
+            x,y = self.coords_to_pixels(dataframe["ra"], dataframe["dec"])
+            dataframe["x"] = x
+            dataframe["y"] = y
             
+        if "x" in dataframe.columns and "ra" not in dataframe.columns:
+            ra,dec = self.pixels_to_coords(dataframe["x"], dataframe["dy"])
+            dataframe["ra"] = ra
+            dataframe["dec"] = dec
+            
+        self.catalogs.set_catalog(dataframe, label)
+        
     # -------- #
     # GETTER   #
     # -------- #
@@ -257,58 +260,57 @@ class ZTFImage( object ):
         raise NotImplementedError(f"method {method} has not been implemented. Use: 'std'")
 
     def get_stamps(self, x0, y0, dx, dy=None, data="dataclean", asarray=False):
-        """ """
+        """ Get a ztfimg.Stamp object or directly is data array
+
+        """
         if dy is None:
             dy = dx
 
         data_ = getattr(self,data)
-            
-        x_slice = slice(int(x-dx/2+0.5), int(x+dx/2+0.5))
-        y_slice = slice(int(y-dy/2+0.5), int(y+dy/2+0.5))
+
+        lower_pixel = [int(x0-dx/2+0.5), int(y0-dy/2+0.5)]
+        upper_pixel = [int(x0+dx/2+0.5), int(y0+dy/2+0.5)]
+        x_slice = slice(lower_pixel[0], upper_pixel[0])
+        y_slice = slice(lower_pixel[1], upper_pixel[1])
         data_patch = data_[y_slice].T[x_slice].T
         if asarray:
             return data_patch
 
         from .stamps import Stamp
-        return Stamp(data_patch, x0,y0)
+        return Stamp(data_patch, x0-lower_pixel[0], y0-lower_pixel[1])
         
-    # - To be renamed
-    def get_sources_ps1cat_matched_entries(self, keys):
-        """ keys could be e.g. ["ra","dec","mag"] """
-        return self.sources_ps1cat_match.get_matched_entries(keys, "source","ps1")
-
     # -------- #
     # CONVERT  #
     # -------- #
     # WCS
     def coords_to_pixels(self, ra, dec):
-        """ """
+        """ get the (x,y) ccd positions given the sky ra, dec [in deg] corrdinates """
         return self.wcs.all_world2pix(np.asarray([np.atleast_1d(ra),
                                                   np.atleast_1d(dec)]).T,
                                       0).T
     def pixels_to_coords(self, x, y):
-        """ """
+        """ get sky ra, dec [in deg] coordinates given the (x,y) ccd positions  """
         return self.wcs.all_pix2world(np.asarray([np.atleast_1d(x),
                                                   np.atleast_1d(y)]).T,
                                       0).T
     # Flux - Counts - Mags
     def count_to_mag(self, counts, dcounts=None):
-        """ converts counts into flux """
+        """ converts counts into flux [erg/s/cm2/A] """
         from . import tools
         return tools.count_to_mag(counts,dcounts, self.magzp, self.filter_lbda)
     
     def count_to_flux(self, counts, dcounts=None):
-        """ converts counts into flux """
+        """ converts counts into flux [erg/s/cm2/A] """
         from . import tools
         return tools.count_to_flux(counts,dcounts, self.magzp, self.filter_lbda)
     
     def flux_to_counts(self, flux, dflux=None):
-        """ """
+        """ converts flux [erg/s/cm2/A] into counts """
         from . import tools
         return tools.flux_to_count(flux, dflux, self.magzp, self.filter_lbda)
 
     def flux_to_mag(self, flux, dflux=None):
-        """ """
+        """ converts flux [erg/s/cm2/A] into counts """
         from . import tools
         return tools.flux_to_mag(flux, dflux, wavelength=self.filter_lbda)
     
@@ -339,22 +341,21 @@ class ZTFImage( object ):
             mask = self.get_mask()
         elif mask in ["None"]:
             mask = None
-
         
         sout = extract(getattr(self, data).byteswap().newbyteorder(),
                         thresh, err=err, mask=mask, **kwargs)
         
-        _extracted_sources = pandas.DataFrame(sout)
+        _sources = pandas.DataFrame(sout)
         if setradec:
-            ra, dec= self.pixels_to_coords(*_extracted_sources[["x","y"]].values.T)
-            _extracted_sources["ra"] = ra
-            _extracted_sources["dec"] = dec
+            ra, dec= self.pixels_to_coords(*_sources[["x","y"]].values.T)
+            _sources["ra"] = ra
+            _sources["dec"] = dec
         if setmag:
-            _extracted_sources["mag"] = self.count_to_mag(_extracted_sources["flux"], None)[0]
+            _sources["mag"] = self.count_to_mag(_sources["flux"], None)[0]
             # Errors to be added
-            
-        self._extracted_sources = _extracted_sources
-        self._sources_ps1cat_match = None
+
+        self.set_catalog(_sources, "sources")
+        
     # -------- #
     # PLOTTER  #
     # -------- #
@@ -393,8 +394,8 @@ class ZTFImage( object ):
         
         # - overplot        
         if show_ps1cal:
-            xpos, ypos = self.coords_to_pixels(self.ps1calibrators.data["ra"],
-                                              self.ps1calibrators.data["dec"])
+            xpos, ypos = self.coords_to_pixels(self.ps1calibrators["ra"],
+                                              self.ps1calibrators["dec"])
             ax.scatter(xpos, ypos, marker=".", zorder=5, 
                            facecolors="None", edgecolor="k",s=30,
                            vmin=0, vmax=2, lw=0.5)
@@ -427,6 +428,7 @@ class ZTFImage( object ):
             self._dataclean = self.get_data(applymask=True, maskvalue=np.NaN,
                                             rmbkgd=True, whichbkgd="default")
         return self._dataclean
+    
     @property
     def sepbackground(self):
         """ SEP (Sextractor in python) Background object. 
@@ -453,19 +455,26 @@ class ZTFImage( object ):
         return self.background is not None
 
     @property
-    def extracted_sources(self):
-        """ Sources extracted using sep.extract """
-        if not hasattr(self,"_extracted_sources"):
-            return None
-        return self._extracted_sources
+    def catalogs(self):
+        """ Dictionary containing the loaded catalogs """
+        if not hasattr(self,"_catalogs"):
+            from .catalog import CatalogCollection
+            self._catalogs = CatalogCollection()
+        return self._catalogs
+    
+    @property
+    def ps1calibrators(self):
+        """ PS1 calibrators used by IPAC """
+        if "ps1cat" not in self.catalogs.labels:
+            self.load_ps1_calibrators()
+        return self.catalogs.catalogs["ps1cat"]
 
     @property
-    def sources_ps1cat_match(self):
-        """ ztfphot.CatMatch between the extracted sources and PS1Cat """
-        if not hasattr(self,"_sources_ps1cat_match") or self._sources_ps1cat_match is None:
-            self.match_sources_and_ps1cat()
-            
-        return self._sources_ps1cat_match
+    def sources(self):
+        """ Sources extracted using sep.extract """
+        if "sources" not in self.catalogs.labels:
+            return None
+        return self.catalogs.catalogs["sources"]
     
     @property
     def header(self):
@@ -482,16 +491,6 @@ class ZTFImage( object ):
     def is_data_bad(self):
         """ """
         return self.header.get("STATUS") == 0
-
-    @property
-    def ps1calibrators(self):
-        """ PS1 calibrators used by IPAC """
-        if not hasattr(self, "_ps1calibrators"):
-            self.load_ps1_calibrators()
-        return self._ps1calibrators
-
-
-
     
     # // Header Short cut
     @property

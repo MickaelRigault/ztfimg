@@ -1,17 +1,17 @@
 #! /usr/bin/env python
 #
 
-DESCRIPTION = " ZTFPhot "
-LONG_DESCRIPTION = """ ZTF Phot """
+DESCRIPTION = " ZTFimg "
+LONG_DESCRIPTION = """ ZTFimg """
 
-DISTNAME = 'ztfphot'
+DISTNAME = 'ztfimg'
 AUTHOR = 'Mickael Rigault'
 MAINTAINER = 'Mickael Rigault' 
 MAINTAINER_EMAIL = 'm.rigault@ipnl.in2p3.fr'
-URL = 'https://github.com/MickaelRigault/ztfphot'
+URL = 'https://github.com/MickaelRigault/ztfimg'
 LICENSE = 'BSD (3-clause)'
-DOWNLOAD_URL = 'https://github.com/MickaelRigault/ztfphot'
-VERSION = '0.2.0'
+DOWNLOAD_URL = 'https://github.com/MickaelRigault/ztfimg'
+VERSION = '0.2.2'
 
 try:
     from setuptools import setup, find_packages
@@ -21,18 +21,18 @@ except ImportError:
     _has_setuptools = False
     
 def check_dependencies():
-   install_requires = []
-   try:
+    install_requires = []
+    try:
         import h5py
-   except ImportError:
+    except ImportError:
         install_requires.append('h5py')
 
     try:
         import sep
-   except ImportError:
+    except ImportError:
         install_requires.append('sep')
 
-   return install_requires
+    return install_requires
 
 if __name__ == "__main__":
 
@@ -43,7 +43,7 @@ if __name__ == "__main__":
         print(packages)
     else:
         # This should be updated if new submodules are added
-        packages = ['ztfphot']
+        packages = ['ztfimg']
     
         
     setup(name=DISTNAME,

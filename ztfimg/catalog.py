@@ -19,6 +19,75 @@ pmatch.get_matched_entries(["ra","dec", "mag","sigmag","snr"]) # any self.scipsf
 
 """
 
+class CatalogCollection():
+    """ """
+    def __init__(self):
+        """ """
+        
+    # ============== #
+    #  METHODS       #
+    # ============== #
+    def set_catalog(self, dataframe, label, clearmatches=True):
+        """ """
+        self.catalogs[label] = dataframe
+        if clearmatches:
+            for catmatched in self.catmatch.keys():
+                if label in catmatched:
+                    _ = self.catmatch.pop(catmatched)
+            
+    def match(self, catin, catref):
+        """ """
+        catmatch = CatMatch.from_dataframe(self.catalogs[catin], self.catalogs[catref])
+        catmatch.match()
+        self.catmatch[f'{catin}_{catref}'] = catmatch
+
+    def get_matched_entries(self, key, catin, catref, allowinversed=True):
+        """ """
+        matchedref = f'{catin}_{catref}'
+        if matchedref not in self.catmatch:
+            if allowinversed and f'{catref}_{catin}' in self.catmatch:
+                return self.get_matched_entries(key,catref, catin, allowinversed=False)
+
+            self.match(catin, catref)
+                
+        return self.catmatch[matchedref].get_matched_entries(key, catinlabel=catin, catreflabel=catref)
+
+    def get_matched_index(self, index, catin, catref, allowinverted=True):
+        """ """
+        if f'{catin}_{catref}' in self.catmatch:
+            return self.catmatch[f'{catin}_{catref}'].get_matched_catinindex(index)
+        if allowinverted and f'{catref}_{catin}' in self.catmatch:
+            return self.catmatch[f'{catin}_{catref}'].get_matched_refindex(index)
+        raise ValueError("Unmatched catalogs. See self.match()")
+    
+    # ============== #
+    #  Properties    #
+    # ============== #
+    @property
+    def catalogs(self):
+        """ Dictionary containing the loaded catalogs """
+        if not hasattr(self,"_catalogs") or self._catalogs is None:
+            self._catalogs = {}
+        return self._catalogs
+
+    @property
+    def ncatalogs(self):
+        """ number of stored catalogs """
+        
+    @property
+    def labels(self):
+        """ """
+        return self.catalogs.keys()
+
+    @property
+    def catmatch(self):
+        """ Matching between catalogs """
+        if not hasattr(self,"_catmatch") or self._catmatch is None:
+            self._catmatch = {}
+        return self._catmatch
+
+
+
 
 
 class CatMatch( object ):
@@ -177,4 +246,3 @@ class CatMatch( object ):
         if not hasattr(self,"_matchdict"):
             self.match()
         return self._matchdict
-    
