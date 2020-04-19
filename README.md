@@ -48,16 +48,12 @@ Access the results as:
 z.sources
 ```
 
-### Matching sources and the PS1Catalog
-Nothing is easier, do:
-```python
-z.match_sources_and_ps1cat()
-```
-The `ztfimg.CatMatch` resulting instance is stored as `z.sources_ps1cat_match`. See methods inthere. 
+### Catalogs & Catalog Matching
+Remark that both `sources`, `ps1cat` and any other catalog you set using the `set_catalog()` method are stored inside a `ztfimg.CatalogCollection` instance `z.catalogs`. This instance has all the matching functionalities between two catalogs you stored. 
 
-You can also directly get matched values such as (x,y) ccd positions, (ra,dec) or mag values by doing
+For instance, you can also directly get matched values such as (x,y) ccd positions, (ra,dec) or mag beetwen `sources` and `ps1cat` by doing
 ```python
-z.get_sources_ps1cat_matched_entries(["ra","dec","x","y","mag"])
+z.catalogs.get_matched_entries(["ra","dec","x","y","mag"], 'sources', 'ps1cat')
 ```
 ```
 ps1_index	source_index	angsep_arcsec	ps1_ra	source_ra	ps1_dec	source_dec	ps1_x	source_x	ps1_y	source_y	ps1_mag	source_mag
