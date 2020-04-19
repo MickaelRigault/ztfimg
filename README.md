@@ -87,6 +87,6 @@ The stamp is centered on the pixel containing the given coordinates. The actual 
 
 You can also simply do:
 ```python
-stampdata =  z.get_stamp(x,y, dx=23, dy=23, asarray)
+stampdata =  z.get_stamp(x,y, dx=23, dy=23, asarray=True)
 ```
 to get the 2D numpy array rather than a `ztfimg.Stamp` object.
