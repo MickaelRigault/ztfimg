@@ -73,3 +73,19 @@ you have all the `count_to_flux` or `mag_to_counts` ets combinations as methods.
 ### (x,y)<->(ra,dec)
 
 use `z.coords_to_pixels(ra, dec)` or `z.pixels_to_coords(x,y)`
+
+## Get a Stamp
+
+You can get a stamp of anywhere in the image, for instance center on a star matched both by `sources` and `ps1cat` as returned by `z.catalogs.get_matched_entries(["x","y"], 'sources', 'ps1cat')`. Once you have the `(x,y)` coordinates, do:
+```python 
+stamp = z.get_stamp(x,y, dx=23, dy=23)
+stamp.show()
+```
+The stamp is centered on the pixel containing the given coordinates. The actual requested `(x,y)` is shown with the with cross.
+![](examples/StarStamp.png)
+
+You can also simply do:
+```python
+stampdata =  z.get_stamp(x,y, dx=23, dy=23, asarray)
+```
+to get the 2D numpy array rather than a `ztfimg.Stamp` object.
