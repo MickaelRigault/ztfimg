@@ -83,7 +83,7 @@ stamp.show()
 ```
 The stamp is centered on the pixel containing the given coordinates. The actual requested `(x,y)` is shown with the white cross.
 
-![](examples/StarStamp.png)
+![](examples/StarStamp.png) <!-- .element height="50%" width="50%" -->
 
 You can also simply do:
 ```python
