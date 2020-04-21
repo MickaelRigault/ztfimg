@@ -60,7 +60,7 @@ class ZTFImage( object ):
             header = self.header
         self._wcs = WCS(header)
 
-    def load_sepbackground(self, r=5, setit=True, datamasked=None, **kwargs):
+    def load_source_background(self, r=5, setit=True, datamasked=None, **kwargs):
         """ """
         from sep import Background
         if datamasked is None:
@@ -71,10 +71,10 @@ class ZTFImage( object ):
             
             datamasked = self.get_data(applymask=True, from_sources=from_sources, r=r, rmbkgd=False)
                 
-        self._sepbackground = Background(datamasked.byteswap().newbyteorder(),
+        self._sourcebackground = Background(datamasked.byteswap().newbyteorder(),
                                          **kwargs)
         if setit:
-            self.set_background(self._sepbackground.back())
+            self.set_background(self._sourcebackground.back())
             
 
     def load_ps1_calibrators(self, setxy=True):
@@ -233,7 +233,7 @@ class ZTFImage( object ):
             return np.median( self.get_data(rmbkgd=rmbkgd, applymask=True, alltrue=True) )
 
         if method in ["sep","sextractor"]:
-            return self.sepbackground.back()
+            return self.sourcebackground.back()
         
         raise NotImplementedError(f"method {method} has not been implemented. Use: 'median'")
     
@@ -243,7 +243,7 @@ class ZTFImage( object ):
         Parameters
         ----------
         method: [string/None] -optional-
-            - None/default: become sep if a sepbackground has been loaded, nmad otherwise.
+            - None/default: become sep if a sourcebackground has been loaded, nmad otherwise.
             - nmad: get the median absolute deviation of self.data
             - sep: (float) global scatter estimated by sep (python Sextractor), i.e. rms for background subs image
             - std: (float) estimated as half of the counts difference between the 16 and 84 percentiles
@@ -257,7 +257,7 @@ class ZTFImage( object ):
         float (see method)
         """
         if method is None or method in ["default"]:
-            method = "sep" if hasattr(self,"_sepbackground") else "nmad"
+            method = "sep" if hasattr(self,"_sourcebackground") else "nmad"
                 
         if method in ["nmad"]:
             from scipy import stats
@@ -269,7 +269,7 @@ class ZTFImage( object ):
             return 0.5*(upsigma-lowersigma)
         
         if method in ["sep","sextractor", "globalrms"]:
-            return self.sepbackground.globalrms
+            return self.sourcebackground.globalrms
         
         raise NotImplementedError(f"method {method} has not been implemented. Use: 'std'")
 
@@ -501,13 +501,13 @@ class ZTFImage( object ):
         return self._dataclean
     
     @property
-    def sepbackground(self):
+    def sourcebackground(self):
         """ SEP (Sextractor in python) Background object. 
-        reload it using self.load_sepbackground(options) 
+        reload it using self.load_source_background(options) 
         """
-        if not hasattr(self,"_sepbackground"):
-            self.load_sepbackground()
-        return self._sepbackground
+        if not hasattr(self,"_sourcebackground"):
+            self.load_sourcebackground()
+        return self._sourcebackground
     
     @property
     def mask(self):
@@ -637,11 +637,11 @@ class ScienceImage( ZTFImage ):
     # -------- #
     #  LOADER  #
     # -------- #
-    def load_sepbackground(self, bitmask_sources=True, datamasked=None, setit=True, **kwargs):
+    def load_source_background(self, bitmask_sources=True, datamasked=None, setit=True, **kwargs):
         """ """
         if datamasked is None and bitmask_sources:
             datamasked = self.get_data(rmbkgd=False, applymask=True, alltrue=True)
-        return super().load_sepbackground(datamasked=datamasked, setit=setit, **kwargs)
+        return super().load_source_background(datamasked=datamasked, setit=setit, **kwargs)
 
     # -------- #
     #  GETTER  #
