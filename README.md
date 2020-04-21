@@ -2,11 +2,20 @@
 ZTF Images tools | like a pure-python very simple version of ds9 for ZTF
 
 # Installation
+
+This package uses `sep` for source extraction, background estimation and aperture photometry. [sep](https://sep.readthedocs.io/en/v1.0.x/api/sep.extract.html) is a python version of sextractor.  
+
 ## Getting the PS1Calibrator files
 
 Ask Mickael
 
 # ztfimg
+
+## Main Objects:
+- `ScienceImage`: to load ZTF's `sciimg.fits` together with it's `mskimg.fits`)
+- `ReferenceImage`: to load ZTF's `refimg.fits`
+
+`ScienceImage` and `ReferenceImage` have the same methods and almost the same attributes. 
 
 ## usage
 
@@ -18,27 +27,24 @@ mask = "ztf_20200204197199_000812_zr_c04_o_q3_mskimg.fits"
 then:
 ```python
 from ztfimg import image
-z = image.ZTFImage(sciimg, mask)
-z.show(show_ps1cal=False) # set true if you do have the datafile
+z = image.ScienceImage(sciimg, mask)
+z.load_sourcebackground()
+z.show()
 ```
 ![](examples/sciimg_masked_bkgdsub.png)
 
 
-This image is masked for bad pixels values (see bitmasking below) and background subtracted. The background is the default sep.Background ; [sep](https://sep.readthedocs.io/en/v1.0.x/api/sep.extract.html) is a python version of sextractor. 
+This image is masked for bad pixels values (see bitmasking below) and background subtracted. The background is the sep.Background estimated on the bad-pixels and sources-masked out data.
+
+## Conversions
+
+- *counts, flux, mags*: You have all the `count_to_flux` or `mag_to_counts` ets combinations as methods.
+- *(RA,Dec) vs. (x,y)*: use `z.coords_to_pixels(ra, dec)` or `z.pixels_to_coords(x,y)`
 
 
-### Bitmasking access
-```python
-# Here is the default masking, True, means datamasked=nan for these cases
-z.get_mask( tracks=True, ghosts=True, spillage=True,spikes=True,
-            dead=True, nan=True, saturated=True, brightstarhalo=True,
-            lowresponsivity=True, highresponsivity=True, noisy=True,
-            sexsources=False, psfsources=False)
-```
+## Source Extraction 
 
-### Extracting sources with SEP
-
-You can run `sep.extract` to extract ellipses à la sextractor. simply run:
+You can run `sep.extract` to extract ellipses à la sextractor. Run:
 ```python
 z.extract_sources(data="dataclean", setmag=True)
 ```
@@ -48,7 +54,30 @@ Access the results as:
 z.sources
 ```
 
-### Catalogs & Catalog Matching
+## Masking
+
+### source-masking
+
+### ScienceImage: Bitmasking access
+```python
+# Here is the default masking, True, means datamasked=nan for these cases
+z.get_mask( tracks=True, ghosts=True, spillage=True, spikes=True,
+            dead=True, nan=True, saturated=True, brightstarhalo=True,
+            lowresponsivity=True, highresponsivity=True, noisy=True,
+            sexsources=False, psfsources=False)
+```
+
+## Aperture Photometry
+
+you have the `get_aperture()` method that measure the exact aperture photometry given a (list of) position(s) and radius. You can also provide the annulus size if you want the aperture to be corrected for this as background.
+
+For intance, you want the aperture photometry, in mag, on RA, Dec coordinates with 5 pixels radius:
+```python
+x,y = z.coords_to_pixels(RA, Dec)
+mag, magerr = z.get_aperture(x,y, 5, unit="mag")
+```
+
+## Catalogs & Catalog Matching
 Remark that both `sources`, `ps1cat` and any other catalog you set using the `set_catalog()` method are stored inside a `ztfimg.CatalogCollection` instance `z.catalogs`. This instance has all the matching functionalities between two catalogs you stored. 
 
 For instance, you can also directly get matched values such as (x,y) ccd positions, (ra,dec) or mag beetwen `sources` and `ps1cat` by doing
@@ -65,14 +94,6 @@ ps1cat_index	sources_index	angsep_arcsec	ps1cat_ra	sources_ra	ps1cat_dec	sources
 5	5	2185	0.161587	79.866613	79.866664	58.679673	58.679636	2752.683959	2752.603432	1419.232736	1419.370579	14.317	14.305793
 6	6	1496	0.072166	81.037901	81.037929	58.867203	58.867217	538.472196	538.415826	966.704057	966.660447	14.529	14.509354
 ```
-
-### counts<->flux<->mag
-
-you have all the `count_to_flux` or `mag_to_counts` ets combinations as methods.
-
-### (x,y)<->(ra,dec)
-
-use `z.coords_to_pixels(ra, dec)` or `z.pixels_to_coords(x,y)`
 
 ## Get a Stamp
 
