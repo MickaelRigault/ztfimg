@@ -1,13 +1,14 @@
 """ """
+import pandas
 import numpy as np
 from astropy.io import fits
 from astropy.wcs import WCS
 from astropy.nddata import bitmask
 
 
-ZTF_FILTERS = {"ZTF_g":{"wave_eff":4813.97},
-               "ZTF_r":{"wave_eff":6421.81},
-               "ZTF_i":{"wave_eff":7883.06}
+ZTF_FILTERS = {"ZTF_g":{"wave_eff":4813.97, "fid":1},
+               "ZTF_r":{"wave_eff":6421.81, "fid":2},
+               "ZTF_i":{"wave_eff":7883.06, "fid":3}
                 }
 
 
@@ -58,7 +59,23 @@ class ZTFImage( object ):
         if header is None:
             header = self.header
         self._wcs = WCS(header)
-        
+
+    def load_sepbackground(self, r=5, setit=True, datamasked=None, **kwargs):
+        """ """
+        from sep import Background
+        if datamasked is None:
+            if self.sources is None:
+                from_sources = self.extract_sources(update=False, **kwargs)
+            else:
+                from_sources = self.sources
+            
+            datamasked = self.get_data(applymask=True, from_sources=from_sources, r=r, rmbkgd=False)
+                
+        self._sepbackground = Background(datamasked.byteswap().newbyteorder(),
+                                         **kwargs)
+        if setit:
+            self.set_background(self._sepbackground.back())
+
     def load_ps1_calibrators(self, setxy=True):
         """ """
         from . import io
@@ -67,13 +84,7 @@ class ZTFImage( object ):
         ps1cat['mag'] = ps1cat["%smag"%self.filtername.split("_")[-1]]
         ps1cat['e_mag'] = ps1cat["e_%smag"%self.filtername.split("_")[-1]]
         self.set_catalog(ps1cat, "ps1cat")
-        
-    def load_sepbackground(self, **kwargs):
-        """ """
-        from sep import Background
-        self._sepbackground = Background(self.get_data(rmbkgd=False, applymask=True,
-                                                       alltrue=True).byteswap().newbyteorder(),
-                                         **kwargs)
+
 
     # -------- #
     # SETTER   #
@@ -148,57 +159,47 @@ class ZTFImage( object ):
             
         return data_
 
-    def get_mask(self, tracks=True, ghosts=True, spillage=True, spikes=True,
-                     dead=True, nan=True, saturated=True, brightstarhalo=True,
-                     lowresponsivity=True, highresponsivity=True, noisy=True, 
-                     sexsources=False, psfsources=False, 
-                     alltrue=False, flip_bits=True, verbose=False, getflags=False):
-        """ get a boolean mask (or associated flags). You have the chooce of 
-        what you want to mask out. 
-        
-        Image pixels to be mask are set to True.
-
-        A pixel is masked if it corresponds to any of the requested entry.
-        For instance if a bitmask is '3', it corresponds to condition 1(2^0) et 2(2^1).
-        Since 0 -> tracks and 1 -> sexsources, if tracks or sexsources (or both) is (are) true, 
-        then the pixel will be set to True.
-
-        Uses: astropy.nddata.bitmask.bitfield_to_boolean_mask
+    def get_mask(self, from_sources=None, **kwargs):
+        """ get data mask 
 
         Parameters
         ----------
-        // These corresponds to the bitmasking definition for the IPAC pipeline //
-        
-        Special parameters
-        alltrue: [bool] -optional-
-            Short cut to set everything to true. Supposedly only background left
-            
-        flip_bits: [bool] -optional-
-            This should be True to have the aforementioned masking proceedure. 
-            See astropy.nddata.bitmask.bitfield_to_boolean_mask
-        
-        verbose: [bool] -optional-
-            Shall this print what you requested ?
-        
-        getflags: [bool]
-            Get the bitmask power of 2 you requested instead of the actual masking.
+        from_source: [None/bool/DataFrame] -optional-
+            A mask will be extracted from the given source. 
+            (This uses, sep.mask_ellipse)
+            Accepted format:
+            - None or False: ignored.
+            - True: this uses the self.sources
+            - DataFrame: this will using this dataframe as source.
+                         this dataframe must contain: x,y,a,b,theta
 
+            => accepted kwargs: 'r' the scale (diameter) of the ellipse (5 default)
+
+        # 
+        # anything else, self.mask is returned #
+        # 
+        
         Returns
         -------
-        boolean mask (or list of int, see getflags)
+        2D array (True where should be masked out)
         """
-        if alltrue and not getflags:
-            return np.asarray(self.mask>0, dtype="bool")
-        
-        locals_ = locals()
-        if verbose:
-            print({k:locals_[k] for k in self.BITMASK_KEY})
+        # Source mask
+        if from_sources is not None and from_sources is not False:
+            if type(from_sources)== bool and from_sources:
+                from_sources = self.sources
+            elif type(from_sources) is not pandas.DataFrame:
+                raise ValueError("cannot parse the given from_source could be bool, or DataFrame")
 
-        flags = [2**i for i,k in enumerate(self.BITMASK_KEY) if locals_[k] or alltrue]
-        if getflags:
-            return flags
+            from sep import mask_ellipse
+            ellipsemask = np.asarray(np.zeros(self.shape),dtype="bool")
+            # -- Apply the mask to falsemask
+            mask_ellipse(ellipsemask, *from_sources[["x","y","a","b","theta"]].astype("float").values.T,
+                         r=kwargs.get('r',5)
+                         )
+            return ellipsemask
+
+        return self.mask
         
-        return bitmask.bitfield_to_boolean_mask(self.mask, ignore_flags=flags, flip_bits=flip_bits)
 
     def get_background(self, method=None, rmbkgd=False):
         """ get an estimation of the image's background
@@ -232,7 +233,7 @@ class ZTFImage( object ):
         
         raise NotImplementedError(f"method {method} has not been implemented. Use: 'median'")
     
-    def get_noise(self, method="std", rmbkgd=True):
+    def get_noise(self, method="nmad", rmbkgd=True):
         """ get an estimation of the image's noise
 
         Parameters
@@ -249,6 +250,10 @@ class ZTFImage( object ):
         ------
         float (see method)
         """
+        if method in ["nmad"]:
+            from scipy import stats
+            return stats.median_absolute_deviation(self.data[~np.isnan(self.data)])
+        
         if method in ["std","16-84","84-16"]:
             lowersigma,upsigma = np.percentile(self.get_data(rmbkgd=rmbkgd, applymask=True,
                                                             alltrue=True), [16,84])
@@ -327,13 +332,15 @@ class ZTFImage( object ):
     # -------- #
     #  MAIN    #
     # -------- #
-    def extract_sources(self, thresh=5, err=None, mask=None, data="dataclean", setradec=True, setmag=True, **kwargs):
+    def extract_sources(self, thresh=2, err=None, mask=None, data="dataclean",
+                              setradec=True, setmag=True,
+                              update=True, **kwargs):
         """ uses sep.extract to extract sources 'a la Sextractor' """
-        import pandas
         from sep import extract
         
         if err is None:
-            err = self.get_noise("sep")
+            err = self.get_noise()
+            
         elif err in ["None"]:
             err = None
             
@@ -353,13 +360,15 @@ class ZTFImage( object ):
         if setmag:
             _sources["mag"] = self.count_to_mag(_sources["flux"], None)[0]
             # Errors to be added
-
+        if not update:
+            return _sources
+        
         self.set_catalog(_sources, "sources")
         
     # -------- #
     # PLOTTER  #
     # -------- #
-    def show(self, which="data", ax=None, show_ps1cal=True, vmin="1", vmax="99",
+    def show(self, which="data", ax=None, show_ps1cal=False, vmin="1", vmax="99",
                  stretch=None, floorstretch=True, **kwargs):
         """ """
         import matplotlib.pyplot as mpl
@@ -412,7 +421,12 @@ class ZTFImage( object ):
     def data(self):
         """" Image data """
         return self._data
-
+    
+    @property
+    def shape(self):
+        """ Shape of the data """
+        return self.data.shape
+    
     @property
     def datamasked(self):
         """" Image data """
@@ -441,6 +455,8 @@ class ZTFImage( object ):
     @property
     def mask(self):
         """ Mask data associated to the data """
+        if not hasattr(self,"_mask"):
+            self._mask = np.asarray(np.zeros(self.shape), dtype='bool')
         return self._mask
 
     @property
@@ -493,12 +509,7 @@ class ZTFImage( object ):
         return self.header.get("STATUS") == 0
     
     # // Header Short cut
-    @property
-    def exptime(self):
-        """ """
-        return self.header.get("EXPTIME", None)
-    
-    @property
+    @property    
     def filtername(self):
         """ """
         return self.header.get("FILTER", None)
@@ -511,22 +522,7 @@ class ZTFImage( object ):
     @property
     def pixel_scale(self):
         """ """
-        return self.header.get("PIXSCALE", None)
-    
-    @property
-    def seeing(self):
-        """ """
-        return self.header.get("SEEING", None)
-    
-    @property
-    def obsjd(self):
-        """ """
-        return self.header.get("OBSJD", None)
-    
-    @property
-    def obsmjd(self):
-        """ """
-        return self.header.get("OBSMJD", None)
+        return self.header.get("PIXSCALE", self.header.get("PXSCAL", None) )
     
     @property
     def magzp(self):
@@ -545,29 +541,144 @@ class ZTFImage( object ):
     
     # -> IDs
     @property
+    def rcid(self):
+        """ """
+        return self.header.get("RCID", self.header.get("DBRCID", None))
+
+    @property
     def ccdid(self):
         """ """
-        return self.header.get("CCDID", None)
+        return int((self.rcid-(self.qid-1))/4 + 1)
     
     @property
     def qid(self):
         """ """
-        return self.header.get("QID", None)
-    
-    @property
-    def rcid(self):
-        """ """
-        return self.header.get("RCID", None)
+        return ( self.rcid+1 )%4
 
+        
     @property
     def fieldid(self):
         """ """
-        return self.header.get("FIELDID",None)
+        return self.header.get("FIELDID", self.header.get("DBFIELD", None))
     
     @property
     def filterid(self):
         """ """
-        return self.header.get("FILTPOS",None)
+        return self.header.get("FILTPOS", self.header.get("DBFID", None)) #science vs. ref
+
+
+class ScienceImage( ZTFImage ):
+
+    def __init__(self, imagefile=None, maskfile=None):
+        """ """
+        if imagefile is not None:
+            self.load_data(imagefile)
+
+        if maskfile is not None:
+            self.load_mask(maskfile)
+
+    # -------- #
+    #  LOADER  #
+    # -------- #
+    def load_sepbackground(self, bitmask_sources=True, datamasked=None, setit=True, **kwargs):
+        """ """
+        if datamasked is None and bitmask_sources:
+            datamasked = self.get_data(rmbkgd=False, applymask=True, alltrue=True)
+        return super().load_sepbackground(datamasked=datamasked, setit=setit, **kwargs)
+
+    # -------- #
+    #  GETTER  #
+    # -------- #
+    def get_mask(self, from_sources=None,
+                       tracks=True, ghosts=True, spillage=True, spikes=True,
+                       dead=True, nan=True, saturated=True, brightstarhalo=True,
+                       lowresponsivity=True, highresponsivity=True, noisy=True, 
+                       sexsources=False, psfsources=False, 
+                       alltrue=False, flip_bits=True, verbose=False, getflags=False,
+                       **kwargs):
+        """ get a boolean mask (or associated flags). You have the chooce of 
+        what you want to mask out. 
+        
+        Image pixels to be mask are set to True.
+
+        A pixel is masked if it corresponds to any of the requested entry.
+        For instance if a bitmask is '3', it corresponds to condition 1(2^0) et 2(2^1).
+        Since 0 -> tracks and 1 -> sexsources, if tracks or sexsources (or both) is (are) true, 
+        then the pixel will be set to True.
+
+        Uses: astropy.nddata.bitmask.bitfield_to_boolean_mask
+
+        Parameters
+        ----------
+        
+        from_source: [None/bool/DataFrame] -optional-
+            A mask will be extracted from the given source. 
+            (This uses, sep.mask_ellipse)
+            Accepted format:
+            - None or False: ignored.
+            - True: this uses the self.sources
+            - DataFrame: this will using this dataframe as source.
+                         this dataframe must contain: x,y,a,b,theta
+
+            => accepted kwargs: 'r' the scale (diameter) of the ellipse (5 default)
+
+        // If from_source is used, rest is ignored.
+
+        
+
+        // These corresponds to the bitmasking definition for the IPAC pipeline //
+        
+        Special parameters
+        alltrue: [bool] -optional-
+            Short cut to set everything to true. Supposedly only background left
+            
+        flip_bits: [bool] -optional-
+            This should be True to have the aforementioned masking proceedure. 
+            See astropy.nddata.bitmask.bitfield_to_boolean_mask
+        
+        verbose: [bool] -optional-
+            Shall this print what you requested ?
+        
+        getflags: [bool]
+            Get the bitmask power of 2 you requested instead of the actual masking.
+
+        Returns
+        -------
+        boolean mask (or list of int, see getflags)
+        """
+        if from_sources is not None and from_sources is not False:
+            return super().get_mask(from_sources=from_sources, **kwargs)
+        
+        # // BitMasking
+        if alltrue and not getflags:
+            return np.asarray(self.mask>0, dtype="bool")
+        
+        locals_ = locals()
+        if verbose:
+            print({k:locals_[k] for k in self.BITMASK_KEY})
+
+        flags = [2**i for i,k in enumerate(self.BITMASK_KEY) if locals_[k] or alltrue]
+        if getflags:
+            return flags
+        
+        return bitmask.bitfield_to_boolean_mask(self.mask, ignore_flags=flags, flip_bits=flip_bits)
+            
+    # =============== #
+    #  Properties     #
+    # =============== #
+    def exptime(self):
+        """ """
+        return self.header.get("EXPTIME", None)
+
+    @property
+    def obsjd(self):
+        """ """
+        return self.header.get("OBSJD", None)
+    
+    @property
+    def obsmjd(self):
+        """ """
+        return self.header.get("OBSMJD", None)
 
     @property
     def _expid(self):
@@ -578,3 +689,34 @@ class ZTFImage( object ):
     def _framenum(self):
         """ """
         return self.header.get("FRAMENUM", None)
+
+    
+    
+class ReferenceImage( ZTFImage ):
+    
+    def __init__(self, imagefile=None):
+        """ """
+        if imagefile is not None:
+            self.load_data(imagefile)
+        
+    # =============== #
+    #  Properties     #
+    # =============== #
+    @property
+    def background(self):
+        """ Default background set by set_background, see also get_background() """
+        if not hasattr(self,"_background"):
+            return self.header.get("GLOBMED", 0)
+        return self._background
+
+    @property
+    def filtername(self):
+        """ """
+        if not hasattr(self, "_filtername"):
+            self._filtername = [k for k,v in ZTF_FILTERS.items() if v['fid']==self.filterid][0]
+        return self._filtername
+
+    @property
+    def nframe(self):
+        """  Number of frames used to build the reference image """
+        return self.header.get('NFRAMES', None)
