@@ -4,7 +4,7 @@ from astropy import constants
 # --------------------------- #
 # - Conversion Tools        - #
 # --------------------------- #
-def count_to_flux(counts, dcounts, magzp, wavelength):
+def counts_to_flux(counts, dcounts, magzp, wavelength):
     """ converts counts into flux (erg/s/cm2/A) """
     flux = counts * 10**(-(2.406+magzp) / 2.5 ) / (wavelength**2)
     if dcounts is not None:
@@ -13,7 +13,7 @@ def count_to_flux(counts, dcounts, magzp, wavelength):
         dflux = None
     return flux, dflux
 
-def flux_to_count(flux, dflux, magzp, wavelength):
+def flux_to_counts(flux, dflux, magzp, wavelength):
     """ converts flux (erg/s/cm2/A) into counts """
     counts = flux / (10**(-(2.406+magzp) / 2.5 ) / (wavelength**2))
     if dflux is not None:
@@ -22,13 +22,13 @@ def flux_to_count(flux, dflux, magzp, wavelength):
         dcounts = None
     return counts, dcounts
 
-def count_to_mag(counts, dcounts, magzp, wavelength):
-    """ count into ABmag (trhough flux) """
-    return flux_to_mag(*count_to_flux(counts,dcounts, magzp, wavelength), wavelength=wavelength)
+def counts_to_mag(counts, dcounts, magzp, wavelength):
+    """ counts into ABmag (trhough flux) """
+    return flux_to_mag(*counts_to_flux(counts,dcounts, magzp, wavelength), wavelength=wavelength)
 
-def mag_to_count(mag, dmag, magzp, wavelength):
-    """ ABmag to count (trhough flux) """
-    return flux_to_count(*mag_to_flux(mag, dmag, wavelength=wavelength), magzp, wavelength)
+def mag_to_counts(mag, dmag, magzp, wavelength):
+    """ ABmag to counts (trhough flux) """
+    return flux_to_counts(*mag_to_flux(mag, dmag, wavelength=wavelength), magzp, wavelength)
 
 def flux_to_mag(flux, dflux, wavelength=None, zp=None, inhz=False):
     """ Converts fluxes (erg/s/cm2/A) into AB or zp magnitudes
@@ -73,7 +73,7 @@ def flux_to_mag(flux, dflux, wavelength=None, zp=None, inhz=False):
     if dflux is None:
         return mag_ab, None
     
-    dmag_ab = -2.5/np.log(10) * dflux / flux
+    dmag_ab = +2.5/np.log(10) * dflux / flux
     return mag_ab, dmag_ab
 
 def mag_to_flux(mag, magerr=None, wavelength=None, zp=None, inhz=False):
@@ -120,7 +120,7 @@ def mag_to_flux(mag, magerr=None, wavelength=None, zp=None, inhz=False):
     if magerr is None:
         return flux, None
     
-    dflux = np.abs(flux*(-magerr/2.5*np.log(10))) # df/f = dcount/count
+    dflux = np.abs(flux*(-magerr/2.5*np.log(10))) # df/f = dcounts/counts
     return flux, dflux
 
 def flux_aa_to_hz(flux_aa, wavelength):

@@ -75,6 +75,7 @@ class ZTFImage( object ):
                                          **kwargs)
         if setit:
             self.set_background(self._sepbackground.back())
+            
 
     def load_ps1_calibrators(self, setxy=True):
         """ """
@@ -89,7 +90,7 @@ class ZTFImage( object ):
     # -------- #
     # SETTER   #
     # -------- #
-    def set_background(self, background):
+    def set_background(self, background, cleardataclean=True):
         """ 
         Parameters
         ----------
@@ -103,7 +104,10 @@ class ZTFImage( object ):
             self._background = self.get_background(method=background)
         else:
             self._background = background
-        self._dataclean = None
+            
+        if cleardataclean:
+            self._dataclean = None
+            
             
     def set_catalog(self, dataframe, label):
         """ """
@@ -233,15 +237,17 @@ class ZTFImage( object ):
         
         raise NotImplementedError(f"method {method} has not been implemented. Use: 'median'")
     
-    def get_noise(self, method="nmad", rmbkgd=True):
+    def get_noise(self, method="default", rmbkgd=True):
         """ get an estimation of the image's noise
 
         Parameters
         ----------
-        method: [string] -optional-
-            - std: (float) estimated as half of the count difference between the 16 and 84 percentiles
+        method: [string/None] -optional-
+            - None/default: become sep if a sepbackground has been loaded, nmad otherwise.
+            - nmad: get the median absolute deviation of self.data
             - sep: (float) global scatter estimated by sep (python Sextractor), i.e. rms for background subs image
-        
+            - std: (float) estimated as half of the counts difference between the 16 and 84 percentiles
+            
         rmbkgd: [bool]
             // ignored if method != std //
             shall the std method be measured on background subtraced image ?
@@ -250,6 +256,9 @@ class ZTFImage( object ):
         ------
         float (see method)
         """
+        if method is None or method in ["default"]:
+            method = "sep" if hasattr(self,"_sepbackground") else "nmad"
+                
         if method in ["nmad"]:
             from scipy import stats
             return stats.median_absolute_deviation(self.data[~np.isnan(self.data)])
@@ -266,7 +275,6 @@ class ZTFImage( object ):
 
     def get_stamps(self, x0, y0, dx, dy=None, data="dataclean", asarray=False):
         """ Get a ztfimg.Stamp object or directly is data array
-
         """
         if dy is None:
             dy = dx
@@ -283,7 +291,56 @@ class ZTFImage( object ):
 
         from .stamps import Stamp
         return Stamp(data_patch, x0-lower_pixel[0], y0-lower_pixel[1])
+
+    def get_aperture(self, x0, y0, radius, bkgann=None, subpix=0,
+                         data="dataclean", maskprop={}, noiseprop={},
+                         unit="counts"):
+        """ Get the Apeture photometry corrected from the background annulus if any. 
         
+        # Based on sep.sum_circle() #
+        
+        Parameters
+        ----------
+        x0, y0, radius: [array]
+            Center coordinates and radius (radii) of aperture(s). 
+
+        bkgann: [None/2D array] -optional-
+            Length 2 tuple giving the inner and outer radius of a “background annulus”. 
+            If supplied, the background is estimated by averaging unmasked pixels in this annulus.
+
+        subpix: [int] -optional-
+            Subpixel sampling factor. If 0, exact overlap is calculated. 5 is acceptable.
+
+        data: [string] -optional-
+            the aperture will be applied on self.`data`
+
+        unit: [string] -optional-
+            unit of the output | counts, flux and mag are accepted.
+
+        maskprop, noiseprop:[dict] -optional-
+            options entering self.get_mask() and self.get_noise() for `mask` and `err`
+            attribute of the sep.sum_circle function.
+            
+        Returns
+        -------
+        2D array (see unit: (counts, dcounts) | (flux, dflux) | (mag, dmag))
+        """
+        from sep import sum_circle
+        if unit not in ["counts","count", "flux", "mag"]:
+            raise ValueError(f"Cannot parse the input unit. counts/flux/mag accepted {unit} given")
+        
+        counts, counterr = sum_circle(getattr(self,data).byteswap().newbyteorder(),
+                                                        x0, y0, radius,
+                                                        err=self.get_noise(**noiseprop),
+                                                        mask=self.get_mask(**maskprop),
+                                                        bkgann=bkgann, subpix=subpix)
+        if unit in ["count","counts"]:
+            return counts, counterr
+        if unit in ["flux"]:
+            return self.counts_to_flux(counts, counterr)
+        if unit in ["mag"]:
+            return self.counts_to_mag(counts, counterr)
+
     # -------- #
     # CONVERT  #
     # -------- #
@@ -299,20 +356,20 @@ class ZTFImage( object ):
                                                   np.atleast_1d(y)]).T,
                                       0).T
     # Flux - Counts - Mags
-    def count_to_mag(self, counts, dcounts=None):
+    def counts_to_mag(self, counts, dcounts=None):
         """ converts counts into flux [erg/s/cm2/A] """
         from . import tools
-        return tools.count_to_mag(counts,dcounts, self.magzp, self.filter_lbda)
+        return tools.counts_to_mag(counts,dcounts, self.magzp, self.filter_lbda)
     
-    def count_to_flux(self, counts, dcounts=None):
+    def counts_to_flux(self, counts, dcounts=None):
         """ converts counts into flux [erg/s/cm2/A] """
         from . import tools
-        return tools.count_to_flux(counts,dcounts, self.magzp, self.filter_lbda)
+        return tools.counts_to_flux(counts,dcounts, self.magzp, self.filter_lbda)
     
     def flux_to_counts(self, flux, dflux=None):
         """ converts flux [erg/s/cm2/A] into counts """
         from . import tools
-        return tools.flux_to_count(flux, dflux, self.magzp, self.filter_lbda)
+        return tools.flux_to_counts(flux, dflux, self.magzp, self.filter_lbda)
 
     def flux_to_mag(self, flux, dflux=None):
         """ converts flux [erg/s/cm2/A] into counts """
@@ -322,7 +379,7 @@ class ZTFImage( object ):
     def mag_to_counts(self, mag, dmag=None):
         """ """
         from . import tools
-        return tools.mag_to_count(mag, dmag, self.magzp, self.filter_lbda)
+        return tools.mag_to_counts(mag, dmag, self.magzp, self.filter_lbda)
 
     def mag_to_flux(self, mag, dmag=None):
         """ """
@@ -358,7 +415,7 @@ class ZTFImage( object ):
             _sources["ra"] = ra
             _sources["dec"] = dec
         if setmag:
-            _sources["mag"] = self.count_to_mag(_sources["flux"], None)[0]
+            _sources["mag"] = self.counts_to_mag(_sources["flux"], None)[0]
             # Errors to be added
         if not update:
             return _sources
@@ -684,14 +741,7 @@ class ScienceImage( ZTFImage ):
     def _expid(self):
         """ """
         return self.header.get("EXPID", None)
-    
-    @property
-    def _framenum(self):
-        """ """
-        return self.header.get("FRAMENUM", None)
 
-    
-    
 class ReferenceImage( ZTFImage ):
     
     def __init__(self, imagefile=None):
