@@ -329,7 +329,7 @@ class ZTFImage( object ):
         if unit not in ["counts","count", "flux", "mag"]:
             raise ValueError(f"Cannot parse the input unit. counts/flux/mag accepted {unit} given")
         
-        counts, counterr = sum_circle(getattr(self,data).byteswap().newbyteorder(),
+        counts, counterr, flag = sum_circle(getattr(self,data).byteswap().newbyteorder(),
                                                         x0, y0, radius,
                                                         err=self.get_noise(**noiseprop),
                                                         mask=self.get_mask(**maskprop),
@@ -506,7 +506,7 @@ class ZTFImage( object ):
         reload it using self.load_source_background(options) 
         """
         if not hasattr(self,"_sourcebackground"):
-            self.load_sourcebackground()
+            self.load_source_background()
         return self._sourcebackground
     
     @property
