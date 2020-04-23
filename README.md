@@ -28,7 +28,7 @@ then:
 ```python
 from ztfimg import image
 z = image.ScienceImage(sciimg, mask)
-z.load_sourcebackground()
+z.load_source_background()
 z.show()
 ```
 ![](examples/sciimg_masked_bkgdsub.png)
