@@ -35,10 +35,10 @@ class CatalogCollection():
                 if label in catmatched:
                     _ = self.catmatch.pop(catmatched)
             
-    def match(self, catin, catref):
+    def match(self, catin, catref, seplimit=1*units.arcsec):
         """ """
         catmatch = CatMatch.from_dataframe(self.catalogs[catin], self.catalogs[catref])
-        catmatch.match()
+        catmatch.match(seplimit=seplimit)
         self.catmatch[f'{catin}_{catref}'] = catmatch
 
     def get_matched_entries(self, key, catin, catref, allowinversed=True):
@@ -131,8 +131,8 @@ class CatMatch( object ):
         This is based on their RA and Dec coordinates with maximum separation of `seplimit`
         """
         catrefidx, catinidx, d2d, d3d = self.catinsky.search_around_sky(self.catrefsky, seplimit=seplimit)
-        self._matchdict = {"catrefidx":catrefidx,
-                          "catinidx":catinidx,
+        self._matchdict = {"catrefidx":self.catref.index[catrefidx].values,
+                          "catinidx":self.catin.index[catinidx].values,
                           "angsep":d2d}
     # -------- #
     #  GETTER  #
