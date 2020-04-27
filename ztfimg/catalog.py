@@ -156,7 +156,7 @@ class CatMatch( object ):
         If several entries did match the same refindex, this raises a warning and only the nearest is returned. 
         """
         catrefindex = np.asarray(np.atleast_1d(catrefindex))
-        bool_ = np.in1d(refindex, self.matchdict["catrefidx"])
+        bool_ = np.in1d(catrefindex, self.matchdict["catrefidx"])
         indexmask =  np.argwhere(np.in1d(self.matchdict["catrefidx"], catrefindex[bool_])).flatten()
         if len(indexmask)>len(catrefindex[bool_]):
             warnings.warn("At least one catalogue entry has several index matched. Nearest used")
@@ -164,7 +164,7 @@ class CatMatch( object ):
                                   np.argmin(self.matchdict["angsep"][self.matchdict["catrefidx"]==i])]][0]
                 for i in catrefindex[bool_]])
 
-        return self.matchdict["catinidx"][indexmask].flatten(), refindex[bool_]
+        return self.matchdict["catinidx"][indexmask].flatten(), catrefindex[bool_]
     
     def get_matched_catrefindex(self, catinindex):
         """  Provide a catin index (or list of) and get the associated match refpsf index (list of) 
