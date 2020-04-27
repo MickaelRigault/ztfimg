@@ -59,6 +59,27 @@ class CatalogCollection():
         if allowinverted and f'{catref}_{catin}' in self.catmatch:
             return self.catmatch[f'{catin}_{catref}'].get_matched_refindex(index)
         raise ValueError("Unmatched catalogs. See self.match()")
+
+    def get_isolated(self, cat, isolation=20*units.arcsec):
+        """ get an isolated version of the given catalog.
+        
+        Isolated means that, inside the same catalog, there is no other sources with `isolation`
+        Parameters
+        ----------
+        cat: [string]
+            Name of the catalog 
+            
+        isolation: [astropy.Quantity] -optional-
+            distance around which not other sources should exist within the same catalog.
+        
+        Returns
+        -------
+        Pandas.DataFrame (filter `cat`)
+        """
+        self.match(cat,cat, seplimit=isolation)
+        matcharray = self.catmatch[f'{cat}_{cat}'].matchdict['catrefidx']
+        unique, counts = np.unique(matcharray, return_counts=True)
+        return self.catalogs[cat][counts==1]
     
     # ============== #
     #  Properties    #
