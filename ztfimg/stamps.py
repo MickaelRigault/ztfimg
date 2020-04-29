@@ -5,7 +5,7 @@ from scipy.interpolate import RegularGridInterpolator
 
 def get_pixel_to_consider(xmin, xmax, ymin, ymax):
     """ """
-    pixels_    = np.mgrid[int(xmin):int(xmax), int(ymin):int(ymax)].T
+    pixels_    = np.mgrid[int(xmin+0.5):int(xmax+0.5), int(ymin+0.5):int(ymax+0.5)].T
     init_shape = np.shape(pixels_)[:2]
     return np.asarray(pixels_.reshape(init_shape[0]*init_shape[1], 2), dtype="int")
 
@@ -30,9 +30,9 @@ class Stamp(object):
     def set_coord_ref(self, xref, yref):
         """ """
         if xref is None:
-            xref = 0.5*self.shape[1]
+            xref = 0.5*(self.shape[1]-1)
         if yref is None:
-            yref = 0.5*self.shape[0]
+            yref = 0.5*(self.shape[0]-1)
             
         self._xref = xref
         self._yref = yref
@@ -101,7 +101,7 @@ class Stamp(object):
         Parameters
         ----------
         shape: [2D array or None] -optional-
-            size of the new grid, if None current shape used
+            size of the new grid (height, width), if None current shape used
 
         fill_value: [float or None] -optional-
             Value of the pixels extrapolated. 
@@ -122,7 +122,7 @@ class Stamp(object):
         if not hasattr(self, "_fill_value") or (fill_value is not None and self._current_fillvalue != fill_value):
             self.load_interpolator(fill_value=fill_value)
         
-        centroid_shift = np.asarray(shape)/2- self.central_pixel
+        centroid_shift = (np.asarray(shape)-1)/2- self.central_pixel
         centerddata = self.project_to_grid(*shape, newxoffset=centroid_shift[0], newyoffset=centroid_shift[1]).T
         if not asstamp:
             return centerddata
@@ -185,7 +185,7 @@ class Stamp(object):
     @property
     def central_pixel(self):
         """ returns the (x,y) pixel coordinate """
-        return np.asarray(self.shape[::-1])/2
+        return np.asarray(self.shape[::-1])/2 - 0.5
     
     @property
     def interpolator(self):

@@ -61,7 +61,8 @@ class ZTFImage( object ):
         self._wcs = WCS(header)
 
     def load_source_background(self, r=5, setit=True, datamasked=None, **kwargs):
-        """ """
+        """ 
+        kwargs goes to """
         from sep import Background
         if datamasked is None:
             if self.sources is None:
@@ -71,8 +72,7 @@ class ZTFImage( object ):
             
             datamasked = self.get_data(applymask=True, from_sources=from_sources, r=r, rmbkgd=False)
                 
-        self._sourcebackground = Background(datamasked.byteswap().newbyteorder(),
-                                         **kwargs)
+        self._sourcebackground = Background(datamasked.byteswap().newbyteorder())
         if setit:
             self.set_background(self._sourcebackground.back())
             
@@ -230,7 +230,7 @@ class ZTFImage( object ):
             return self.background
         
         if method in ["median"]:
-            return np.median( self.get_data(rmbkgd=rmbkgd, applymask=True, alltrue=True) )
+            return np.nanmedian( self.get_data(rmbkgd=rmbkgd, applymask=True, alltrue=True) )
 
         if method in ["sep","sextractor"]:
             return self.sourcebackground.back()
@@ -264,8 +264,8 @@ class ZTFImage( object ):
             return stats.median_absolute_deviation(self.data[~np.isnan(self.data)])
         
         if method in ["std","16-84","84-16"]:
-            lowersigma,upsigma = np.percentile(self.get_data(rmbkgd=rmbkgd, applymask=True,
-                                                            alltrue=True), [16,84])
+            data_ = self.get_data(rmbkgd=rmbkgd, applymask=True, alltrue=True)
+            lowersigma,upsigma = np.percentile(data_[data_==data_], [16,84]) # clean nans out
             return 0.5*(upsigma-lowersigma)
         
         if method in ["sep","sextractor", "globalrms"]:
