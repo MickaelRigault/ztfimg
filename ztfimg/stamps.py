@@ -5,7 +5,7 @@ from scipy.interpolate import RegularGridInterpolator
 
 def get_pixel_to_consider(xmin, xmax, ymin, ymax):
     """ """
-    pixels_    = np.mgrid[int(xmin+0.5):int(xmax+0.5), int(ymin+0.5):int(ymax+0.5)].T
+    pixels_    = np.mgrid[int(xmin):int(xmax), int(ymin):int(ymax)].T
     init_shape = np.shape(pixels_)[:2]
     return np.asarray(pixels_.reshape(init_shape[0]*init_shape[1], 2), dtype="int")
 
@@ -123,7 +123,7 @@ class Stamp(object):
             self.load_interpolator(fill_value=fill_value)
         
         centroid_shift = (np.asarray(shape)-1)/2- self.central_pixel
-        centerddata = self.project_to_grid(*shape, newxoffset=centroid_shift[0], newyoffset=centroid_shift[1]).T
+        centerddata = self.project_to_grid(*shape, newxoffset=centroid_shift[0], newyoffset=centroid_shift[1])
         if not asstamp:
             return centerddata
         
