@@ -61,7 +61,7 @@ class Stamp(object):
     def project_to_grid(self, xmax, ymax, xmin=0, ymin=0, newxoffset=0, newyoffset=0):
         """ returns a flat shape """
         pixels = get_pixel_to_consider(xmin, xmax, ymin, ymax  ) - [newxoffset,newyoffset]
-        return self.project_to(*np.moveaxis(pixels,0,-1)).reshape(int(ymax)-int(ymin),int(xmax)-int(xmin))
+        return self.project_to(*np.moveaxis(pixels,0,-1)).reshape(int(ymax)-int(ymin), int(xmax)-int(xmin))
 
     def insert_to(self, data, x, y, ascopy=True):
         """ Insert the current stamp inside the given data (or a copy of)
@@ -95,7 +95,7 @@ class Stamp(object):
         data[y_slice].T[x_slice] += fake.data
     
 
-    def get_centered(self, shape=None, fill_value=np.NaN, asstamp=False):
+    def get_centered(self, shape=None, fill_value=np.NaN, asstamp=False, centroid=None):
         """ Get an centered version of the stamp, centered on a grid of the given size
         
         Parameters
@@ -121,13 +121,16 @@ class Stamp(object):
         
         if not hasattr(self, "_fill_value") or (fill_value is not None and self._current_fillvalue != fill_value):
             self.load_interpolator(fill_value=fill_value)
-        
-        centroid_shift = (np.asarray(shape)-1)/2- self.central_pixel
+
+        if centroid is None:
+            centroid = (np.asarray(shape)-1)/2
+
+        centroid_shift = centroid - self.central_pixel
         centerddata = self.project_to_grid(*shape, newxoffset=centroid_shift[0], newyoffset=centroid_shift[1])
         if not asstamp:
             return centerddata
         
-        return Stamp(centerddata)
+        return Stamp(centerddata, x0=centroid[0], y0=centroid[1])
 
 
 
