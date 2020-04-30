@@ -13,7 +13,21 @@ def get_pixel_to_consider(xmin, xmax, ymin, ymax):
 class Stamp(object):
     
     def  __init__(self, datapatch=None, x0=None, y0=None):
-        """ """
+        """ Initialize the stamp
+        
+        Parameters
+        ----------
+        datapatch: [2d-array] -optional-
+            Stamp data (2d-array)
+
+        x0, y0: [float] -optional-
+            Coordinate of the centroid. 
+            If None, the center of the stamp in that direction will be used.
+            
+        Returns
+        -------
+        Stamp
+        """
         self.set_data(datapatch)
         self.set_coord_ref(x0, y0)
         
@@ -24,11 +38,15 @@ class Stamp(object):
     #  SETTER   #
     # --------- #
     def set_data(self, datapatch):
-        """ """
+        """ set the stamp data (2d-array) """
         self._data = datapatch
         
     def set_coord_ref(self, xref, yref):
-        """ """
+        """ set the coordinates of the stamp's centroid 
+        
+        If None, the center of the stamp in that direction will be used.
+        (shape-1)/2.
+        """
         if xref is None:
             xref = 0.5*(self.shape[1]-1)
         if yref is None:
@@ -42,7 +60,32 @@ class Stamp(object):
     # --------- #
     def load_interpolator(self, method="linear", bounds_error=False, 
                           fill_value=np.NaN, **kwargs):
-        """ Loads the RegularGridInterpolator"""
+        """ Loads the RegularGridInterpolator 
+
+        Based on scipy.interpolate.RegularGridInterpolator
+
+        Parameters
+        ----------
+        method: [string] -optional-
+            The method of interpolation to perform. 
+            Supported are “linear” and “nearest”. 
+            This parameter will become the default for the object’s __call__ method.
+
+        bounds_error: [bool] -optional-
+            If True, when interpolated values are requested outside of the domain 
+            of the input data, a ValueError is raised. 
+            If False, then fill_value is used.
+
+        fill_value: [float] -optional-
+            The value to use for points outside of the interpolation domain. 
+            If None, values outside the domain are extrapolated.
+        
+        **kwargs goes to RegularGridInterpolator
+
+        Returns
+        -------
+        Void
+        """
         self._x = np.arange(self.shape[1])# - self.xoffset
         self._y = np.arange(self.shape[0])# - self.yoffset
         self._current_fillvalue = fill_value
@@ -55,11 +98,29 @@ class Stamp(object):
     #  GETTER   #
     # --------- #
     def project_to(self, xnew, ynew):
-        """ returns a flat shape """
+        """ returns a flat shape 
+        
+        Evaluate the grid at the given pixel centroids `xnew`, `ynew`
+
+        Returns
+        -------
+        array of the shape of xnew/ynew
+        """
         return self.interpolator(np.moveaxis(np.array([ynew+self.yoffset, xnew+self.xoffset]),0,-1))
 
     def project_to_grid(self, xmax, ymax, xmin=0, ymin=0, newxoffset=0, newyoffset=0):
-        """ returns a flat shape """
+        """ returns a flat shape 
+        
+        xmax, ymax, xmin, ymin: [float]
+            boundaries of the new grid. 
+
+        newxoffset, newyoffset: [float] -optional-
+            offset from the center of the new shape.
+
+        Returns
+        -------
+        1d data (flatten grid)
+        """
         pixels = get_pixel_to_consider(xmin, xmax, ymin, ymax  ) - [newxoffset,newyoffset]
         return self.project_to(*np.moveaxis(pixels,0,-1)).reshape(int(ymax)-int(ymin), int(xmax)-int(xmin))
 
@@ -83,16 +144,16 @@ class Stamp(object):
         None or 2D array (see ascopy)
         
         """
-        fake = self.get_centered(np.asarray(self.shape)+2,fill_value=0,  asstamp=False)
+        fake = self.get_centered(np.asarray(self.shape)+2,fill_value=0,  asstamp=False).T
     
         dy,dx = np.asarray(fake.shape)
         x_slice = slice(int(x-dx/2+0.5), int(x+dx/2+0.5))
         y_slice = slice(int(y-dy/2+0.5), int(y+dy/2+0.5))
         if ascopy:
             dataf = data.copy()
-            dataf[y_slice].T[x_slice] += fake.data
+            dataf[y_slice].T[x_slice] += fake
             return dataf
-        data[y_slice].T[x_slice] += fake.data
+        data[y_slice].T[x_slice] += fake
     
 
     def get_centered(self, shape=None, fill_value=np.NaN, asstamp=False, centroid=None):
@@ -110,6 +171,13 @@ class Stamp(object):
 
         asstamp: [bool] -optional-
             Shall this return a 2D array or a Stamp
+
+        centroid: [None or 2d-array] -optional-
+            Coordinates of the centroid in the new stamp.
+            - None: This is be the center of the new stamp
+            - 2d-array: new x0,y0.
+            for instance, to reproduce the same as the current stamp:
+            newstamp = self.get_centered(self.shape, asstamp=True, centroid=(self.xref, self.yref))
 
         Returns
         -------
@@ -138,7 +206,22 @@ class Stamp(object):
     #  PLOTTER  #
     # --------- #
     def show(self, ax=None, savefile=None, **kwargs):
-        """ """
+        """ show the stamps (imshow)
+        
+        Parameters
+        ----------
+        ax:  [matplotlib's Axes] -optional-
+            axes where the plot will be made. 
+            A figure and an axes will be created is None
+
+        savefile: [string] -optional-
+            Path to where the figure will be stored.
+            // ignored if None //
+
+        Returns
+        -------
+        figure
+        """
         import matplotlib.pyplot as mpl
         if ax is None:
             fig = mpl.figure(figsize=[6,4])
@@ -152,47 +235,51 @@ class Stamp(object):
         ax.axvline(self.xref, color="w",ls="-", lw=1)
         ax.axhline(self.yref, color="w",ls="-", lw=1)
         
+        if savefile:
+            fig.savefig(savefile)
+            
+        return fig
     # ============== #
     #  Properties    #
     # ============== #
     @property
     def data(self):
-        """ """
+        """ 2d-array data of the stamp """
         return self._data
     
     @property
     def shape(self):
-        """ """
+        """ shape of the stamp's 2d array """
         return self.data.shape
     
     @property
     def xref(self):
-        """ """
+        """ x-coordinate of the centroid """
         return self._xref
     
     @property
     def yref(self):
-        """ """
+        """ y-coordinate of the centroid """
         return self._yref
     
     @property
     def xoffset(self):
-        """ """
+        """ x-offset of the centroid with respect to the stamp center """
         return self.xref - self.central_pixel[0]
     
     @property
     def yoffset(self):
-        """ """
+        """ y-offset of the centroid with respect to the stamp center """
         return self.yref - self.central_pixel[1]
 
     @property
     def central_pixel(self):
-        """ returns the (x,y) pixel coordinate """
+        """ returns the (x,y) pixel coordinate of the stamp center """
         return np.asarray(self.shape[::-1])/2 - 0.5
     
     @property
     def interpolator(self):
-        """ """
+        """ RegularGridInterpolator loaded with the stamp data. see  load_interpolator() """
         if not hasattr(self, "_interpolator"):
             self.load_interpolator()
         return self._interpolator
@@ -210,9 +297,21 @@ class StampCollection():
     # --------- #
     #  SETTER   #
     # --------- #
-    
     def set_stamps(self, data, x0=None, y0=None, indexes=None):
-        """ """
+        """ Set stamps from list of 2d-arrays
+        
+        Parameters
+        ----------
+        data: [3d-array] 
+            List of 2d-arrays, each will become a stamp.
+            
+        x0, y0: [2d-array or None] -optional-
+            Centroid of the stamps (same lens as data)
+            if None, the stamp's centroid will be used.
+
+        indexes: [1d-array] -optional-
+            
+        """
         if indexes is None:
             indexes = np.arange(len(x0))
         if x0 is None:
