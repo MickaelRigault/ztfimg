@@ -5,7 +5,7 @@ from scipy import stats
 
 from . import stamps
 
-class DAOPhotoReader( object ):
+class DAOPhotReader( object ):
     """ """
     def __init__(self, psffile):
         """ """
