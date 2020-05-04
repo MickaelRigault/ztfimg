@@ -116,8 +116,8 @@ class DAOPhotReader( object ):
         Stamp/array (see asstamp)
         """
         if not asstamp:
-            return self.structure[index]
-        return stamps.Stamp(self.structure[index])
+            return self.structures[index]
+        return stamps.Stamp(self.structures[index])
     
     # --------- #
     #  PLOTTER  #
@@ -161,7 +161,7 @@ class DAOPhotReader( object ):
         return self._nparamprofile
 
     @property
-    def structure(self):
+    def structures(self):
         """ """
         return self._structures
     
