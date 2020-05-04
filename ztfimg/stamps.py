@@ -284,7 +284,11 @@ class Stamp(object):
             self.load_interpolator()
         return self._interpolator
 
-    
+    @property
+    def pixels(self):
+        """ """
+        return get_pixel_to_consider(0, self.shape[1],0, self.shape[0])
+        
 class StampCollection():
     """ """
     def __init__(self, data, x0, y0, indexes=None):
