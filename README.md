@@ -121,6 +121,13 @@ Given a  `sciimgdao.psf` file (aka. psffile) you have:
 ```python
 from ztfimg import dao
 d = dao.DAOPhotoReader(psffile)
-s.show()
+d.show()
 ```
 ![image](examples/daophot_composition.png)
+
+The actual PSF is a combination of the base-profile (here "gaussian") and the structures. 
+So to get the PSF made of 1 base-profile and 0.1 of each stamp:
+```python
+psf = d.get_psf(1, [0.1,0.1,0.1])
+```
+
