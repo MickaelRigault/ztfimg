@@ -14,8 +14,9 @@ Ask Mickael
 ## Main Objects:
 - `ScienceImage`: to load ZTF's `sciimg.fits` together with it's `mskimg.fits`)
 - `ReferenceImage`: to load ZTF's `refimg.fits`
-
 `ScienceImage` and `ReferenceImage` have the same methods and almost the same attributes. 
+
+- `DAOPhotReader`: Simple Class to read the .psf doaphot outputs.
 
 ## usage
 
@@ -104,10 +105,22 @@ stamp.show()
 ```
 The stamp is centered on the pixel containing the given coordinates. The actual requested `(x,y)` is shown with the white cross.
 
-![image|30x30,10x](examples/StarStamp.png)
+![image](examples/StarStamp.png)
 
 You can also simply do:
 ```python
 stampdata =  z.get_stamp(x,y, dx=23, dy=23, asarray=True)
 ```
 to get the 2D numpy array rather than a `ztfimg.Stamp` object.
+
+
+# DAOPhotReader
+
+There is a simply class object that allows you to open the DAOPhot output data.
+Given a  `sciimgdao.psf` file (aka. psffile) you have:
+```python
+from ztfimg import dao
+d = dao.DAOPhotoReader(psffile)
+s.show()
+```
+![image](examples/daophot_composition.png)
