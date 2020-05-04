@@ -76,7 +76,6 @@ class DAOPhotReader( object ):
         
         """
         data = coef_base*self.get_basestamp(asstamp=False)
-        np.dot(stucst.T, [1,1,1])
         struct = np.dot(self.structures.T, coefstruct).T
         psfmodel = data+struct
         if normed:
