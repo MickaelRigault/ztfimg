@@ -120,7 +120,7 @@ There is a simply class object that allows you to open the DAOPhot output data.
 Given a  `sciimgdao.psf` file (aka. psffile) you have:
 ```python
 from ztfimg import dao
-d = dao.DAOPhotoReader(psffile)
+d = dao.DAOPhotReader(psffile)
 d.show()
 ```
 ![image](examples/daophot_composition.png)
