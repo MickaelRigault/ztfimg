@@ -5,6 +5,13 @@ from scipy import stats
 
 from . import stamps
 
+def daoarray_to_pixel(arr):
+    """ """
+    from .tools import restride
+    return np.sum(restride(np.mean([arr[1:,1:], arr[:-1,:-1] ], axis=0),
+                                    2),
+                            axis=(2,3))
+
 class DAOPhotReader( object ):
     """ """
     def __init__(self, psffile):
@@ -53,7 +60,7 @@ class DAOPhotReader( object ):
     # --------- #
     #  GETTER   #
     # --------- #
-    def get_psf(self, coef_base, coefstruct, normed=True, asstamp=True):
+    def get_psf(self, coef_base, coefstruct, normed=True, asstamp=True, inpixels=False):
         """ Get the psf model using the linear combination of the PSF elements: base+ structure 
         
         Parameters
@@ -70,21 +77,28 @@ class DAOPhotReader( object ):
         asstamp: [bool] -optional-
             Shall this return a stamp or an array ?
         
+        inpixels: [bool] -optional-
+            Shall this be in daophot oversampled unit or in actual pixels ?
+            
         Returns
         -------
         Stamp/array (see asstamp)
         
         """
-        data = coef_base*self.get_basestamp(asstamp=False)
+        data = coef_base*self.get_basestamp(asstamp=False, inpixels=False)
         struct = np.dot(self.structures.T, coefstruct).T
-        psfmodel = data+struct
+        array_ = data+struct
         if normed:
-            psfmodel/=psfmodel.sum()
+            array_/=array_.sum()
+
+        if inpixels:
+            array_ = daoarray_to_pixel(array_)
+
         if not asstamp:
-            return psfmodel
-        return stamps.Stamp(psfmodel)
+            return array_
+        return stamps.Stamp(array_)
     
-    def get_basestamp(self, asstamp=True):
+    def get_basestamp(self, asstamp=True, inpixels=False):
         """ get the base-profile model
         
         Parameters
@@ -92,15 +106,22 @@ class DAOPhotReader( object ):
         asstamp: [bool] -optional-
             Shall this return a stamp or an array ?
             
+        inpixels: [bool] -optional-
+            Shall this be in daophot oversampled unit or in actual pixels ?
+
         Returns
         -------
         Stamp/array (see asstamp)
         """
+        array_ = self._basedata.copy()
+        if inpixels:
+            array_ = daoarray_to_pixel(array_)
+            
         if not asstamp:
-            return self._basedata
-        return stamps.Stamp(self._basedata)
+            return array_
+        return stamps.Stamp(array_)
     
-    def get_structstamp(self, index, asstamp=True):
+    def get_structstamp(self, index, asstamp=True, inpixels=False):
         """ Get the i-th structure. 
         
         Parameters
@@ -110,13 +131,20 @@ class DAOPhotReader( object ):
         
         asstamp: [bool] -optional-
             Shall this return a stamp or an array ?
-            
+
+        inpixels: [bool] -optional-
+            Shall this be in daophot oversampled unit or in actual pixels ?
+
         Returns
         -------
         Stamp/array (see asstamp)
         """
+        array_ = self.structures[index].copy()
+        if inpixels:
+            array_ = daoarray_to_pixel(array_)
+            
         if not asstamp:
-            return self.structures[index]
+            return array_
         return stamps.Stamp(self.structures[index])
     
     # --------- #
