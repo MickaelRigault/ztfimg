@@ -50,10 +50,16 @@ class DAOPhotReader( object ):
         if self.modelname == "GAUSSIAN":
             s0 = self.get_structstamp(0)
             # 2x because daophot oversample by 2
-            sigmax,sigmay = 2* np.asarray(self._profile_shape, dtype="float")/np.sqrt(2*np.log(2))            
-            self._basedata = stats.multivariate_normal.pdf(stamps.get_pixel_to_consider(0,self._structurewidth,0,self._structurewidth),
+            sigmax,sigmay = 2* np.asarray(self._profile_shape, dtype="float")/np.sqrt(2*np.log(2))
+            pixels = stamps.get_pixel_to_consider(0,self._structurewidth,0,self._structurewidth)
+            self._covariance = [[(sigmax)**2,0], [0, (sigmay)**2]]
+            self._basenorm = np.sqrt((2*np.pi)**2 * np.linalg.det(self._covariance))
+            self._basedata = stats.multivariate_normal.pdf(pixels,
                                                            [s0.xref,s0.yref], 
-                                                           cov=[[(sigmax)**2,0], [0, (sigmay)**2]]).reshape(self._structurewidth,self._structurewidth)
+                                                           cov=self._covariance
+                                                        ).reshape(self._structurewidth,
+                                                                  self._structurewidth)
+            
         else:
             raise NotImplementedError("Only modelname=='GAUSSIAN' has been implemented.")
             
