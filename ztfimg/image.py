@@ -158,6 +158,7 @@ class ZTFImage( object ):
         data_ = self.data.copy()
         if applymask:
             data_[self.get_mask(**kwargs)] = maskvalue
+            
         if rmbkgd:
             data_ -= self.get_background(method=whichbkgd, rmbkgd=False)
 
@@ -204,8 +205,7 @@ class ZTFImage( object ):
 
         return self.mask
 
-
-    def get_background(self, method=None, rmbkgd=False):
+    def get_background(self, method=None, rmbkgd=False, backup_default="sep"):
         """ get an estimation of the image's background
 
         Parameters
@@ -220,13 +220,20 @@ class ZTFImage( object ):
             // ignored if method != median //
             shall the median background estimation be made on default-background subtraced image ?
 
+        backup_default: [string] -optional-
+            If no background has been set yet, which method should be the default backgroud.
+            If no background set and backup_default is None an AttributeError is raised.
+
         Returns
         -------
         float/array (see method)
         """
         if (method is None or method in ["default"]):
             if not self.has_background():
-                raise AttributeError("No background set. Use 'method' or run set_background()")
+                if backup_default is None:
+                    raise AttributeError("No background set. Use 'method' or run set_background()")
+                return self.get_background(backup_default)
+            
             return self.background
 
         if method in ["median"]:
@@ -276,21 +283,9 @@ class ZTFImage( object ):
     def get_stamps(self, x0, y0, dx, dy=None, data="dataclean", asarray=False):
         """ Get a ztfimg.Stamp object or directly is data array
         """
-        if dy is None:
-            dy = dx
-
-        data_ = getattr(self,data)
-
-        lower_pixel = [int(x0-dx/2+0.5), int(y0-dy/2+0.5)]
-        upper_pixel = [int(x0+dx/2+0.5), int(y0+dy/2+0.5)]
-        x_slice = slice(lower_pixel[0], upper_pixel[0])
-        y_slice = slice(lower_pixel[1], upper_pixel[1])
-        data_patch = data_[y_slice].T[x_slice].T
-        if asarray:
-            return data_patch
-
-        from .stamps import Stamp
-        return Stamp(data_patch, x0-lower_pixel[0], y0-lower_pixel[1])
+        from .stamps import stamp_it
+        return stamp_it( getattr(self,data), x0, y0, dx, dy=dy, asarray=asarray)
+    
 
     def get_aperture(self, x0, y0, radius, bkgann=None, subpix=0,
                          data="dataclean", maskprop={}, noiseprop={},
@@ -340,6 +335,23 @@ class ZTFImage( object ):
             return self.counts_to_flux(counts, counterr)
         if unit in ["mag"]:
             return self.counts_to_mag(counts, counterr)
+
+    def get_center(self, inpixel=True):
+        """ x and y or RA, Dec coordinates of the centroid. (shape[::-1]) """
+        if inpixel:
+            return (np.asarray(self.shape[::-1])+1)/2
+        return np.squeeze(self.pixels_to_coords(*self.get_center(inpixel=True)) )
+
+    def get_diagonal(self, inpixel=True):
+        """ Get the size of the diagonal [[0,0]->[-1,-1]].
+        If inpixel is False, it is given in degrees. """
+        from astropy import units
+        height, width = self.shape
+        diagonal_pixels = np.sqrt(width**2+height**2)
+        if inpixel:
+            return diagonal_pixels
+        
+        return diagonal_pixels*self.pixel_scale/3600
 
     # -------- #
     # CONVERT  #
@@ -426,7 +438,7 @@ class ZTFImage( object ):
     # PLOTTER  #
     # -------- #
     def show(self, which="data", ax=None, show_ps1cal=False, vmin="1", vmax="99",
-                 stretch=None, floorstretch=True, **kwargs):
+                 stretch=None, floorstretch=True, transpose=True, **kwargs):
         """ """
         import matplotlib.pyplot as mpl
         if ax is None:
@@ -437,7 +449,8 @@ class ZTFImage( object ):
 
         # - Data
         toshow_ = getattr(self,which)
-
+        if transpose:
+            toshow_ = np.transpose(toshow_)
         # - Colorstretching
         if stretch is not None:
             if floorstretch:
@@ -462,6 +475,8 @@ class ZTFImage( object ):
         if show_ps1cal:
             xpos, ypos = self.coords_to_pixels(self.ps1calibrators["ra"],
                                               self.ps1calibrators["dec"])
+            if transpose:
+                xpos, ypos = ypos, xpos
             ax.scatter(xpos, ypos, marker=".", zorder=5,
                            facecolors="None", edgecolor="k",s=30,
                            vmin=0, vmax=2, lw=0.5)
@@ -578,7 +593,7 @@ class ZTFImage( object ):
 
     @property
     def pixel_scale(self):
-        """ """
+        """ Pixel scale, in arcsec per pixel """
         return self.header.get("PIXSCALE", self.header.get("PXSCAL", None) )
 
     @property
@@ -612,7 +627,6 @@ class ZTFImage( object ):
         """ """
         return ( self.rcid+1 )%4
 
-
     @property
     def fieldid(self):
         """ """
@@ -634,6 +648,19 @@ class ScienceImage( ZTFImage ):
         if maskfile is not None:
             self.load_mask(maskfile)
 
+    @classmethod
+    def from_filename(cls, filename, filenamemask=None, download=True):
+        """ 
+        Parameters
+        ----------
+        download: [bool] -optional-
+             Downloads the maskfile if necessary.
+        """
+        from ztfquery import io
+        sciimgpath = io.get_file(filename, suffix="sciimg.fits", downloadit=download)
+        mskimgpath = io.get_file(filename if filenamemask is None else filenamemask, suffix="mskimg.fits", downloadit=download)
+        return cls(sciimgpath, mskimgpath)
+        
     # -------- #
     #  LOADER  #
     # -------- #
@@ -651,7 +678,8 @@ class ScienceImage( ZTFImage ):
                        dead=True, nan=True, saturated=True, brightstarhalo=True,
                        lowresponsivity=True, highresponsivity=True, noisy=True,
                        sexsources=False, psfsources=False,
-                       alltrue=False, flip_bits=True, verbose=False, getflags=False,
+                       alltrue=False, flip_bits=True,
+                       verbose=False, getflags=False,
                        **kwargs):
         """ get a boolean mask (or associated flags). You have the chooce of
         what you want to mask out.

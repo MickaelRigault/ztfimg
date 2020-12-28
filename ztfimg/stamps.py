@@ -9,6 +9,40 @@ def get_pixel_to_consider(xmin, xmax, ymin, ymax):
     init_shape = np.shape(pixels_)[:2]
     return np.asarray(pixels_.reshape(init_shape[0]*init_shape[1], 2), dtype="int")
 
+def stamp_it( array, x0, y0, dx, dy=None, asarray=False):
+    """ """
+    
+    if dy is None:
+        dy = dx
+
+    if len(np.atleast_1d(x0))>1:
+        if not asarray:
+            raise NotImplementedError("for multiple x0,y0, only asarray=True implemented. Loop over stamp_it() with single.")
+        if len(x0) != len(y0):
+            raise ValueError(f"x0 and y0 must have the same size ({len(x0)} and {len(y0)} given, respectively).")
+        shapearr = np.shape(array)
+        allstamps = np.ones( (len(x0), dy, dx)) * np.NaN
+        flagout = (x0-dx/2+0.5<0) | (y0-dy/2+0.5<0) | \
+                  (y0+dy/2+0.5>shapearr[0]) | (x0+dx/2+0.5>shapearr[1])
+
+        allstamps[~flagout] = [_stamp_it_unique_(array, x_, y_, dx=dx, dy=dy, asarray=True)  for x_,y_ in zip(x0[~flagout], y0[~flagout])]
+        return allstamps
+    else:
+        return _stamp_it_unique_(array, x0, y0, dx, dy=dy, asarray=asarray)
+    
+
+def _stamp_it_unique_(array, x0, y0, dx, dy, asarray=False):
+    """ """
+    lower_pixel = [int(x0-dx/2+0.5), int(y0-dy/2+0.5)]
+    upper_pixel = [int(x0+dx/2+0.5), int(y0+dy/2+0.5)]
+    x_slice = slice(lower_pixel[0], upper_pixel[0])
+    y_slice = slice(lower_pixel[1], upper_pixel[1])
+    data_patch = array[y_slice].T[x_slice].T
+    if asarray:
+        return data_patch
+
+    return Stamp(data_patch, x0-lower_pixel[0], y0-lower_pixel[1])
+
 
 class Stamp(object):
     
@@ -357,8 +391,6 @@ class StampCollection():
         if indexes is None:
             indexes = self.indexes
         return [self.stamp[i].project_to_grid(xmax,ymax, xmin, ymin) for i in indexes]
-
-
     
     # ============== #
     #  Properties    #
