@@ -11,7 +11,6 @@ def get_pixel_to_consider(xmin, xmax, ymin, ymax):
 
 def stamp_it( array, x0, y0, dx, dy=None, asarray=False):
     """ """
-    
     if dy is None:
         dy = dx
 
@@ -33,8 +32,8 @@ def stamp_it( array, x0, y0, dx, dy=None, asarray=False):
 
 def _stamp_it_unique_(array, x0, y0, dx, dy, asarray=False):
     """ """
-    lower_pixel = [int(x0-dx/2+0.5), int(y0-dy/2+0.5)]
-    upper_pixel = [int(x0+dx/2+0.5), int(y0+dy/2+0.5)]
+    lower_pixel = np.asarray([np.round(x0-dx/2+0.5), np.round(y0-dy/2+0.5)], dtype="int")
+    upper_pixel = np.asarray([np.round(x0+dx/2+0.5), np.round(y0+dy/2+0.5)], dtype="int")
     x_slice = slice(lower_pixel[0], upper_pixel[0])
     y_slice = slice(lower_pixel[1], upper_pixel[1])
     data_patch = array[y_slice].T[x_slice].T
