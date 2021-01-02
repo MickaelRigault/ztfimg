@@ -580,6 +580,13 @@ class ZTFImage( object ):
         """ """
         return self.header.get("STATUS") == 0
 
+    @property
+    def filename(self):
+        """ """
+        if not hasattr(self, "_filename"):
+            return None
+        return self._filename
+    
     # // Header Short cut
     @property
     def filtername(self):
