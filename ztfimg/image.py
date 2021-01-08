@@ -79,12 +79,7 @@ class ZTFImage( object ):
 
     def load_ps1_calibrators(self, setxy=True):
         """ """
-        from . import io
-        ps1cat = io.PS1Calibrators(self.rcid, self.fieldid).data
-        # Set mag as the current band magnitude
-        ps1cat['mag'] = ps1cat["%smag"%self.filtername.split("_")[-1]]
-        ps1cat['e_mag'] = ps1cat["e_%smag"%self.filtername.split("_")[-1]]
-        self.set_catalog(ps1cat, "ps1cat")
+        self.set_catalog( self.get_ps1_calibrators(setxy=setxy), "ps1cat")
 
 
     # -------- #
@@ -129,6 +124,20 @@ class ZTFImage( object ):
     # -------- #
     # GETTER   #
     # -------- #
+    def get_ps1_calibrators(self, setxy=True):
+        """ """
+        from . import io
+        ps1cat = io.PS1Calibrators(self.rcid, self.fieldid).data
+        # Set mag as the current band magnitude
+        ps1cat['mag'] = ps1cat["%smag"%self.filtername.split("_")[-1]]
+        ps1cat['e_mag'] = ps1cat["e_%smag"%self.filtername.split("_")[-1]]
+        if setxy and ("ra" in ps1cat.columns and "x" not in ps1cat.columns):
+            x,y = self.coords_to_pixels(ps1cat["ra"], ps1cat["dec"])
+            ps1cat["x"] = x
+            ps1cat["y"] = y
+            
+        return ps1cat
+    
     def get_data(self, applymask=True, maskvalue=np.NaN,
                        rmbkgd=True, whichbkgd="default", **kwargs):
         """ get a copy of the data affected by background and/or masking.
@@ -438,7 +447,7 @@ class ZTFImage( object ):
     # PLOTTER  #
     # -------- #
     def show(self, which="data", ax=None, show_ps1cal=False, vmin="1", vmax="99",
-                 stretch=None, floorstretch=True, transpose=True, **kwargs):
+                 stretch=None, floorstretch=True, transpose=False, **kwargs):
         """ """
         import matplotlib.pyplot as mpl
         if ax is None:
@@ -758,6 +767,7 @@ class ScienceImage( ZTFImage ):
     # =============== #
     #  Properties     #
     # =============== #
+    @property
     def exptime(self):
         """ """
         return self.header.get("EXPTIME", None)
