@@ -447,7 +447,8 @@ class ZTFImage( object ):
     # PLOTTER  #
     # -------- #
     def show(self, which="data", ax=None, show_ps1cal=False, vmin="1", vmax="99",
-                 stretch=None, floorstretch=True, transpose=False, **kwargs):
+                 stretch=None, floorstretch=True, transpose=False,
+                 colorbar=False, cax=None, clabel=None, clabelprop={}, **kwargs):
         """ """
         import matplotlib.pyplot as mpl
         if ax is None:
@@ -478,8 +479,13 @@ class ZTFImage( object ):
                                vmax=vmax,
                                )
         # - imshow
-        ax.imshow(toshow_, **{**defaultprop, **kwargs})
-
+        im = ax.imshow(toshow_, **{**defaultprop, **kwargs})
+        if colorbar:
+            cbar = fig.colorbar(im, ax=ax, cax=cax)
+            if clabel is not None:
+                cbar.set_label(clabel, **clabelprop)
+                
+            
         # - overplot
         if show_ps1cal:
             xpos, ypos = self.coords_to_pixels(self.ps1calibrators["ra"],
