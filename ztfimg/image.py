@@ -4,7 +4,7 @@ import numpy as np
 from astropy.io import fits
 from astropy.wcs import WCS
 from astropy.nddata import bitmask
-
+from .io import PS1Calibrators
 
 ZTF_FILTERS = {"ZTF_g":{"wave_eff":4813.97, "fid":1},
                "ZTF_r":{"wave_eff":6421.81, "fid":2},
@@ -126,8 +126,7 @@ class ZTFImage( object ):
     # -------- #
     def get_ps1_calibrators(self, setxy=True):
         """ """
-        from . import io
-        ps1cat = io.PS1Calibrators(self.rcid, self.fieldid).data
+        ps1cat = PS1Calibrators(self.rcid, self.fieldid).data
         # Set mag as the current band magnitude
         ps1cat['mag'] = ps1cat["%smag"%self.filtername.split("_")[-1]]
         ps1cat['e_mag'] = ps1cat["e_%smag"%self.filtername.split("_")[-1]]
