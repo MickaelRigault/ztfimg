@@ -70,7 +70,8 @@ class ZTFImage( object ):
             else:
                 from_sources = self.sources
 
-            datamasked = self.get_data(applymask=True, from_sources=from_sources, r=r, rmbkgd=False)
+            datamasked = self.get_data(applymask=True, from_sources=from_sources,
+                                        r=r, rmbkgd=False)
 
         self._sourcebackground = Background(datamasked.byteswap().newbyteorder())
         if setit:
