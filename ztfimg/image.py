@@ -4,7 +4,7 @@ import numpy as np
 from astropy.io import fits
 from astropy.wcs import WCS
 from astropy.nddata import bitmask
-from .io import PS1Calibrators
+from .io import PS1Calibrators, GaiaCalibrators
 
 ZTF_FILTERS = {"ZTF_g":{"wave_eff":4813.97, "fid":1},
                "ZTF_r":{"wave_eff":6421.81, "fid":2},
@@ -82,6 +82,9 @@ class ZTFImage( object ):
         """ """
         self.set_catalog( self.get_ps1_calibrators(setxy=setxy), "ps1cat")
 
+    def load_gaia_calibrators(self, setxy=True):
+        """ """
+        self.set_catalog( self.get_gaia_calibrators(setxy=setxy), "gaia")
 
     # -------- #
     # SETTER   #
@@ -125,7 +128,7 @@ class ZTFImage( object ):
     # -------- #
     # GETTER   #
     # -------- #
-    def get_ps1_calibrators(self, setxy=True):
+    def get_ps1_calibrators(self, setxy=True, drop_outside=True, pixelbuffer=10):
         """ """
         ps1cat = PS1Calibrators(self.rcid, self.fieldid).data
         # Set mag as the current band magnitude
@@ -135,9 +138,34 @@ class ZTFImage( object ):
             x,y = self.coords_to_pixels(ps1cat["ra"], ps1cat["dec"])
             ps1cat["x"] = x
             ps1cat["y"] = y
-            
+            if drop_outside:
+                ymax, xmax = self.shape
+                ps1cat = ps1cat[ps1cat["x"].between(-pixelbuffer, xmax+pixelbuffer) & \
+                                ps1cat["y"].between(-pixelbuffer, ymax+pixelbuffer)]
+
         return ps1cat
-    
+
+    def get_gaia_calibrators(self, setxy=True, drop_namag=True, drop_outside=True, pixelbuffer=10):
+        """ """
+        cat = GaiaCalibrators(self.rcid, self.fieldid).data
+        if drop_namag:
+            cat = cat[~pandas.isna(cat[["gmag","rpmag","bpmag"]]).any(axis=1)]
+        cat[["ps1_id","sdssdr13_id"]] = cat[["ps1_id","sdssdr13_id"]].fillna("None")
+        
+        # Set mag as the current band magnitude
+        cat['mag'] = cat["gmag"]
+        cat['e_mag'] = cat["e_gmag"]
+        if setxy and ("ra" in cat.columns and "x" not in cat.columns):
+            x,y = self.coords_to_pixels(cat["ra"], cat["dec"])
+            cat["x"] = x
+            cat["y"] = y
+            if drop_outside:
+                ymax, xmax = self.shape
+                cat = cat[cat["x"].between(-pixelbuffer, xmax+pixelbuffer) & \
+                          cat["y"].between(-pixelbuffer, ymax+pixelbuffer)]
+
+        return cat
+
     def get_data(self, applymask=True, maskvalue=np.NaN,
                        rmbkgd=True, whichbkgd="default", **kwargs):
         """ get a copy of the data affected by background and/or masking.

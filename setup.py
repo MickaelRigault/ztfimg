@@ -11,7 +11,7 @@ MAINTAINER_EMAIL = 'm.rigault@ipnl.in2p3.fr'
 URL = 'https://github.com/MickaelRigault/ztfimg'
 LICENSE = 'BSD (3-clause)'
 DOWNLOAD_URL = 'https://github.com/MickaelRigault/ztfimg'
-VERSION = '0.4.1'
+VERSION = '0.5.0'
 
 try:
     from setuptools import setup, find_packages
@@ -22,11 +22,6 @@ except ImportError:
     
 def check_dependencies():
     install_requires = []
-    try:
-        import h5py
-    except ImportError:
-        install_requires.append('h5py')
-
     try:
         import sep
     except ImportError:
