@@ -685,7 +685,7 @@ class ZTFImage( object ):
     @property
     def filterid(self):
         """ """
-        return self.header.get("FILTPOS", self.header.get("DBFID", None)) #science vs. ref
+        return self.header.get("FILTERID", self.header.get("DBFID", None)) #science vs. ref
 
 
 class ScienceImage( ZTFImage ):
