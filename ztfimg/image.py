@@ -675,7 +675,7 @@ class ZTFImage( object ):
     @property
     def qid(self):
         """ """
-        return ( self.rcid+1 )%4
+        return ( self.rcid%4 )+1
 
     @property
     def fieldid(self):
