@@ -1,5 +1,5 @@
 # ztfimg
-ZTF Images tools | like a pure-python very simple version of ds9 for ZTF
+ZTF Images tools 
 
 # Installation
 
