@@ -134,6 +134,21 @@ class ZTFImage( object ):
     # -------- #
     # GETTER   #
     # -------- #
+    def _setxy_to_cat_(self, cat, drop_outside=True, pixelbuffer=10):
+        """ """
+        x,y = self.coords_to_pixels(cat["ra"], cat["dec"])
+        u,v = self.coords_to_uv(cat["ra"], cat["dec"])
+        cat["x"] = x
+        cat["y"] = y
+        cat["u"] = u
+        cat["v"] = v
+
+        if drop_outside:
+            ymax, xmax = self.shape
+            cat = cat[cat["x"].between(-pixelbuffer, xmax+pixelbuffer) & \
+                      cat["y"].between(-pixelbuffer, ymax+pixelbuffer)]
+        return cat
+    
     def get_ps1_calibrators(self, setxy=True, drop_outside=True, pixelbuffer=10):
         """ """
         ps1cat = PS1Calibrators(self.rcid, self.fieldid).data
@@ -141,13 +156,7 @@ class ZTFImage( object ):
         ps1cat['mag'] = ps1cat["%smag"%self.filtername.split("_")[-1]]
         ps1cat['e_mag'] = ps1cat["e_%smag"%self.filtername.split("_")[-1]]
         if setxy and ("ra" in ps1cat.columns and "x" not in ps1cat.columns):
-            x,y = self.coords_to_pixels(ps1cat["ra"], ps1cat["dec"])
-            ps1cat["x"] = x
-            ps1cat["y"] = y
-            if drop_outside:
-                ymax, xmax = self.shape
-                ps1cat = ps1cat[ps1cat["x"].between(-pixelbuffer, xmax+pixelbuffer) & \
-                                ps1cat["y"].between(-pixelbuffer, ymax+pixelbuffer)]
+            ps1cat = self._setxy_to_cat_(ps1cat, drop_outside=drop_outside, pixelbuffer=pixelbuffer)
 
         return ps1cat
 
@@ -162,13 +171,7 @@ class ZTFImage( object ):
         cat['mag'] = cat["gmag"]
         cat['e_mag'] = cat["e_gmag"]
         if setxy and ("ra" in cat.columns and "x" not in cat.columns):
-            x,y = self.coords_to_pixels(cat["ra"], cat["dec"])
-            cat["x"] = x
-            cat["y"] = y
-            if drop_outside:
-                ymax, xmax = self.shape
-                cat = cat[cat["x"].between(-pixelbuffer, xmax+pixelbuffer) & \
-                          cat["y"].between(-pixelbuffer, ymax+pixelbuffer)]
+            cat = self._setxy_to_cat_(cat, drop_outside=drop_outside, pixelbuffer=pixelbuffer)
 
         return cat
 
