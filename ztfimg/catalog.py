@@ -19,6 +19,28 @@ pmatch.get_matched_entries(["ra","dec", "mag","sigmag","snr"]) # any self.scipsf
 
 """
 
+def get_isolated(catdf, catdf_ref=None, xkey="ra", ykey="dec", keyunit="deg", 
+                seplimit=10, sepunits="arcsec"):
+    """ """
+    import pandas
+    from astropy import coordinates, units
+    if catdf_ref is None:
+        catdf_ref = catdf
+        
+    seplimit =  seplimit* getattr(units,sepunits) 
+    
+    #
+    # - SkyCoord
+    sk = coordinates.SkyCoord(catdf[xkey], catdf[ykey], unit=keyunit)
+    skref = coordinates.SkyCoord(catdf_ref[xkey], catdf_ref[ykey], unit=keyunit)
+    idx2, idx1, d2d, d3d = sk.search_around_sky(skref, seplimit=seplimit)
+    unique, counts = np.unique(idx1, return_counts=True)
+    iso = pandas.Series(True, index = catdf.index, name="isolated")
+    tiso = pandas.Series(counts==1, index = catdf.iloc[unique].index, name="isolated")
+    iso.loc[tiso.index] = tiso
+    return iso
+
+
 class CatalogCollection():
     """ """
     def __init__(self):
@@ -76,7 +98,7 @@ class CatalogCollection():
         -------
         Pandas.DataFrame (filter `cat`)
         """
-        self.match(cat,cat, seplimit=isolation)
+        self.match(cat, cat, seplimit=isolation)
         matcharray = self.catmatch[f'{cat}_{cat}'].matchdict['catrefidx']
         unique, counts = np.unique(matcharray, return_counts=True)
         return self.catalogs[cat][counts==1]
@@ -106,9 +128,6 @@ class CatalogCollection():
         if not hasattr(self,"_catmatch") or self._catmatch is None:
             self._catmatch = {}
         return self._catmatch
-
-
-
 
 
 class CatMatch( object ):

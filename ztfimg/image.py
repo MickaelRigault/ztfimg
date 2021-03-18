@@ -7,9 +7,9 @@ from astropy.wcs import WCS
 from astropy.nddata import bitmask
 from .io import PS1Calibrators, GaiaCalibrators
 from . import tools
-ZTF_FILTERS = {"ZTF_g":{"wave_eff":4813.97, "fid":1},
-               "ZTF_r":{"wave_eff":6421.81, "fid":2},
-               "ZTF_i":{"wave_eff":7883.06, "fid":3}
+ZTF_FILTERS = {"ztfg":{"wave_eff":4813.97, "fid":1},
+               "ztfr":{"wave_eff":6421.81, "fid":2},
+               "ztfi":{"wave_eff":7883.06, "fid":3}
                 }
 
 
@@ -151,7 +151,9 @@ class ZTFImage( object ):
     
     def get_ps1_calibrators(self, setxy=True, drop_outside=True, pixelbuffer=10):
         """ """
-        ps1cat = PS1Calibrators(self.rcid, self.fieldid).data
+        # remark: radec is going to be used only the fieldid is not already downloaded.
+        ps1cat = PS1Calibrators(self.rcid, self.fieldid, radec=self.get_center(inpixel=False)).data
+        
         # Set mag as the current band magnitude
         ps1cat['mag'] = ps1cat["%smag"%self.filtername.split("_")[-1]]
         ps1cat['e_mag'] = ps1cat["e_%smag"%self.filtername.split("_")[-1]]
@@ -162,7 +164,8 @@ class ZTFImage( object ):
 
     def get_gaia_calibrators(self, setxy=True, drop_namag=True, drop_outside=True, pixelbuffer=10):
         """ """
-        cat = GaiaCalibrators(self.rcid, self.fieldid).data
+        cat = GaiaCalibrators(self.rcid, self.fieldid, radec=self.get_center(inpixel=False)).data
+        
         if drop_namag:
             cat = cat[~pandas.isna(cat[["gmag","rpmag","bpmag"]]).any(axis=1)]
         cat[["ps1_id","sdssdr13_id"]] = cat[["ps1_id","sdssdr13_id"]].fillna("None")
@@ -669,7 +672,7 @@ class ZTFImage( object ):
     @property
     def filtername(self):
         """ """
-        return self.header.get("FILTER", None)
+        return self.header.get("FILTER", None).replace("_","").replace(" ","").lower()
 
     @property
     def filter_lbda(self):

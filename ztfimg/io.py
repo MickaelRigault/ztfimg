@@ -15,10 +15,11 @@ CALIBRATOR_PATH = os.path.join(LOCALSOURCE,"calibrator")
 # ========================= #
 class _CatCalibrator_():
     """ """
-    def __init__(self, rcid, fieldid, load=True):
+    def __init__(self, rcid, fieldid, radec=None, load=True):
         """ """
         self._rcid = rcid
         self._fieldid = fieldid
+        self.set_centroid(radec)
         if load:
             self.load_data()
 
@@ -50,31 +51,42 @@ class _CatCalibrator_():
                 else:
                     KeyError(f"{keyerr} and download=False")
             
-            
-
     def download_data(self, store=True, **kwargs):
         """ """
         raise NotImplementedError("You must define the download_data() method")
-    
+
+    # -------- #
+    #  SETTER  #
+    # -------- #            
+    def set_centroid(self, radec):
+        """ """
+        self._centroid = radec
+
     # -------- #
     #  GETTER  #
     # -------- #        
     def get_calibrator_file(self):
         """ """
-        return os.path.join( os.path.join(CALIBRATOR_PATH, self._DIR, f"{self.BASENAME}_rc%02d.hdf5"%(self.rcid)) )
+        return os.path.join( os.path.join(CALIBRATOR_PATH, self._DIR, f"{self.BASENAME}_{self.rcid:02d}.hdf5") )
 
     def get_key(self):
         """ """
-        return f"FieldID_%06d"%self.fieldid
+        return f"FieldID_{self.fieldid:06d}"
 
     def get_centroid(self, from_cat=False):
         """ """
         if not from_cat:
-            from ztfquery import fields
-            return fields.get_rcid_centroid(self.rcid, self.fieldid)
+            if not hasattr(self,"_centroid") or self._centroid is None:
+                from ztfquery import fields
+                if self.fieldid not in fields.FIELD_DATAFRAME.index:
+                    raise ValueError(f"{self.fieldid} is not a standard ZTF field. Cannot guess the centroid, please run set_centroid().")
+                self._centroid = fields.get_rcid_centroid(self.rcid, self.fieldid)
+                
+            return self._centroid
         else:
             return np.mean(self.data[["ra","dec"]].values, axis=0)
 
+        
     # =============== #
     #  Properties     #
     # =============== #
