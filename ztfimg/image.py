@@ -124,6 +124,11 @@ class ZTFImage( object ):
             dataframe["ra"] = ra
             dataframe["dec"] = dec
 
+        if "u" not in dataframe.columns:
+            u, v = self.coords_to_uv(dataframe["ra"], dataframe["dec"])
+            dataframe["u"] = u
+            dataframe["v"] = v
+            
         self.catalogs.set_catalog(dataframe, label)
 
     # -------- #
@@ -378,6 +383,7 @@ class ZTFImage( object ):
         """ x and y or RA, Dec coordinates of the centroid. (shape[::-1]) """
         if inpixel:
             return (np.asarray(self.shape[::-1])+1)/2
+        
         return np.squeeze(self.pixels_to_coords(*self.get_center(inpixel=True)) )
 
     def get_diagonal(self, inpixel=True):
@@ -423,12 +429,12 @@ class ZTFImage( object ):
     
     # uv -> 
     def uv_to_pixels(self, u, v):
-        """ """
+        """ get the x, y ccd position given the tangent plane coordinates u, v """
         ra, dec = self.uv_to_coords(u, v)
         return self.coords_to_pixels(ra, dec)
     
     def uv_to_coords(self, u, v):
-        """ """
+        """ get the ra, dec coordinates given the tangent plane coordinates u, v """
         return np.asarray(tools.deproject([u, v], self.pointing))*180/np.pi
     #
     # Flux - Counts - Mags
