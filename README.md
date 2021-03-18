@@ -5,15 +5,17 @@ ZTF Images tools
 
 [![PyPI](https://img.shields.io/pypi/v/ztfimg.svg?style=flat-square)](https://pypi.python.org/pypi/ztfimg)
 
-of git:
+or git:
 ```
 git clone https://github.com/MickaelRigault/ztfimg.git
 cd ztfim
 pyton setup.py install
 ```
 
+#### Dependencies
 
-This package uses `sep` for source extraction, background estimation and aperture photometry. [sep](https://sep.readthedocs.io/en/v1.0.x/api/sep.extract.html) is a python version of sextractor.  
+- This package uses `sep` for source extraction, background estimation and aperture photometry. [sep](https://sep.readthedocs.io/en/v1.0.x/api/sep.extract.html) is a python version of sextractor.  
+- This packages uses ztfquery for accessing ztf image product. [ztfquery](https://github.com/MickaelRigault/ztfquery)
 
 ## Getting the PS1Calibrator files
 
@@ -25,8 +27,6 @@ Ask Mickael
 - `ScienceImage`: to load ZTF's `sciimg.fits` together with it's `mskimg.fits`)
 - `ReferenceImage`: to load ZTF's `refimg.fits`
 `ScienceImage` and `ReferenceImage` have the same methods and almost the same attributes. 
-
-- `DAOPhotReader`: Simple Class to read the .psf doaphot outputs.
 
 ## usage
 
