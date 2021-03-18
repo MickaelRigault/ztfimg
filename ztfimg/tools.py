@@ -185,3 +185,184 @@ def restride(arr, binfactor, squeezed=True, flattened=False):
     if flattened:               # Flatten bin axes, which may induce a costful copy!
         rarr = rarr.reshape(rarr.shape[:-(rarr.ndim - arr.ndim)] + (-1,))
     return rarr.squeeze() if squeezed else rarr  # Remove length-1 axes
+
+def project(radec, radec0, projection="gnomonic"):
+    """ project a radec coordinates given a reference coordinate radec0
+
+    Parameters
+    ----------
+    radec:
+        Coordinate to be projected [in deg]
+
+    radec0:
+        Reference coordinate [in deg]
+
+    projection: [string] -optional-
+        What kind of projection do you want?
+        - gnomonic: k = 1 / cos(c)
+        - lambert: k = sqrt( 2  / ( 1 + cos(c) ) )
+        - stereographic: k = 2 / ( 1 + cos(c) )
+        - postel: k = c / sin(c)
+        for 
+        x = k cos(dec) sin(ra-ra0)
+        y = k ( cos(dec0) sin(dec) - sin(dec0) cos(dec) cos(ra-ra0) )
+
+
+    Returns
+    -------
+    u, v 
+
+    Credits:
+    --------
+    Adapted from LSST DESC coord.
+    """
+    # The equations are given at the above mathworld websites.  They are the same except
+    # for the definition of k:
+    #
+    # x = k cos(dec) sin(ra-ra0)
+    # y = k ( cos(dec0) sin(dec) - sin(dec0) cos(dec) cos(ra-ra0) )
+    #
+    # Lambert:
+    #   k = sqrt( 2  / ( 1 + cos(c) ) )
+    # Stereographic:
+    #   k = 2 / ( 1 + cos(c) )
+    # Gnomonic:
+    #   k = 1 / cos(c)
+    # Postel:
+    #   k = c / sin(c)
+    # where cos(c) = sin(dec0) sin(dec) + cos(dec0) cos(dec) cos(ra-ra0)
+
+    # cos(dra) = cos(ra-ra0) = cos(ra0) cos(ra) + sin(ra0) sin(ra)
+
+    
+
+    # cos and sin of angles
+    # - ref
+    ra0,dec0 = np.asarray(radec0)*np.pi/180
+    _cosra, _sinra = np.cos(ra0), np.sin(ra0)
+    _cosdec, _sindec = np.cos(dec0), np.sin(dec0)
+    # other
+    ra,dec   = np.asarray(radec)*np.pi/180    
+    cosra, sinra   = np.cos(ra), np.sin(ra)
+    cosdec, sindec   = np.cos(dec), np.sin(dec)
+    
+    ###
+    
+    cosdra = _cosra * cosra
+    cosdra += _sinra * sinra
+
+    # sin(dra) = -sin(ra - ra0)
+    # Note: - sign here is to make +x correspond to -ra,
+    #       so x increases for decreasing ra.
+    #       East is to the left on the sky!
+    # sin(dra) = -cos(ra0) sin(ra) + sin(ra0) cos(ra)
+    sindra = _sinra * cosra
+    sindra -= _cosra * sinra
+
+    # Calculate k according to which projection we are using
+    cosc = cosdec * cosdra
+    cosc *= _cosdec
+    cosc += _sindec * sindec
+    if projection is None or projection[0] == 'g':
+        k = 1. / cosc
+    elif projection[0] == 's':
+        k = 2. / (1. + cosc)
+    elif projection[0] == 'l':
+        k = np.sqrt( 2. / (1.+cosc) )
+    else:
+        c = np.arccos(cosc)
+            # k = c / np.sin(c)
+            # np.sinc is defined as sin(pi x) / (pi x)
+            # So need to divide by pi first.
+        k = 1. / np.sinc(c / np.pi)
+
+        # u = k * cosdec * sindra
+        # v = k * ( self._cosdec * sindec - self._sindec * cosdec * cosdra )
+    u = cosdec * sindra
+    v = cosdec * cosdra
+    v *= -_sindec
+    v += _cosdec * sindec
+    u *= k
+    v *= k
+    
+    return u, v
+
+def deproject(uv, radec0, projection="gnomonic"):
+    """ project a uv coordinates back to radec given a reference coordinate radec0
+
+    Parameters
+    ----------
+    uv:
+        u, v tangent plane coordinates
+
+    radec0:
+        Reference coordinate [in deg]
+
+    projection: [string] -optional-
+        What kind of projection do you want?
+        - gnomonic: k = 1 / cos(c)
+        - lambert: k = sqrt( 2  / ( 1 + cos(c) ) )
+        - stereographic: k = 2 / ( 1 + cos(c) )
+        - postel: k = c / sin(c)
+
+    Returns
+    -------
+    ra, dec
+
+    Credits:
+    --------
+    Adapted from LSST DESC coord.
+    """
+    # - other
+    u, v = np.asarray(uv)/(180/np.pi * 3600)
+
+    # - ref
+    ra0,dec0 = np.asarray(radec0)*np.pi/180
+    _cosra, _sinra = np.cos(ra0), np.sin(ra0)
+    _cosdec, _sindec = np.cos(dec0), np.sin(dec0)
+    
+    rsq = u*u
+    rsq += v*v
+    if projection is None or projection[0] == 'g':
+        # c = arctan(r)
+        # cos(c) = 1 / sqrt(1+r^2)
+        # sin(c) = r / sqrt(1+r^2)
+        cosc = sinc_over_r = 1./np.sqrt(1.+rsq)
+    elif projection[0] == 's':
+        # c = 2 * arctan(r/2)
+        # Some trig manipulations reveal:
+        # cos(c) = (4-r^2) / (4+r^2)
+        # sin(c) = 4r / (4+r^2)
+        cosc = (4.-rsq) / (4.+rsq)
+        sinc_over_r = 4. / (4.+rsq)
+    elif projection[0] == 'l':
+        # c = 2 * arcsin(r/2)
+        # Some trig manipulations reveal:
+        # cos(c) = 1 - r^2/2
+        # sin(c) = r sqrt(4-r^2) / 2
+        cosc = 1. - rsq/2.
+        sinc_over_r = np.sqrt(4.-rsq) / 2.
+    else:
+        r = np.sqrt(rsq)
+        cosc = np.cos(r)
+        sinc_over_r = np.sinc(r/np.pi)
+
+    # Compute sindec, tandra
+    # Note: more efficient to use numpy op= as much as possible to avoid temporary arrays.
+    
+    # sindec = cosc * self._sindec + v * sinc_over_r * self._cosdec
+    sindec = v * sinc_over_r
+    sindec *= _cosdec
+    sindec += cosc * _sindec
+    # Remember the - sign so +dra is -u.  East is left.
+    tandra_num = u * sinc_over_r
+    tandra_num *= -1.
+    # tandra_denom = cosc * self._cosdec - v * sinc_over_r * self._sindec
+    tandra_denom = v * sinc_over_r
+    tandra_denom *= -_sindec
+    tandra_denom += cosc * _cosdec
+    
+    dec = np.arcsin(sindec)
+    ra = ra0 + np.arctan2(tandra_num, tandra_denom)
+
+    return ra, dec

@@ -1,11 +1,12 @@
 """ """
 import pandas
 import numpy as np
+
 from astropy.io import fits
 from astropy.wcs import WCS
 from astropy.nddata import bitmask
 from .io import PS1Calibrators, GaiaCalibrators
-
+from . import tools
 ZTF_FILTERS = {"ZTF_g":{"wave_eff":4813.97, "fid":1},
                "ZTF_r":{"wave_eff":6421.81, "fid":2},
                "ZTF_i":{"wave_eff":7883.06, "fid":3}
@@ -393,21 +394,46 @@ class ZTFImage( object ):
     # -------- #
     # CONVERT  #
     # -------- #
+    #    
     # WCS
-    def coords_to_pixels(self, ra, dec):
-        """ get the (x,y) ccd positions given the sky ra, dec [in deg] corrdinates """
-        return self.wcs.all_world2pix(np.asarray([np.atleast_1d(ra),
-                                                  np.atleast_1d(dec)]).T,
-                                      0).T
+    # pixel->
     def pixels_to_coords(self, x, y):
         """ get sky ra, dec [in deg] coordinates given the (x,y) ccd positions  """
         return self.wcs.all_pix2world(np.asarray([np.atleast_1d(x),
                                                   np.atleast_1d(y)]).T,
                                       0).T
+    
+    def pixels_to_uv(self, x, y):
+        """ w,y to u, v tangent plane projection (in arcsec from pointing center). 
+        This uses pixels_to_coords->coords_to_uv
+        """
+        ra, dec = self.pixels_to_coords( x, y)
+        return self.coords_to_uv(ra, dec)
+
+    # coords -> 
+    def coords_to_pixels(self, ra, dec):
+        """ get the (x,y) ccd positions given the sky ra, dec [in deg] corrdinates """
+        return self.wcs.all_world2pix(np.asarray([np.atleast_1d(ra),
+                                                  np.atleast_1d(dec)]).T,
+                                      0).T
+    
+    def coords_to_uv(self, ra, dec):
+        """ radec to u, v tangent plane projection (in arcsec from pointing center) """
+        return np.asarray(tools.project([ra, dec], self.pointing))*180/np.pi * 3600
+    
+    # uv -> 
+    def uv_to_pixels(self, u, v):
+        """ """
+        ra, dec = self.uv_to_coords(u, v)
+        return self.coords_to_pixels(ra, dec)
+    
+    def uv_to_coords(self, u, v):
+        """ """
+        return np.asarray(tools.deproject([u, v], self.pointing))*180/np.pi
+    #
     # Flux - Counts - Mags
     def counts_to_mag(self, counts, dcounts=None):
         """ converts counts into flux [erg/s/cm2/A] """
-        from . import tools
         return tools.counts_to_mag(counts,dcounts, self.magzp, self.filter_lbda)
 
     def counts_to_flux(self, counts, dcounts=None):
@@ -687,7 +713,21 @@ class ZTFImage( object ):
         """ """
         return self.header.get("FILTERID", self.header.get("DBFID", None)) #science vs. ref
 
-
+    @property
+    def pointing(self):
+        """ requested telescope pointing [in degree] """
+        if not hasattr(self, "_pointing") or self._pointing is None:
+            pra, pdec = self.header.get("RA", None), self.header.get("DEC", None)
+            if pra is None or pdec is None:
+                return None
+            
+            from astropy import coordinates, units
+            sc = coordinates.SkyCoord(pra, pdec, unit=(units.hourangle, units.deg))
+            self._pointing = sc.ra.value, sc.dec.value
+            
+        return self._pointing
+    
+    
 class ScienceImage( ZTFImage ):
 
     def __init__(self, imagefile=None, maskfile=None):
