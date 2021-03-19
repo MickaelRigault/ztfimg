@@ -32,7 +32,11 @@ from ztfimg import image
 z = image.ScienceImage(sciimg, mask)
 z.show('dataclean')
 ```
-![](examples/sciimg_masked_bkgdsub.png)
+
+<p align="left">
+  <img src="examples/sciimg_masked_bkgdsub.png" width="400" title="hover text">
+</p>
+
 
 **Alternative loading***: If you don't know the exact path of the ztf file (or if you never downloaded it), use the `from_filenam()` class method to instanciate the image. It will look for the file and download it if necessary. See `ztfquery` for details on how this works. The sciimg only is necessary, it will look itself for the corresponding mskimg. However, you can still force the use of another mskimg (though you should not).
 
@@ -124,7 +128,7 @@ The stamp is centered on the pixel containing the given coordinates. The actual 
 
 
 <p align="left">
-  <img src="examples/StarStamp.png" width="350" title="hover text">
+  <img src="examples/StarStamp.png" width="200" title="hover text">
 </p>
 
 You can also simply do:
