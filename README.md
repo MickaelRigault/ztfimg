@@ -34,11 +34,11 @@ z.show('dataclean')
 ```
 
 <p align="left">
-  <img src="examples/sciimg_masked_bkgdsub.png" width="400" title="hover text">
+  <img src="examples/sciimg_masked_bkgdsub.png" width="500" title="hover text">
 </p>
 
 
-**Alternative loading***: If you don't know the exact path of the ztf file (or if you never downloaded it), use the `from_filenam()` class method to instanciate the image. It will look for the file and download it if necessary. See `ztfquery` for details on how this works. The sciimg only is necessary, it will look itself for the corresponding mskimg. However, you can still force the use of another mskimg (though you should not).
+**Alternative loading**: If you don't know the exact path of the ztf file (or if you never downloaded it), use the `from_filenam()` class method to instanciate the image. It will look for the file and download it if necessary. See `ztfquery` for details on how this works. The sciimg only is necessary, it will look itself for the corresponding mskimg. However, you can still force the use of another mskimg (though you should not).
 
 ```python
 from ztfimg import image
@@ -46,7 +46,7 @@ z = image.ScienceImage.from_filename(sciimg)
 z.show('dataclean')
 ```
 
-### Data
+## Data
 ZTFImages hold three data attributes:
 - `self.data`: the image data as loaded
 - `self.datamasked`: the image data as loaded by masked for bad pixel values (see `self.get_mask()`)
@@ -65,7 +65,7 @@ z.get_mask( tracks=True, ghosts=True, spillage=True, spikes=True,
 ```
 
 
-### Astrometry
+## Astrometry
 `ztfimg` uses `astropy.wcs` for loading the WCS solution given the image's header. We use the following definitions:
 - `xy`: image pixel coordinates
 - `radec`: world system RA, Dec coordinates (in degree)
@@ -76,7 +76,7 @@ z.get_mask( tracks=True, ghosts=True, spillage=True, spikes=True,
 Object holder wcs solutions have the system conversion methods, e.g. `xy_to_radec`, `uv_to_radec`, `xy_to_uv`
 
 
-### Flux / Counts / Mags
+## Flux / Counts / Mags
 
 - `counts`: values from the images
 - `flux`: flux (erg/s/cm2/A) using the `magzp` from the header and assuming the effective filter wavelength (see `self.filter_lbda`)
