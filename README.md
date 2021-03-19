@@ -38,7 +38,8 @@ z.show('dataclean')
 </p>
 
 
-**Alternative loading**: If you don't know the exact path of the ztf file (or if you never downloaded it), use the `from_filenam()` class method to instanciate the image. It will look for the file and download it if necessary. See `ztfquery` for details on how this works. The sciimg only is necessary, it will look itself for the corresponding mskimg. However, you can still force the use of another mskimg (though you should not).
+## Alternative loading, `from_filename()`
+If you don't know the exact path of the ztf file (or if you never downloaded it), use the `from_filename()` class method to instanciate the image. It will look for the file and download it if necessary. See `ztfquery` for details on how this works. The sciimg only is necessary, it will look itself for the corresponding mskimg. However, you can still force the use of another mskimg (though you should not).
 
 ```python
 from ztfimg import image
@@ -63,6 +64,9 @@ z.get_mask( tracks=True, ghosts=True, spillage=True, spikes=True,
             lowresponsivity=True, highresponsivity=True, noisy=True,
             sexsources=False, psfsources=False)
 ```
+
+The `z.get_data()` method provides generic access to any of these attributes (data/mask/background).
+
 
 
 ## Astrometry
