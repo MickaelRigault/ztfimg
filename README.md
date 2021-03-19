@@ -65,6 +65,9 @@ z.get_mask( tracks=True, ghosts=True, spillage=True, spikes=True,
             sexsources=False, psfsources=False)
 ```
 
+The `z.get_data()` method provides generic access to any of these attributes (data/mask/background).
+
+
 
 ## Astrometry
 `ztfimg` uses `astropy.wcs` for loading the WCS solution given the image's header. We use the following definitions:
