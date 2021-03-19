@@ -122,7 +122,10 @@ stamp.show()
 ```
 The stamp is centered on the pixel containing the given coordinates. The actual requested `(x,y)` is shown with the white cross.
 
-![image](examples/StarStamp.png)
+
+<p align="left">
+  <img src="examples/StarStamp.png" width="700" title="hover text">
+</p>
 
 You can also simply do:
 ```python
