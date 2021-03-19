@@ -124,7 +124,7 @@ The stamp is centered on the pixel containing the given coordinates. The actual 
 
 
 <p align="left">
-  <img src="examples/StarStamp.png" width="700" title="hover text">
+  <img src="examples/StarStamp.png" width="350" title="hover text">
 </p>
 
 You can also simply do:
