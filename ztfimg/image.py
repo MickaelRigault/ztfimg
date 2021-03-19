@@ -3,7 +3,6 @@ import pandas
 import numpy as np
 
 from astropy.io import fits
-from astropy.wcs import WCS
 from astropy.nddata import bitmask
 from .io import PS1Calibrators, GaiaCalibrators
 from . import tools
@@ -13,7 +12,9 @@ ZTF_FILTERS = {"ztfg":{"wave_eff":4813.97, "fid":1},
                 }
 
 
-class ZTFImage( object ):
+from .astrometry import WCSHolder
+    
+class ZTFImage( WCSHolder ):
     """ """
     BITMASK_KEY = [ "tracks","sexsources","lowresponsivity","highresponsivity",
                     "noisy","ghosts","spillage","spikes","saturated",
@@ -59,7 +60,8 @@ class ZTFImage( object ):
         """ """
         if header is None:
             header = self.header
-        self._wcs = WCS(header)
+            
+        super().load_wcs(header)
 
     def load_source_background(self, r=5, setit=True, datamasked=None, **kwargs):
         """
@@ -77,7 +79,6 @@ class ZTFImage( object ):
         self._sourcebackground = Background(datamasked.byteswap().newbyteorder())
         if setit:
             self.set_background(self._sourcebackground.back())
-
 
     def load_ps1_calibrators(self, setxy=True):
         """ """
@@ -115,17 +116,17 @@ class ZTFImage( object ):
             raise ValueError("The dataframe must contains either (x,y) coords or (ra,dec) coords")
 
         if "ra" in dataframe.columns and "x" not in dataframe.columns:
-            x,y = self.coords_to_pixels(dataframe["ra"], dataframe["dec"])
+            x,y = self.radec_to_xy(dataframe["ra"], dataframe["dec"])
             dataframe["x"] = x
             dataframe["y"] = y
 
         if "x" in dataframe.columns and "ra" not in dataframe.columns:
-            ra,dec = self.pixels_to_coords(dataframe["x"], dataframe["y"])
+            ra,dec = self.xy_to_radec(dataframe["x"], dataframe["y"])
             dataframe["ra"] = ra
             dataframe["dec"] = dec
 
         if "u" not in dataframe.columns:
-            u, v = self.coords_to_uv(dataframe["ra"], dataframe["dec"])
+            u, v = self.radec_to_uv(dataframe["ra"], dataframe["dec"])
             dataframe["u"] = u
             dataframe["v"] = v
             
@@ -136,8 +137,8 @@ class ZTFImage( object ):
     # -------- #
     def _setxy_to_cat_(self, cat, drop_outside=True, pixelbuffer=10):
         """ """
-        x,y = self.coords_to_pixels(cat["ra"], cat["dec"])
-        u,v = self.coords_to_uv(cat["ra"], cat["dec"])
+        x,y = self.radec_to_xy(cat["ra"], cat["dec"])
+        u,v = self.radec_to_uv(cat["ra"], cat["dec"])
         cat["x"] = x
         cat["y"] = y
         cat["u"] = u
@@ -152,7 +153,7 @@ class ZTFImage( object ):
     def get_ps1_calibrators(self, setxy=True, drop_outside=True, pixelbuffer=10):
         """ """
         # remark: radec is going to be used only the fieldid is not already downloaded.
-        ps1cat = PS1Calibrators(self.rcid, self.fieldid, radec=self.get_center(inpixel=False)).data
+        ps1cat = PS1Calibrators(self.rcid, self.fieldid, radec=self.get_center(system="radec")).data
         
         # Set mag as the current band magnitude
         ps1cat['mag'] = ps1cat["%smag"%self.filtername.split("_")[-1]]
@@ -164,7 +165,7 @@ class ZTFImage( object ):
 
     def get_gaia_calibrators(self, setxy=True, drop_namag=True, drop_outside=True, pixelbuffer=10):
         """ """
-        cat = GaiaCalibrators(self.rcid, self.fieldid, radec=self.get_center(inpixel=False)).data
+        cat = GaiaCalibrators(self.rcid, self.fieldid, radec=self.get_center(system="radec")).data
         
         if drop_namag:
             cat = cat[~pandas.isna(cat[["gmag","rpmag","bpmag"]]).any(axis=1)]
@@ -385,12 +386,18 @@ class ZTFImage( object ):
         if unit in ["mag"]:
             return self.counts_to_mag(counts, counterr)
 
-    def get_center(self, inpixel=True):
+    def get_center(self, system="xy"):
         """ x and y or RA, Dec coordinates of the centroid. (shape[::-1]) """
-        if inpixel:
+        if system in ["xy","pixel","pixels","pxl"]:
             return (np.asarray(self.shape[::-1])+1)/2
+
+        if system in ["uv","tangent"]:
+            return np.squeeze(self.xy_to_uv(*self.get_center(system="xy")) )
         
-        return np.squeeze(self.pixels_to_coords(*self.get_center(inpixel=True)) )
+        if system in ["radec","coords","worlds"]:
+            return np.squeeze(self.xy_to_radec(*self.get_center(system="xy")) )
+
+        raise ValueError(f"cannot parse the given system {system}, use xy, radec or uv")
 
     def get_diagonal(self, inpixel=True):
         """ Get the size of the diagonal [[0,0]->[-1,-1]].
@@ -411,37 +418,15 @@ class ZTFImage( object ):
     # pixel->
     def pixels_to_coords(self, x, y):
         """ get sky ra, dec [in deg] coordinates given the (x,y) ccd positions  """
-        return self.wcs.all_pix2world(np.asarray([np.atleast_1d(x),
-                                                  np.atleast_1d(y)]).T,
-                                      0).T
-    
-    def pixels_to_uv(self, x, y):
-        """ w,y to u, v tangent plane projection (in arcsec from pointing center). 
-        This uses pixels_to_coords->coords_to_uv
-        """
-        ra, dec = self.pixels_to_coords( x, y)
-        return self.coords_to_uv(ra, dec)
+        print("pixels_to_coords is DEPRECATED, use xy_to_radec")
+        return self.xy_to_radec(x, y)
 
     # coords -> 
     def coords_to_pixels(self, ra, dec):
         """ get the (x,y) ccd positions given the sky ra, dec [in deg] corrdinates """
-        return self.wcs.all_world2pix(np.asarray([np.atleast_1d(ra),
-                                                  np.atleast_1d(dec)]).T,
-                                      0).T
+        print("coords_to_pixels is DEPRECATED, use radec_to_xy")
+        return self.radec_to_xy(ra,dec)
     
-    def coords_to_uv(self, ra, dec):
-        """ radec to u, v tangent plane projection (in arcsec from pointing center) """
-        return np.asarray(tools.project([ra, dec], self.pointing))*180/np.pi * 3600
-    
-    # uv -> 
-    def uv_to_pixels(self, u, v):
-        """ get the x, y ccd position given the tangent plane coordinates u, v """
-        ra, dec = self.uv_to_coords(u, v)
-        return self.coords_to_pixels(ra, dec)
-    
-    def uv_to_coords(self, u, v):
-        """ get the ra, dec coordinates given the tangent plane coordinates u, v """
-        return np.asarray(tools.deproject([u, v], self.pointing))*180/np.pi
     #
     # Flux - Counts - Mags
     def counts_to_mag(self, counts, dcounts=None):
@@ -725,19 +710,6 @@ class ZTFImage( object ):
         """ """
         return self.header.get("FILTERID", self.header.get("DBFID", None)) #science vs. ref
 
-    @property
-    def pointing(self):
-        """ requested telescope pointing [in degree] """
-        if not hasattr(self, "_pointing") or self._pointing is None:
-            pra, pdec = self.header.get("RA", None), self.header.get("DEC", None)
-            if pra is None or pdec is None:
-                return None
-            
-            from astropy import coordinates, units
-            sc = coordinates.SkyCoord(pra, pdec, unit=(units.hourangle, units.deg))
-            self._pointing = sc.ra.value, sc.dec.value
-            
-        return self._pointing
     
     
 class ScienceImage( ZTFImage ):

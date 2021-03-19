@@ -11,7 +11,7 @@ MAINTAINER_EMAIL = 'm.rigault@ipnl.in2p3.fr'
 URL = 'https://github.com/MickaelRigault/ztfimg'
 LICENSE = 'BSD (3-clause)'
 DOWNLOAD_URL = 'https://github.com/MickaelRigault/ztfimg'
-VERSION = '0.7.0'
+VERSION = '0.8.0'
 
 try:
     from setuptools import setup, find_packages
@@ -26,6 +26,11 @@ def check_dependencies():
         import sep
     except ImportError:
         install_requires.append('sep')
+
+    try:
+        import ztfquery
+    except ImportError:
+        install_requires.append('ztfquery')
 
     return install_requires
 
