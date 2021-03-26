@@ -1,14 +1,11 @@
 """ WCS Class handler """
 
 import numpy as np
-from astropy.wcs import WCS
+from astropy.wcs import WCS as astropyWCS
 
 from . import tools
 
-
 class WCSHolder( object ):
-    """ """
-
 
     # =============== #
     #  Methods        #
@@ -19,7 +16,7 @@ class WCSHolder( object ):
     def load_wcs(self, header, pointingkey=["RA","DEC"]):
         """ """
         # - wcs
-        self.set_wcs( WCS(header) )
+        self.set_wcs( astropyWCS(header), pointingkey=pointingkey)
         
         # - pointing        
         pra, pdec = header.get(pointingkey[0], None), header.get(pointingkey[1], None)
@@ -30,11 +27,11 @@ class WCSHolder( object ):
         sc = coordinates.SkyCoord(pra, pdec, unit=(units.hourangle, units.deg))
 
         self.set_pointing(sc.ra.value, sc.dec.value)
-
+        
     # --------- #
     #  SETTER   #
     # --------- #
-    def set_wcs(self, wcs):
+    def set_wcs(self, wcs, pointingkey=["RA","DEC"]):
         """ """
         self._wcs = wcs
 
@@ -100,3 +97,85 @@ class WCSHolder( object ):
             return self._pointing
             
         return self._pointing
+
+
+
+class WCS( WCSHolder ):
+    def __init__(self, astropywcs=None, pointing=None):
+        """ load the ztfimg.WCS solution built upon astropy's WCS solution. 
+        = it knows how to convert (x,y), (u,v) and (ra,dec) systems =
+
+        Parameters
+        ----------
+        astropywcs: [astropy.wcs.WCS or None] -optional-
+            astropy wcs solution. 
+
+        pointing: [ [float,float] or None] -optional-
+            pointing RA, Dec coordinates (in deg)
+
+        Returns
+        -------
+        ztfimg.WCS solution
+        """
+        if astropywcs is not None:
+            self.set_wcs( astropywcs )
+        if pointing is not None:
+            self.set_pointing(*pointing)
+
+    @classmethod
+    def from_header(cls, header, pointingkey=["RA","DEC"]):
+        """ load the ztfimg.WCS solution built upon astropy's WCS solution. 
+        given the header information
+        
+        = it knows how to convert (x,y), (u,v) and (ra,dec) systems =
+
+        Parameters
+        ----------
+        header: [header] 
+            header containing the WCS solution keys
+
+        pointing: [strings] -optional-
+            header keys cointaining the RA, DEC position of the telescope pointing.
+
+        Returns
+        -------
+        ztfimg.WCS solution
+        """
+        this = cls()
+        this.load_wcs(header, pointingkey=pointingkey)
+        return this
+    
+    @classmethod
+    def from_filename(cls, filename, pointingkey=["RA","DEC"], suffix=None, **kwargs):
+        """ load the ztfimg.WCS solution built upon astropy's WCS solution. 
+        given the filename information.
+
+        This looks for the header file (or that of the associated suffix) and 
+        calls the from_header() class method
+        
+        = it knows how to convert (x,y), (u,v) and (ra,dec) systems =
+
+        Parameters
+        ----------
+        filename: [string] 
+            name of the file having the header containing the wcs information.
+            (see suffix). This call ztfquery.io.get_file(). It looks for the given 
+            file locally and download it if necessary (see kwargs).
+            
+        suffix: [string or None] -optional-
+            ztfquery.io.get_file() option. It enables to change the suffix of the 
+            given filename. 
+            
+        pointing: [strings] -optional-
+            header keys cointaining the RA, DEC position of the telescope pointing.
+
+        **kwargs goes to ztfquery.io.get_file()
+
+        Returns
+        -------
+        ztfimg.WCS solution
+        """
+        from ztfquery import io
+        header = io.fits.getheader( io.get_file(filename, suffix=suffix, **kwargs) )
+        return cls.from_header(header, pointingkey=pointingkey)
+    
