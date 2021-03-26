@@ -67,7 +67,7 @@ class _CatCalibrator_():
     # -------- #        
     def get_calibrator_file(self):
         """ """
-        return os.path.join( os.path.join(CALIBRATOR_PATH, self._DIR, f"{self.BASENAME}_{self.rcid:02d}.hdf5") )
+        return os.path.join( os.path.join(CALIBRATOR_PATH, self._DIR, f"{self.BASENAME}_rc{self.rcid:02d}.hdf5") )
 
     def get_key(self):
         """ """
