@@ -87,7 +87,7 @@ class WCSHolder( object ):
         """ """
         if not hasattr(self, "_wcs"):
             return None
-        self._wcs
+        return self._wcs
 
     def has_wcs(self):
         """ """
