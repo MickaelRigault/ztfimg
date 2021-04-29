@@ -49,10 +49,10 @@ class WCSHolder( object ):
             return (shape[::-1]+1)/2
 
         if system in ["uv","tangent"]:
-            return np.squeeze(self.xy_to_uv(*self.get_center(system="xy")) )
+            return np.squeeze(self.xy_to_uv(*self.get_centroid(system="xy")) )
         
         if system in ["radec","coords","worlds"]:
-            return np.squeeze(self.xy_to_radec(*self.get_center(system="xy")) )
+            return np.squeeze(self.xy_to_radec(*self.get_centroid(system="xy")) )
     # --------- #
     #  Convert  #
     # --------- #
@@ -111,7 +111,6 @@ class WCSHolder( object ):
             return self._pointing
             
         return self._pointing
-
 
 
 class WCS( WCSHolder ):
