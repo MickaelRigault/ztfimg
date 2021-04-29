@@ -38,7 +38,21 @@ class WCSHolder( object ):
     def set_pointing(self, ra, dec):
         """ """
         self._pointing = ra, dec
+
+    # --------- #
+    #  GETTER   #
+    # --------- #
+    def get_centroid(self, system="xy"):
+        """ x and y or RA, Dec coordinates of the centroid. (shape[::-1]) """
+        shape = np.asarray(self.wcs.pixel_shape)
+        if system in ["xy","pixel","pixels","pxl"]:
+            return (shape[::-1]+1)/2
+
+        if system in ["uv","tangent"]:
+            return np.squeeze(self.xy_to_uv(*self.get_center(system="xy")) )
         
+        if system in ["radec","coords","worlds"]:
+            return np.squeeze(self.xy_to_radec(*self.get_center(system="xy")) )
     # --------- #
     #  Convert  #
     # --------- #
