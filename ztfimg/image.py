@@ -339,7 +339,7 @@ class ZTFImage( WCSHolder ):
 
     def get_aperture(self, x0, y0, radius, bkgann=None, subpix=0,
                          data="dataclean", maskprop={}, noiseprop={},
-                         unit="counts", clean_flagout=True, get_flag=False):
+                         unit="counts", clean_flagout=False, get_flag=False):
         """ Get the Apeture photometry corrected from the background annulus if any.
 
         # Based on sep.sum_circle() #
@@ -365,7 +365,7 @@ class ZTFImage( WCSHolder ):
         clean_flagout: [bool] -optional-
             remove entries that are masked or partially masked
             (remove sum_circle flag!=0)
-            = Careful, this also affects the returned flags = 
+            = Careful, this does not affects the returned flags, len(flag) remains len(x0)=len(y0) = 
             
         get_flag: [bool]  -optional-
             shall this also return the sum_circle flags
@@ -391,7 +391,6 @@ class ZTFImage( WCSHolder ):
                                                         bkgann=bkgann, subpix=subpix)
         if clean_flagout:
             counts, counterr = counts[flag==0], counterr[flag==0]
-            flag = flag[flag==0]
             
         if unit in ["count","counts"]:
             if not get_flag:
