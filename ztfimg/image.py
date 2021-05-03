@@ -339,7 +339,7 @@ class ZTFImage( WCSHolder ):
 
     def get_aperture(self, x0, y0, radius, bkgann=None, subpix=0,
                          data="dataclean", maskprop={}, noiseprop={},
-                         unit="counts"):
+                         unit="counts", clean_flagout=True, get_flag=False):
         """ Get the Apeture photometry corrected from the background annulus if any.
 
         # Based on sep.sum_circle() #
@@ -362,13 +362,23 @@ class ZTFImage( WCSHolder ):
         unit: [string] -optional-
             unit of the output | counts, flux and mag are accepted.
 
+        clean_flagout: [bool] -optional-
+            remove entries that are masked or partially masked
+            (remove sum_circle flag!=0)
+            = Careful, this also affects the returned flags = 
+            
+        get_flag: [bool]  -optional-
+            shall this also return the sum_circle flags
+
         maskprop, noiseprop:[dict] -optional-
             options entering self.get_mask() and self.get_noise() for `mask` and `err`
             attribute of the sep.sum_circle function.
+            
 
         Returns
         -------
         2D array (see unit: (counts, dcounts) | (flux, dflux) | (mag, dmag))
+           + flag (see get_flag option)
         """
         from sep import sum_circle
         if unit not in ["counts","count", "flux", "mag"]:
@@ -379,12 +389,22 @@ class ZTFImage( WCSHolder ):
                                                         err=self.get_noise(**noiseprop),
                                                         mask=self.get_mask(**maskprop),
                                                         bkgann=bkgann, subpix=subpix)
+        if clean_flagout:
+            counts, counterr = counts[flag==0], counterr[flag==0]
+            flag = flag[flag==0]
+            
         if unit in ["count","counts"]:
-            return counts, counterr
+            if not get_flag:
+                return counts, counterr
+            return counts, counterr, flag
         if unit in ["flux"]:
-            return self.counts_to_flux(counts, counterr)
+            if not get_flag:
+                return self.counts_to_flux(counts, counterr)
+            return self.counts_to_flux(counts, counterr), flag
         if unit in ["mag"]:
-            return self.counts_to_mag(counts, counterr)
+            if not get_flag:
+                return self.counts_to_mag(counts, counterr)
+            return self.counts_to_mag(counts, counterr), flag
 
     def get_center(self, system="xy"):
         """ x and y or RA, Dec coordinates of the centroid. (shape[::-1]) """
