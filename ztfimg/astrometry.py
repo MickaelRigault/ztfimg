@@ -108,7 +108,7 @@ class WCSHolder( object ):
     def pointing(self):
         """ requested telescope pointing [in degree] """
         if not hasattr(self, "_pointing"):
-            return self._pointing
+            return None
             
         return self._pointing
 
