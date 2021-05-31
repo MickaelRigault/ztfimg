@@ -15,13 +15,13 @@ CALIBRATOR_PATH = os.path.join(LOCALSOURCE,"calibrator")
 # ========================= #
 class _CatCalibrator_():
     """ """
-    def __init__(self, rcid, fieldid, radec=None, load=True):
+    def __init__(self, rcid, fieldid, radec=None, load=True, **kwargs):
         """ """
         self._rcid = rcid
         self._fieldid = fieldid
         self.set_centroid(radec)
         if load:
-            self.load_data()
+            self.load_data(**kwargs)
 
     # =============== #
     #  Properties     #
@@ -29,14 +29,17 @@ class _CatCalibrator_():
     # -------- #
     #  LOADER  #
     # -------- #
-    def load_data(self, download=True):
+    def load_data(self, download=True, force_dl=False, store=True):
         """ """
-        filename = self.get_calibrator_file()
-        
-        if not os.path.isfile(filename):
+        if not force_dl:
+            filename = self.get_calibrator_file()
+        else:
+            download = True
+            
+        if force_dl or not os.path.isfile(filename):
             if download:
                 warnings.warn("Downloading the data.")
-                self._data = self.download_data(store=True)
+                self._data = self.download_data(store=store)
             else:
                 raise IOError(f"No file named {filename} and download=False")
         else:
@@ -47,7 +50,7 @@ class _CatCalibrator_():
                 warnings.warn(f"KeyError captured: {keyerr}")
                 if download:
                     warnings.warn("Downloading the data.")
-                    self._data = self.download_data(store=True)
+                    self._data = self.download_data(store=store)
                 else:
                     KeyError(f"{keyerr} and download=False")
             

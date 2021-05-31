@@ -163,9 +163,9 @@ class ZTFImage( WCSHolder ):
 
         return ps1cat
 
-    def get_gaia_calibrators(self, setxy=True, drop_namag=True, drop_outside=True, pixelbuffer=10):
+    def get_gaia_calibrators(self, setxy=True, drop_namag=True, drop_outside=True, pixelbuffer=10, **kwargs):
         """ """
-        cat = GaiaCalibrators(self.rcid, self.fieldid, radec=self.get_center(system="radec")).data
+        cat = GaiaCalibrators(self.rcid, self.fieldid, radec=self.get_center(system="radec"), **kwargs).data
         
         if drop_namag:
             cat = cat[~pandas.isna(cat[["gmag","rpmag","bpmag"]]).any(axis=1)]
