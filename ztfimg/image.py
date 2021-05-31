@@ -742,16 +742,18 @@ class ScienceImage( ZTFImage ):
             self.load_mask(maskfile)
 
     @classmethod
-    def from_filename(cls, filename, filenamemask=None, download=True):
+    def from_filename(cls, filename, filenamemask=None, download=True, **kwargs):
         """ 
         Parameters
         ----------
         download: [bool] -optional-
              Downloads the maskfile if necessary.
+
+        **kwargs goes to ztfquery.io.get_file()
         """
         from ztfquery import io
-        sciimgpath = io.get_file(filename, suffix="sciimg.fits", downloadit=download)
-        mskimgpath = io.get_file(filename if filenamemask is None else filenamemask, suffix="mskimg.fits", downloadit=download)
+        sciimgpath = io.get_file(filename, suffix="sciimg.fits", downloadit=download, **kwargs)
+        mskimgpath = io.get_file(filename if filenamemask is None else filenamemask, suffix="mskimg.fits", downloadit=download,**kwargs)
         return cls(sciimgpath, mskimgpath)
         
     # -------- #
