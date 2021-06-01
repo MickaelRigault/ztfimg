@@ -3,6 +3,7 @@ import os
 import warnings
 import pandas
 import numpy as np
+import time
 
 LOCALSOURCE   = os.getenv('ZTFDATA',"./Data/")
 CALIBRATOR_PATH = os.path.join(LOCALSOURCE,"calibrator")
@@ -29,7 +30,7 @@ class _CatCalibrator_():
     # -------- #
     #  LOADER  #
     # -------- #
-    def load_data(self, download=True, force_dl=False, store=True):
+    def load_data(self, download=True, force_dl=False, store=True, dl_wait=None):
         """ """
         if not force_dl:
             filename = self.get_calibrator_file()
@@ -39,7 +40,7 @@ class _CatCalibrator_():
         if force_dl or not os.path.isfile(filename):
             if download:
                 warnings.warn("Downloading the data.")
-                self._data = self.download_data(store=store)
+                self._data = self.download_data(store=store, wait=dl_wait)
             else:
                 raise IOError(f"No file named {filename} and download=False")
         else:
@@ -50,7 +51,7 @@ class _CatCalibrator_():
                 warnings.warn(f"KeyError captured: {keyerr}")
                 if download:
                     warnings.warn("Downloading the data.")
-                    self._data = self.download_data(store=store)
+                    self._data = self.download_data(store=store, wait=dl_wait)
                 else:
                     KeyError(f"{keyerr} and download=False")
             
@@ -118,9 +119,11 @@ class GaiaCalibrators( _CatCalibrator_ ):
     BASENAME = "gaiadr3"
     VIZIER_CAT = "I/350/gaiaedr3"
 
-
-    def download_data(self, store=True, **kwargs):
-        """ """
+    def download_data(self, store=True, wait=None, **kwargs):
+        """ you can ask the code to wait (in sec) before running fetch_vizier_catalog """
+        if wait is not None:
+            time.sleep(wait)
+            
         return self.fetch_vizier_catalog(store=store, **kwargs)
     
     def fetch_vizier_catalog(self, radius= 1, r_unit="deg",

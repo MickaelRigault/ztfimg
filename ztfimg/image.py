@@ -164,7 +164,7 @@ class ZTFImage( WCSHolder ):
         return ps1cat
 
     def get_gaia_calibrators(self, setxy=True, drop_namag=True, drop_outside=True, pixelbuffer=10, **kwargs):
-        """ """
+        """ **kwargs goes to GaiaCalibrators (dl_wait for instance) """
         cat = GaiaCalibrators(self.rcid, self.fieldid, radec=self.get_center(system="radec"), **kwargs).data
         
         if drop_namag:
