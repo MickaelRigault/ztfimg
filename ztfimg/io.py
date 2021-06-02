@@ -9,6 +9,23 @@ LOCALSOURCE   = os.getenv('ZTFDATA',"./Data/")
 CALIBRATOR_PATH = os.path.join(LOCALSOURCE,"calibrator")
 
 
+def secured_to_hdf(df, filename, key, rwait=2):
+    """ """
+    dirname = os.path.dirname(filename)
+    if not os.path.isdir(dirname):
+        os.makedirs(dirname, exist_ok=True)
+
+    try:
+        df.to_hdf(filename, key=key)
+
+    # Unclear what the error is
+    except Exception as e:
+        all_message = " ".join(e.args)
+        if "Resource temporarily unavailable" in all_message:
+            warnings.warn(f" hdf5 file {filename} unavailable ; wait and restart")
+            time.sleep( np.random.uniform(0,rwait) )
+            df.to_hdf(filename, key=key)
+            
 # ========================= #
 #                           #
 #  PS1 Calibrator Stars     #
@@ -198,13 +215,15 @@ class GaiaCalibrators( _CatCalibrator_ ):
         
         dataframe = gaiatable.to_pandas().set_index('Source').rename(mv_columns, axis=1)
         if store:
-            filename = self.get_calibrator_file()
-            os.makedirs(os.path.dirname(filename), exist_ok=True)
-            dataframe.to_hdf(filename, key=self.get_key())
+            secured_to_hdf(dataframe,
+                           filename=self.get_calibrator_file(),
+                           key=self.get_key())
+                    
+                
             
-        return dataframe
-        
-
+        return dataframe    
+    
+    
 class PS1Calibrators( _CatCalibrator_ ):
     _DIR = "ps1"
     BASENAME = "PS1cal_v2"
