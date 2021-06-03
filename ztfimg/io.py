@@ -28,7 +28,7 @@ class _CatCalibrator_():
     #  Properties     #
     # =============== #
     @classmethod
-    def bulk_load_from_files(cls, files, client=None, store=True, **kwargs):
+    def bulk_load_from_files(cls, files, client=None, store=True, force_dl=False, **kwargs):
         """ """
         from astropy.io import fits
         from ztfquery import io
@@ -45,10 +45,11 @@ class _CatCalibrator_():
         return cls.bulk_load_data(rcid,
                                   filedata["field"].values,
                                   radecs=filedata[["ra","dec"]].values,
-                                  client=client, store=store)
+                                  client=client, store=store, force_dl=force_dl)
         
     @classmethod
-    def bulk_load_data(cls, rcid, fieldids, radecs=None, client=None, store=True, **kwargs):
+    def bulk_load_data(cls, rcid, fieldids, radecs=None, client=None, store=True,
+                           force_dl=False, **kwargs):
         """ """
         # fieldids -> fieldid
         fieldid = np.atleast_1d(fieldids)
@@ -69,7 +70,11 @@ class _CatCalibrator_():
         hdf = pandas.HDFStore( this.get_calibrator_file() )
 
         # Are some keys already known ?
-        is_known_key = np.in1d(requested_keys, list(hdf.keys()))
+        if force_dl:
+            is_known_key = np.asarray(np.zeros(len(requested_keys)), dtype="bool")
+        else:
+            is_known_key = np.in1d(requested_keys, list(hdf.keys()))
+            
         if np.all(is_known_key):
             # All already stored works
             return [hdf.get(f) for f in requested_keys]
@@ -77,7 +82,7 @@ class _CatCalibrator_():
         #
         # download the missing ones
         radecs_file = radecs[~is_known_key]
-        print(f"downloading {len(radecs_file)} files")
+        warnings.warn(f"downloading {len(radecs_file)} files")
         future_cats = cls.bulk_download_data(radecs_file, client=client, npartitions=20,
                                                  as_dask="futures")
         dl_cats = client.gather(future_cats)
