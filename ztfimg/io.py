@@ -73,7 +73,7 @@ class _CatCalibrator_():
         if np.all(is_known_key):
             # All already stored works
             return [hdf.get(f) for f in requested_keys]
-
+        
         # local dataframes
         loc_cats = [hdf.get(f) for f in requested_keys[is_known_key]]
         
@@ -83,15 +83,16 @@ class _CatCalibrator_():
 
         # ...and store them if needed
         if store:
-            filename = cls(rcid=rcid, fieldid=None).get_calibrator_file()
             for i, key in enumerate( requested_keys[~is_known_key] ):
-                dl_cats[i].to_hdf(filename, key=key)
+                hdf.put(key, dl_cats[i])
+                
+        hdf.close()
+        # Retry
+        hdf = pandas.HDFStore( this.get_calibrator_file() )
+        return [hdf.get(f) for f in requested_keys]
+        
         #
         # Returns
-        all_cats = []*len(requested_keys)
-        all_cats[ requested_keys[is_known_key]] = loc_cats
-        all_cats[ requested_keys[~is_known_key]] = dl_cats
-        return all_cats
         
             
     @classmethod
