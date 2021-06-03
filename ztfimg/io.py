@@ -28,18 +28,30 @@ class _CatCalibrator_():
     #  Properties     #
     # =============== #
     @classmethod
-    def bulk_download_from_files(cls, files):
+    def bulk_load_from_files(cls, files, client=None, store=True, **kwargs):
         """ """
         from astropy.io import fits
-        radecs = [  [fits.getval(f,"RAD"),fits.getval(f,"DECD")] for f in files]
+        filedata = io.get_filedataframe(files)
         
+        if not filedata["rcid"].nunique() == 1:
+            raise ValueError("Only unique rcid list files has been implemented")
+        else:
+            rcid = filedata["rcid"].unique()[0]
+        
+        filedata["ra"]  = filedata["filename"].apply(lambda f: fits.getval(f, "RAD") )
+        filedata["dec"] = filedata["filename"].apply(lambda f: fits.getval(f, "DECD") )
+
+        return cls.bulk_load_data(rcid,
+                                  filedata["field"].values,
+                                  radecs=filedata[["ra","dec"]].values,
+                                  client=client, store=store)
         
     @classmethod
-    def bulk_load_data(cls, rcid, fieldids, radecs=None, client=None, store=True):
+    def bulk_load_data(cls, rcid, fieldids, radecs=None, client=None, store=True, **kwargs):
         """ """
         # fieldids -> fieldid
         fieldid = np.atleast_1d(fieldids)
-        requested_keys = np.asarray([f"FieldID_{f_}" for f_ in fieldid])
+        requested_keys = np.asarray([f"FieldID_{f_:06d}" for f_ in fieldid])
         
         # radecs -> radec
         if radecs is not None:
