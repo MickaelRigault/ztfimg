@@ -52,7 +52,7 @@ class _CatCalibrator_():
         """ """
         # fieldids -> fieldid
         fieldid = np.atleast_1d(fieldids)
-        requested_keys = np.asarray([f"FieldID_{f_:06d}" for f_ in fieldid])
+        requested_keys = np.asarray([f"/FieldID_{f_:06d}" for f_ in fieldid])
         
         # radecs -> radec
         if radecs is not None:
@@ -78,15 +78,14 @@ class _CatCalibrator_():
         # download the missing ones
         radecs_file = radecs[~is_known_key]
         print(f"downloading {len(radecs_file)} files")
-        future_cats = cls.bulk_download_data(radecs_file, client=client,
-                                                 npartitions = np.min(len(npartitions),20),
+        future_cats = cls.bulk_download_data(radecs_file, client=client, npartitions=20,
                                                  as_dask="futures")
         dl_cats = client.gather(future_cats)
 
         # ...and store them if needed
         if store:
             for i, key in enumerate( requested_keys[~is_known_key] ):
-                hdf.put(key, dl_cats[i])
+                hdf.put(key.replace("/FieldID","FieldID"), dl_cats[i])
                 
         hdf.close()
         # Retry
