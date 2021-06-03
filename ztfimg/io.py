@@ -9,23 +9,6 @@ LOCALSOURCE   = os.getenv('ZTFDATA',"./Data/")
 CALIBRATOR_PATH = os.path.join(LOCALSOURCE,"calibrator")
 
 
-def secured_to_hdf(df, filename, key, rwait=2):
-    """ """
-    dirname = os.path.dirname(filename)
-    if not os.path.isdir(dirname):
-        os.makedirs(dirname, exist_ok=True)
-
-    try:
-        df.to_hdf(filename, key=key)
-
-    # Unclear what the error is
-    except Exception as e:
-        all_message = " ".join(e.args)
-        if "Resource temporarily unavailable" in all_message:
-            warnings.warn(f" hdf5 file {filename} unavailable ; wait and restart")
-            time.sleep( np.random.uniform(0,rwait) )
-            df.to_hdf(filename, key=key)
-            
 # ========================= #
 #                           #
 #  PS1 Calibrator Stars     #
@@ -44,9 +27,50 @@ class _CatCalibrator_():
     # =============== #
     #  Properties     #
     # =============== #
+    @classmethod
+    def bulk_load_data(cls, rcid, fieldids, radecs=None, client=None):
+        """ """
+        # fieldids -> fieldid
+        fieldid = np.atleast_1d(fieldids)
+        requested_keys = [f"FieldID_{f_}" for f_ in fieldid]
+        
+        # radecs -> radec
+        if radecs is not None:
+            radec   = np.atleast_2d(radecs)
+            if len(fieldid) != len(radec):
+                raise ValueError(f"fieldid and radec must have the same size ({len(fieldid)} vs. {len(radec)})")
+        else:
+            radec = None
+
+        # - Build the object
+        this = cls(rcid, fieldid=fieldid, radec=radec, load=False)
+        
+        # Load/create the hdf file
+        hdf = pandas.HDFStore( this.get_calibrator_file() )
+
+        # Are some keys already known ?
+        is_known_key = np.in1d(requested_keys, list(hdf.keys()))
+        if np.all(is_known_key):
+            # All already stored works
+            return [hdf.get(f) for f in requested_keys]
+        
+            
+    @classmethod
+    def bulk_download_data(cls, radecs, client=None, npartitions=10):
+        """ """
+        radecs   = np.atleast_2d(radecs)
+        this = cls(None, None)
+
+#        catalogs = cls.download_catalog
+        
+        
+        
+        
+        
+        
     # -------- #
     #  LOADER  #
-    # -------- #
+    # -------- #        
     def load_data(self, download=True, force_dl=False, store=True, dl_wait=None):
         """ """
         if not force_dl:
@@ -72,7 +96,7 @@ class _CatCalibrator_():
                 else:
                     KeyError(f"{keyerr} and download=False")
             
-    def download_data(self, store=True, **kwargs):
+    def download_data(self, store=True, radec=None, **kwargs):
         """ """
         raise NotImplementedError("You must define the download_data() method")
 
@@ -136,92 +160,66 @@ class GaiaCalibrators( _CatCalibrator_ ):
     BASENAME = "gaiadr3"
     VIZIER_CAT = "I/350/gaiaedr3"
 
-    def download_data(self, store=True, wait=None, **kwargs):
+    def download_data(self, store=True, wait=None, radec=None, **kwargs):
         """ you can ask the code to wait (in sec) before running fetch_vizier_catalog """
-        if wait is not None:
-            time.sleep(wait)
+        if wait is not None: time.sleep(wait)
             
-        return self.fetch_vizier_catalog(store=store, **kwargs)
+        ra, dec = self.get_centroid() if radec is None else radec
+        catdf = self.download_catalog(ra, dec, **kwargs)
+        if store:
+            filename=self.get_calibrator_file()
+            dirname = os.path.dirname(filename)
+            if not os.path.isdir(dirname):
+                os.makedirs(dirname, exist_ok=True)
+
+            catdf.to_hdf(filename, key=self.get_key())
+            
+        return catdf
+
     
-    def fetch_vizier_catalog(self, radius= 1, r_unit="deg",
-                               column_filters={'Gmag': '10..20'},
-                               store=True,
-                               **kwargs):
-        """ query online gaia-catalog in Vizier (I/350/gaiaedr3, eDR3) using astroquery.
-        This function requieres an internet connection.
-        
-        Parameters
-        ----------
-        ra, dec: [float]
-        center of the Catalog [in degree]
-
-        center: [string] 'ra dec'
-        position of the center of the catalog to query.
-        (we use the radec of center of the quadrant)
-        
-        radius: [string] 'value unit'
-        radius of the region to query. For instance '1d' means a
-        1 degree raduis
-        (from the center of the quadrant to the border it is about 0.65 deg)
-
-        extracolumns: [list-of-string] -optional-
-        Add extra column from the V/139 catalog that will be added to
-        the basic query (default: position, ID, object-type, magnitudes)
-        column_filters: [dict] -optional-
-        Selection criterium for the queried catalog.
-        (we have chosen G badn, it coers from 300 to 1000 nm in wavelength)
-
-        **kwargs goes to Catalog.__init__
-
-        Returns
-        -------
-        GAIA Catalog (child of Catalog)
-        """
-        
+    @classmethod
+    def download_catalog(ra, dec, radius=1, r_unit="deg",
+                            columns=None, column_filters={'Gmag': '10..20'}):
+        """ """
         from astroquery import vizier
         from astropy import coordinates, units
-        columns = ["Source","PS1","SDSSDR13",
-                   "RA_ICRS","DE_ICRS",
-                   "Gmag", "e_Gmag","GmagCorr",
-                   "RPmag","e_RPmag",
-                   "BPmag","e_BPmag",
-                   "FG","e_FG","FGCorr",
-                   "FRP","e_FRP", "FBP","e_FBP",
-                   "Plx","e_Plx","PM",
-                   "pmRA","e_pmRA","pmDE","e_pmDE"]
-            
-        # Clean names
-        mv_columns = {c:c.lower() for c in columns}
-        mv_columns["RA_ICRS"]  = "ra"
-        mv_columns["DE_ICRS"]  = "dec"        
-        if "PS1" in columns:
-            mv_columns["PS1"]  = "ps1_id"
-        if "SDSSDR13" in columns:            
-            mv_columns["SDSSDR13"]  ="sdssdr13_id"
-            
-        ra, dec = self.get_centroid()
+
+        if columns is None:
+            columns = ["Source","PS1","SDSSDR13",
+                           "RA_ICRS","DE_ICRS",
+                           "Gmag", "e_Gmag","GmagCorr",
+                           "RPmag","e_RPmag",
+                           "BPmag","e_BPmag",
+                           "FG","e_FG","FGCorr",
+                           "FRP","e_FRP", "FBP","e_FBP",
+                           "Plx","e_Plx","PM",
+                           "pmRA","e_pmRA","pmDE","e_pmDE"]
+            # Clean names
+            mv_columns = {c:c.lower() for c in columns}
+            mv_columns["RA_ICRS"]  = "ra"
+            mv_columns["DE_ICRS"]  = "dec"        
+            if "PS1" in columns:
+                mv_columns["PS1"]  = "ps1_id"
+            if "SDSSDR13" in columns:            
+                mv_columns["SDSSDR13"]  ="sdssdr13_id"
+
         #
-        # - Vizier Query
+        # Downloading
         coord = coordinates.SkyCoord(ra=ra, dec=dec, unit=(units.deg,units.deg))
         angle = coordinates.Angle(radius, r_unit)
         v = vizier.Vizier(columns, column_filters=column_filters)
         v.ROW_LIMIT = -1
         # cache is False is necessary, notably when running in a computing center.
-        gaiatable = v.query_region(coord, radius=angle, catalog=self.VIZIER_CAT,
-                                       cache=False).values()[0]
+        gaiatable = v.query_region(coord, radius=angle, catalog=cls.VIZIER_CAT, cache=False).values()
+        if len(gaiatable)==0:
+            raise IOError(f"cannot query the region {ra}, {dec} of {radius}{r_unit} for {catalog}")
+        else:
+            gaiatable = gaiatable[0]
+        
         gaiatable['colormag'] = gaiatable['BPmag'] - gaiatable['RPmag']
         # - 
         #
-        
-        dataframe = gaiatable.to_pandas().set_index('Source').rename(mv_columns, axis=1)
-        if store:
-            secured_to_hdf(dataframe,
-                           filename=self.get_calibrator_file(),
-                           key=self.get_key())
-                    
-                
-            
-        return dataframe    
+        return gaiatable.to_pandas().set_index('Source').rename(mv_columns, axis=1)
     
     
 class PS1Calibrators( _CatCalibrator_ ):
