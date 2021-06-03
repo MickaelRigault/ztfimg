@@ -28,6 +28,13 @@ class _CatCalibrator_():
     #  Properties     #
     # =============== #
     @classmethod
+    def bulk_download_from_files(cls, files):
+        """ """
+        from astropy.io import fits
+        radecs = [  [fits.getval(f,"RAD"),fits.getval(f,"DECD")] for f in files]
+        
+        
+    @classmethod
     def bulk_load_data(cls, rcid, fieldids, radecs=None, client=None, store=True):
         """ """
         # fieldids -> fieldid
@@ -75,15 +82,19 @@ class _CatCalibrator_():
         
             
     @classmethod
-    def bulk_download_data(cls, radecs, client=None, npartitions=20, as_futures=True):
+    def bulk_download_data(cls, radecs, client=None, npartitions=20, as_dask="delayed"):
         """ """
         from dask import bag
         radecs   = np.atleast_2d(radecs)
 
         dbag = bag.from_sequence(radecs, npartitions=npartitions)
         catalogs = dbag.map( cls.download_catalog )
-        if as_futures:
-            return client.compute(catalogs)
+        if as_dask is not None:
+            if as_dask == "delayed":
+                return catalogs
+            if as_dask == "futures":
+                return client.compute(catalogs)
+            raise ValueError(f"as_dask can only be delayed or future, {as_dask} given")
         
         return catalogs.compute()
             
