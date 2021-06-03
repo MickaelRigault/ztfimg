@@ -74,11 +74,13 @@ class _CatCalibrator_():
             # All already stored works
             return [hdf.get(f) for f in requested_keys]
         
-        # local dataframes
-        loc_cats = [hdf.get(f) for f in requested_keys[is_known_key]]
-        
+        #
         # download the missing ones
-        future_cats = cls.bulk_download_data(radecs[~is_known_key], client=client, as_dask="futures")
+        radecs_file = radecs[~is_known_key]
+        print(f"downloading {len(radecs_file)} files")
+        future_cats = cls.bulk_download_data(radecs_file, client=client,
+                                                 npartitions = np.min(len(npartitions),20),
+                                                 as_dask="futures")
         dl_cats = client.gather(future_cats)
 
         # ...and store them if needed
