@@ -31,6 +31,7 @@ class _CatCalibrator_():
     def bulk_load_from_files(cls, files, client=None, store=True, **kwargs):
         """ """
         from astropy.io import fits
+        from ztfquery import io
         filedata = io.get_filedataframe(files)
         
         if not filedata["rcid"].nunique() == 1:
