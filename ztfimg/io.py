@@ -178,7 +178,7 @@ class GaiaCalibrators( _CatCalibrator_ ):
 
     
     @classmethod
-    def download_catalog(ra, dec, radius=1, r_unit="deg",
+    def download_catalog(cls, ra, dec, radius=1, r_unit="deg",
                             columns=None, column_filters={'Gmag': '10..20'}):
         """ """
         from astroquery import vizier
