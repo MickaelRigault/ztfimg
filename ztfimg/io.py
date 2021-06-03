@@ -28,11 +28,11 @@ class _CatCalibrator_():
     #  Properties     #
     # =============== #
     @classmethod
-    def bulk_load_data(cls, rcid, fieldids, radecs=None, client=None):
+    def bulk_load_data(cls, rcid, fieldids, radecs=None, client=None, store=True):
         """ """
         # fieldids -> fieldid
         fieldid = np.atleast_1d(fieldids)
-        requested_keys = [f"FieldID_{f_}" for f_ in fieldid]
+        requested_keys = np.asarray([f"FieldID_{f_}" for f_ in fieldid])
         
         # radecs -> radec
         if radecs is not None:
@@ -53,18 +53,40 @@ class _CatCalibrator_():
         if np.all(is_known_key):
             # All already stored works
             return [hdf.get(f) for f in requested_keys]
+
+        # local dataframes
+        loc_cats = [hdf.get(f) for f in requested_keys[is_known_key]]
+        
+        # download the missing ones
+        future_cats = cls.bulk_download_data(radecs[~is_known_key], client=client, as_future=True)
+        dl_cats = client.gather(future_cats)
+
+        # ...and store them if needed
+        if store:
+            filename = cls(rcid=rcid, fieldid=None).get_calibrator_file()
+            for i, key in enumerate( requested_keys[~is_known_key] ):
+                dl_cats[i].to_hdf(filename, key=key)
+        #
+        # Returns
+        all_cats = []*len(requested_keys)
+        all_cats[ requested_keys[is_known_key]] = loc_cats
+        all_cats[ requested_keys[~is_known_key]] = dl_cats
+        return all_cats
         
             
     @classmethod
-    def bulk_download_data(cls, radecs, client=None, npartitions=10):
+    def bulk_download_data(cls, radecs, client=None, npartitions=20, as_futures=True):
         """ """
+        from dask import bag
         radecs   = np.atleast_2d(radecs)
-        this = cls(None, None)
 
-#        catalogs = cls.download_catalog
+        dbag = bag.from_sequence(radecs, npartitions=npartitions)
+        catalogs = dbag.map( cls.download_catalog )
+        if as_futures:
+            return client.compute(catalogs)
         
-        
-        
+        return catalogs.compute()
+            
         
         
         
