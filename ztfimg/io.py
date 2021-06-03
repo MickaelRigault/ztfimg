@@ -178,12 +178,14 @@ class GaiaCalibrators( _CatCalibrator_ ):
 
     
     @classmethod
-    def download_catalog(cls, ra, dec, radius=1, r_unit="deg",
+    def download_catalog(cls, radec, radius=1, r_unit="deg",
                             columns=None, column_filters={'Gmag': '10..20'}):
         """ """
         from astroquery import vizier
         from astropy import coordinates, units
-
+        # Check that it's good format
+        ra, dec = np.asarray(radec, dtype="float")
+        
         if columns is None:
             columns = ["Source","PS1","SDSSDR13",
                            "RA_ICRS","DE_ICRS",
