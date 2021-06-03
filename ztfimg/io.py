@@ -65,7 +65,7 @@ class _CatCalibrator_():
         loc_cats = [hdf.get(f) for f in requested_keys[is_known_key]]
         
         # download the missing ones
-        future_cats = cls.bulk_download_data(radecs[~is_known_key], client=client, as_future=True)
+        future_cats = cls.bulk_download_data(radecs[~is_known_key], client=client, as_dask="futures")
         dl_cats = client.gather(future_cats)
 
         # ...and store them if needed
