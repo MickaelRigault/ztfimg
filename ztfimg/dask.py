@@ -56,8 +56,6 @@ class DaskScienceFiles( object ):
     def get_rcid_data(self, rcid):
         """ """
         return self.datafile.query(f"rcid == '{rcid}")
-
-    def get_radec()
     
     # ================= #
     #   Properties      #
