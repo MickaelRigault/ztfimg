@@ -298,12 +298,14 @@ class GaiaCalibrators( _CatCalibrator_ ):
         v = vizier.Vizier(columns, column_filters=column_filters)
         v.ROW_LIMIT = -1
         # cache is False is necessary, notably when running in a computing center.
-        gaiatable = v.query_region(coord, radius=angle, catalog=cls.VIZIER_CAT, cache=False).values()
-        if len(gaiatable)==0:
+        gaiatable = v.query_region(coord, radius=angle, catalog=cls.VIZIER_CAT, cache=False)
+        if gaiatable is None:
             raise IOError(f"cannot query the region {ra}, {dec} of {radius}{r_unit} for {catalog}")
-        else:
-            gaiatable = gaiatable[0]
+        gaiatable = gaiatable.values()
+        if len(gaiatable) == 0:
+            raise IOError(f"querying the region {ra}, {dec} of {radius}{r_unit} for {catalog} returns 0 entries")
         
+        gaiatable = gaiatable[0]
         gaiatable['colormag'] = gaiatable['BPmag'] - gaiatable['RPmag']
         # - 
         #
