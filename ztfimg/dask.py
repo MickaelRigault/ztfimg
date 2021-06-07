@@ -5,43 +5,6 @@ import dask.dataframe as dd
 
 from ztfquery import io
 
-
-class ScienceFileCollection( object ):
-
-    @classmethod
-    def from_datafile(cls, datafile):
-        """ """
-        this = cls()
-        this.set_datafile(datafile)
-
-    def set_datafile(self, datafile, add_radec=True, client=None):
-        """ """
-        self._datafile = datafile
-        if add_radec and "ra" not in datafile:
-            radecs = self.read_radecs(client=client)
-
-    def read_radecs(self, client=None):
-        """ """
-        if client is not None:
-            return pandas.DataFrame(client.gather( client.map( io.read_radec, self.datafile["filename"].values, as_serie=True)))
-        
-        return self.datafile["filename"].apply( io.read_radec, as_serie=True)
-    
-    # =============== #
-    #  Properties     #
-    # =============== #
-    @property
-    def datafile(self):
-        """ """
-        return self._datafile
-
-
-
-class DaskScienceFileCollection( object ):
-
-    @classmethod
-    def read_datafile(cls, filename):
-        """ """
         
     
 
@@ -82,7 +45,7 @@ class DaskScienceFiles( object ):
             
         hdf_prop = {**dict(key=key, format=format),**kwargs}
         if not per_rcid:
-            self.datafile.to_hdf(filename, **)
+            self.datafile.to_hdf(filename, **hdf_prop)
 
         for rcid in range(64):
             dd = self.datafile.query(f"rcid == {rcid}")
