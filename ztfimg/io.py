@@ -195,7 +195,7 @@ class _CatCalibrator_():
         """ """
         return os.path.join( os.path.join(CALIBRATOR_PATH, cls._DIR, f"{cls.BASENAME}_rc{rcid:02d}.hdf5") )
     
-    @classmethof
+    @classmethod
     def open_calibrator_filename(cls, rcid):
         """ """
         return pandas.HDFStore( cls.build_calibrator_filename(rcid) )
