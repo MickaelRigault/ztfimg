@@ -22,7 +22,6 @@ class DaskScienceFiles( object ):
         this = cls(sciimgfiles, persist=True, **kwargs)
         return this.store_to(filesouts, per_rcid=per_rcid, **kwargs)
         
-        
     def set_filenames(self, filenames, npartitions=None, chunksize=10, persist=False, read_radec=True,
                           **kwargs):
         """ """
@@ -58,14 +57,11 @@ class DaskScienceFiles( object ):
             dd = self.datafile.query(f"rcid == {rcid}")
             dd.to_hdf(filename.replace(".h5",f"_rcid{rcid}.h5"), **hdf_prop)
 
-    
-
     def insert_radec(self):
         """ """
         self.datafile[["ra","dec"]] = self.datafile["filename"].apply( io.read_radec, as_serie=True,
                                                                         meta=pandas.DataFrame( columns=["ra","dec"]))
 
-        
     def persist(self):
         """ """
         self._datafile = self._datafile.persist()

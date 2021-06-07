@@ -26,7 +26,28 @@ class _CatCalibrator_():
             self.load_data(**kwargs)
 
     # =============== #
-    #  Properties     #
+    #  Statics        #
+    # =============== #
+    @classmethod
+    def load_catentry(cls, rcid, field, radec=None, **kwargs):
+        """ """
+        hdffilename = cls.build_calibrator_filename(rcid)
+        hdffile = pandas.HDFStore( hdffilename )
+        return cls.load_catentry(hdffile, field, radec=radec, **kwargs)
+    
+    @classmethod
+    def get_catentry(cls, hdf, field, radec=None, store=True **kwargs):
+        """ get or download if necessary """
+        key = f"/FieldID_{field:06d}"
+        if key in list(hdf.keys()):
+            return hdf.get(key)
+
+        cat = cls.download_catalog(radec, radius=1, r_unit="deg", **kwargs)
+        if store: hdf.put(key.replace("/FieldID","FieldID"), cat)
+        return cat
+        
+    # =============== #
+    #  Method         #
     # =============== #
     @classmethod
     def bulk_load_from_files(cls, files, client=None, store=True, force_dl=False, **kwargs):
@@ -167,7 +188,12 @@ class _CatCalibrator_():
     # -------- #        
     def get_calibrator_file(self):
         """ """
-        return os.path.join( os.path.join(CALIBRATOR_PATH, self._DIR, f"{self.BASENAME}_rc{self.rcid:02d}.hdf5") )
+        return self.build_calibrator_filename(self.rcid)
+    
+    @classmethod
+    def build_calibrator_filename(cls, rcid):
+        """ """
+        return os.path.join( os.path.join(CALIBRATOR_PATH, cls._DIR, f"{cls.BASENAME}_rc{self.rcid:02d}.hdf5") )
 
     def get_key(self):
         """ """
