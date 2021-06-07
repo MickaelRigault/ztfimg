@@ -11,10 +11,17 @@ from ztfquery import io
 class DaskScienceFiles( object ):
 
     _TO_STORED = ["rcid"]
-    
+
     def __init__(self, filenames, **kwargs):
         """ """
         self.set_filenames(filenames, **kwargs)
+
+    @classmethod
+    def sciimgfiles_to_datafiles(cls, sciimgfiles, fileout,per_rcid=True, **kwargs):
+        """ """
+        this = cls(sciimgfiles, persist=True, **kwargs)
+        return this.store_to(filesouts, per_rcid=per_rcid, **kwargs)
+        
         
     def set_filenames(self, filenames, npartitions=None, chunksize=10, persist=False, read_radec=True,
                           **kwargs):
