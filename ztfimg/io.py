@@ -36,7 +36,7 @@ class _CatCalibrator_():
         return cls.load_catentry(hdffile, field, radec=radec, **kwargs)
     
     @classmethod
-    def get_catentry(cls, hdf, field, radec=None, store=True **kwargs):
+    def get_catentry(cls, hdf, field, radec=None, store=True, **kwargs):
         """ get or download if necessary """
         key = f"/FieldID_{field:06d}"
         if key in list(hdf.keys()):
