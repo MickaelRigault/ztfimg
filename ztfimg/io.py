@@ -89,7 +89,7 @@ class _CatCalibrator_():
         this = cls(rcid, fieldid=fieldid, radec=radec, load=False)
         
         # Load/create the hdf file
-        hdf = pandas.HDFStore( this.get_calibrator_file() )
+        hdf = pandas.HDFStore( this.get_calibrator_filename() )
 
         # Are some keys already known ?
         if force_dl:
@@ -117,7 +117,7 @@ class _CatCalibrator_():
                 
         hdf.close()
         # Retry
-        hdf = pandas.HDFStore( this.get_calibrator_file() )
+        hdf = pandas.HDFStore( this.get_calibrator_filename() )
         return [hdf.get(f) for f in requested_keys]
         
         #
@@ -150,7 +150,7 @@ class _CatCalibrator_():
     def load_data(self, download=True, force_dl=False, store=True, dl_wait=None):
         """ """
         if not force_dl:
-            filename = self.get_calibrator_file()
+            filename = self.get_calibrator_filename()
         else:
             download = True
             
@@ -186,14 +186,19 @@ class _CatCalibrator_():
     # -------- #
     #  GETTER  #
     # -------- #        
-    def get_calibrator_file(self):
+    def get_calibrator_filename(self):
         """ """
         return self.build_calibrator_filename(self.rcid)
     
     @classmethod
     def build_calibrator_filename(cls, rcid):
         """ """
-        return os.path.join( os.path.join(CALIBRATOR_PATH, cls._DIR, f"{cls.BASENAME}_rc{self.rcid:02d}.hdf5") )
+        return os.path.join( os.path.join(CALIBRATOR_PATH, cls._DIR, f"{cls.BASENAME}_rc{rcid:02d}.hdf5") )
+    
+    @classmethof
+    def open_calibrator_filename(cls, rcid):
+        """ """
+        return pandas.HDFStore( cls.build_calibrator_filename(rcid) )
 
     def get_key(self):
         """ """
@@ -248,7 +253,7 @@ class GaiaCalibrators( _CatCalibrator_ ):
         ra, dec = self.get_centroid() if radec is None else radec
         catdf = self.download_catalog(ra, dec, **kwargs)
         if store:
-            filename=self.get_calibrator_file()
+            filename=self.get_calibrator_filename()
             dirname = os.path.dirname(filename)
             if not os.path.isdir(dirname):
                 os.makedirs(dirname, exist_ok=True)
@@ -312,6 +317,6 @@ class PS1Calibrators( _CatCalibrator_ ):
     def load_data(self):
         """ """
         import h5py
-        hf = h5py.File(self.get_calibrator_file(), "r")
+        hf = h5py.File(self.get_calibrator_filename(), "r")
         self._data = pandas.DataFrame( hf.get(self.get_key())[()] )
         hf.close()
