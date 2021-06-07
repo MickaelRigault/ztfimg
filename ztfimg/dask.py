@@ -39,7 +39,7 @@ class DaskScienceFiles( object ):
 
     def reset(self):
         """ """
-        for k in _TO_STORED:
+        for k in self._TO_STORED:
             setattr(self,f"_{k}",None)
         
 
