@@ -9,6 +9,7 @@ LOCALSOURCE   = os.getenv('ZTFDATA',"./Data/")
 CALIBRATOR_PATH = os.path.join(LOCALSOURCE,"calibrator")
 
 
+
 # ========================= #
 #                           #
 #  PS1 Calibrator Stars     #
@@ -71,6 +72,7 @@ class _CatCalibrator_():
 
         # Are some keys already known ?
         if force_dl:
+            warnings.warn(f"force downloading")
             is_known_key = np.asarray(np.zeros(len(requested_keys)), dtype="bool")
         else:
             is_known_key = np.in1d(requested_keys, list(hdf.keys()))
