@@ -5,15 +5,14 @@ import dask.dataframe as dd
 
 from ztfquery import io
 
-
 class DaskScienceFiles( object ):
 
     _TO_STORED = ["rcid"]
+    
     def __init__(self, filenames, **kwargs):
         """ """
         self.set_filenames(filenames, **kwargs)
-        
-    def set_filenames(self, filenames, npartitions=None, chunksize=10, persist=False, suffix=None, **kwargs):
+    def set_filenames(self, filenames, npartitions=None, chunksize=10, persist=False, **kwargs):
         """ """
         # 
         ddfile = dd.from_pandas(pandas.DataFrame(filenames, columns=["filename"]),
@@ -22,10 +21,8 @@ class DaskScienceFiles( object ):
         # compute head for structuring
         dhead = ddfile.head(n=1)["filename"].apply(io.parse_filename)
         dbase = ddfile["filename"].apply(io.parse_filename, meta=dhead, as_serie=True)
-        if suffix is None:
-            dbase["filename"] = ddfile["filename"]
-        else:
-            dbase["filename"]  = ddfile["filename"].apply( io.get_file, suffix=suffix, **kwargs)
+        
+        dbase["filename"] = ddfile["filename"]
         
         self._datafile = dbase
         if persist:
@@ -45,7 +42,6 @@ class DaskScienceFiles( object ):
         """ """
         for k in self._TO_STORED:
             setattr(self,f"_{k}",None)
-        
 
     # ------- #
     #  GETTER #
