@@ -37,6 +37,10 @@ class DaskScienceFiles( object ):
         """ """
         self._datafile = self._datafile.persist()
 
+    def compute(self):
+        """ """
+        self._datafile = self.datafile.compute()
+        
     def reset(self):
         """ """
         for k in self._TO_STORED:
