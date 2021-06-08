@@ -71,8 +71,10 @@ class _CatCalibrator_():
 
     @classmethod
     def bulk_build_calibratorfile(cls, rcid, fieldids, radecs=None, client=None,
-                                      force_dl=False, **kwargs):
+                                      force_dl=False, allow_loop=True, **kwargs):
         """ """
+        import dask
+        
         fieldid = np.atleast_1d(fieldids)
         requested_keys = np.asarray([f"/FieldID_{f_:06d}" for f_ in fieldid])
         # radecs -> radec
@@ -110,6 +112,9 @@ class _CatCalibrator_():
             hdf.put(key.replace("/FieldID","FieldID"), fkey.result())
 
         hdf.close()
+        if allow_loop:
+            return cls.bulk_build_calibratorfile(rcid, fieldids, radecs=radecs, client=client,
+                                                     force_dl=False, allow_loop=False, **kwargs)
         return None
         
         
