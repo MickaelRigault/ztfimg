@@ -3,9 +3,9 @@
 import pandas
 import dask.dataframe as dd
 
-from ztfquery import io
+from ztfquery import io as zio
 
-        
+from .astrometry import read_radec
     
 
 class DaskScienceFiles( object ):
@@ -20,9 +20,9 @@ class DaskScienceFiles( object ):
     def sciimgfiles_to_datafiles(cls, sciimgfiles, fileout,per_rcid=True, **kwargs):
         """ """
         this = cls(sciimgfiles, persist=True, **kwargs)
-        return this.store_to(filesouts, per_rcid=per_rcid, **kwargs)
+        return this.store_to(filesout, per_rcid=per_rcid, **kwargs)
         
-    def set_filenames(self, filenames, npartitions=None, chunksize=10, persist=False, read_radec=True,
+    def set_filenames(self, filenames, npartitions=None, chunksize=10, persist=False, insert_radec=True,
                           **kwargs):
         """ """
         # 
@@ -30,13 +30,13 @@ class DaskScienceFiles( object ):
                                     npartitions=npartitions, chunksize=chunksize)
         
         # compute head for structuring
-        dhead = ddfile.head(n=1)["filename"].apply(io.parse_filename)
-        dbase = ddfile["filename"].apply(io.parse_filename, meta=dhead, as_serie=True)
+        dhead = ddfile.head(n=1)["filename"].apply(zio.parse_filename)
+        dbase = ddfile["filename"].apply(zio.parse_filename, meta=dhead, as_serie=True)
         
         dbase["filename"] = ddfile["filename"]
         self._datafile = dbase
 
-        if read_radec:
+        if insert_radec:
             self.insert_radec()
             
         if persist:
@@ -59,8 +59,9 @@ class DaskScienceFiles( object ):
 
     def insert_radec(self):
         """ """
-        self.datafile[["ra","dec"]] = self.datafile["filename"].apply( io.read_radec, as_serie=True,
-                                                                        meta=pandas.DataFrame( columns=["ra","dec"]))
+        self.datafile[["ra","dec"]] = self.datafile["filename"].apply( read_radec, as_serie=True,
+                                                                        meta=pandas.DataFrame( columns=["ra","dec"])
+                                                                    )
 
     def persist(self):
         """ """

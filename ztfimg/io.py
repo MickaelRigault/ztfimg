@@ -85,7 +85,6 @@ class _CatCalibrator_():
         else:
             radec = None
 
-
         # - Build the object
         # Load/create the hdf file
         hdf =  cls.open_calibrator_filename(rcid)
@@ -189,9 +188,6 @@ class _CatCalibrator_():
             raise ValueError(f"as_dask can only be delayed or future, {as_dask} given")
         
         return catalogs.compute()
-            
-        
-        
         
     # -------- #
     #  LOADER  #
