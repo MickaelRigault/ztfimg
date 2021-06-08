@@ -68,6 +68,51 @@ class _CatCalibrator_():
                                   filedata["field"].values,
                                   radecs=filedata[["ra","dec"]].values,
                                   client=client, store=store, force_dl=force_dl)
+
+    @classmethod
+    def bulk_build_calibratorfile(cls, rcid, fieldids, radecs=None, client=None,
+                                      force_dl=False, **kwargs):
+        """ """
+        fieldid = np.atleast_1d(fieldids)
+        requested_keys = np.asarray([f"/FieldID_{f_:06d}" for f_ in fieldid])
+        # radecs -> radec
+        if radecs is not None:
+            radec   = np.atleast_2d(radecs)
+            if len(fieldid) != len(radec):
+                raise ValueError(f"fieldid and radec must have the same size ({len(fieldid)} vs. {len(radec)})")
+        else:
+            radec = None
+
+
+        # - Build the object
+        # Load/create the hdf file
+        hdf =  cls.open_calibrator_filename(rcid)
+
+        # Are some keys already known ?
+        if force_dl:
+            warnings.warn(f"force downloading")
+            is_known_key = np.asarray(np.zeros(len(requested_keys)), dtype="bool")
+        else:
+            is_known_key = np.in1d(requested_keys, list(hdf.keys()))
+            
+        if np.all(is_known_key):
+            return None # Done already
+
+        # 
+        fieldid = fieldid[~is_known_key]
+        keys    = requested_keys[~is_known_key]
+        radec   = radec[~is_known_key]
+        warnings.warn(f"downloading {len(keys)} entries")
+        future_cats = client.map(cls.download_catalog, radec)
+        finished_cat,*_ = dask.distributed.wait(future_cats)
+        
+        for key, fkey in zip(keys, finished_cat):
+            hdf.put(key.replace("/FieldID","FieldID"), fkey.result())
+
+        hdf.close()
+        return None
+        
+        
         
     @classmethod
     def bulk_load_data(cls, rcid, fieldids, radecs=None, client=None, store=True,
@@ -86,10 +131,8 @@ class _CatCalibrator_():
             radec = None
 
         # - Build the object
-        this = cls(rcid, fieldid=fieldid, radec=radec, load=False)
-        
         # Load/create the hdf file
-        hdf = pandas.HDFStore( this.get_calibrator_filename() )
+        hdf =  cls.open_calibrator_filename(rcid)
 
         # Are some keys already known ?
         if force_dl:
