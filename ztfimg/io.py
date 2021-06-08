@@ -105,16 +105,16 @@ class _CatCalibrator_():
         keys    = requested_keys[~is_known_key]
         radec   = radec[~is_known_key]
         warnings.warn(f"downloading {len(keys)} entries")
-        future_cats = client.map(cls.download_catalog, radec)
-        finished_cat,*_ = dask.distributed.wait(future_cats)
-        
-        for key, fkey in zip(keys, finished_cat):
-            hdf.put(key.replace("/FieldID","FieldID"), fkey.result())
 
+        fouts = []
+        for key_, radec_ in zip(keys, radec):
+            cat = dask.delayed(cls.download_catalog)(radec_)
+            fout = dask.delayed(hdf.put)(key.replace("/FieldID","FieldID"), cat)
+            fouts.append(fout)
+
+        done_ = client.compute(fout)
+        _ = dask.distributed.wait(done_)
         hdf.close()
-        if allow_loop:
-            return cls.bulk_build_calibratorfile(rcid, fieldids, radecs=radecs, client=client,
-                                                     force_dl=False, allow_loop=False, **kwargs)
         return None
         
         
