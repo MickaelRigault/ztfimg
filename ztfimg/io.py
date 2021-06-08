@@ -109,7 +109,7 @@ class _CatCalibrator_():
         fouts = []
         for key_, radec_ in zip(keys, radec):
             cat = dask.delayed(cls.download_catalog)(radec_)
-            fout = dask.delayed(hdf.put)(key.replace("/FieldID","FieldID"), cat)
+            fout = dask.delayed(hdf.put)(key_.replace("/FieldID","FieldID"), cat)
             fouts.append(fout)
 
         done_ = client.compute(fout)
