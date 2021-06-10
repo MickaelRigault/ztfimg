@@ -2,7 +2,7 @@
 
 import numpy as np
 from astropy.wcs import WCS as astropyWCS
-
+import pandas
 from . import tools
 
 
