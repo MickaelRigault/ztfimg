@@ -15,11 +15,15 @@ def stamp_it( array, x0, y0, dx, dy=None, asarray=False):
         dy = dx
 
     if len(np.atleast_1d(x0))>1:
+        x0, y0 = np.asarray(x0), np.asarray(y0)
+        
         if not asarray:
             raise NotImplementedError("for multiple x0,y0, only asarray=True implemented. Loop over stamp_it() with single.")
+        
         if len(x0) != len(y0):
             raise ValueError(f"x0 and y0 must have the same size ({len(x0)} and {len(y0)} given, respectively).")
         shapearr = np.shape(array)
+        
         allstamps = np.ones( (len(x0), dy, dx)) * np.NaN
         flagout = (x0-dx/2+0.5<0) | (y0-dy/2+0.5<0) | \
                   (y0+dy/2+0.5>shapearr[0]) | (x0+dx/2+0.5>shapearr[1])

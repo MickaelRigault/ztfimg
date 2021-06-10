@@ -10,6 +10,7 @@ from . import tools
 def read_radec(filename, ext=0, as_serie=False):
     """ """
     ra, dec = WCS.from_filename(filename).get_centroid("radec")
+
     if as_serie:
         return pandas.Series([ra,dec], index=["ra","dec"])
     

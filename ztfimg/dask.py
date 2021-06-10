@@ -17,10 +17,10 @@ class DaskScienceFiles( object ):
         self.set_filenames(filenames, **kwargs)
 
     @classmethod
-    def sciimgfiles_to_datafiles(cls, sciimgfiles, fileout,per_rcid=True, **kwargs):
+    def sciimgfiles_to_datafiles(cls, sciimgfiles, fileout, per_rcid=True, **kwargs):
         """ """
         this = cls(sciimgfiles, persist=True, **kwargs)
-        return this.store_to(filesout, per_rcid=per_rcid, **kwargs)
+        return this.store_to(fileout, per_rcid=per_rcid, **kwargs)
         
     def set_filenames(self, filenames, npartitions=None, chunksize=10, persist=False, insert_radec=True,
                           **kwargs):
