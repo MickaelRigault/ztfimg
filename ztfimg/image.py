@@ -150,10 +150,10 @@ class ZTFImage( WCSHolder ):
                       cat["y"].between(-pixelbuffer, ymax+pixelbuffer)]
         return cat
     
-    def get_ps1_calibrators(self, setxy=True, drop_outside=True, pixelbuffer=10):
+    def get_ps1_calibrators(self, setxy=True, drop_outside=True, pixelbuffer=10, **kwargs):
         """ """
         # remark: radec is going to be used only the fieldid is not already downloaded.
-        ps1cat = PS1Calibrators(self.rcid, self.fieldid, radec=self.get_center(system="radec")).data
+        ps1cat = PS1Calibrators.fetch_data(self.rcid, self.fieldid, radec=self.get_center(system="radec"), **kwargs)
         
         # Set mag as the current band magnitude
         ps1cat['mag'] = ps1cat["%smag"%self.filtername[-1]]
@@ -165,7 +165,7 @@ class ZTFImage( WCSHolder ):
 
     def get_gaia_calibrators(self, setxy=True, drop_namag=True, drop_outside=True, pixelbuffer=10, **kwargs):
         """ **kwargs goes to GaiaCalibrators (dl_wait for instance) """
-        cat = GaiaCalibrators(self.rcid, self.fieldid, radec=self.get_center(system="radec"), **kwargs).data
+        cat = GaiaCalibrators.fetch_data(self.rcid, self.fieldid, radec=self.get_center(system="radec"), **kwargs)
         
         if drop_namag:
             cat = cat[~pandas.isna(cat[["gmag","rpmag","bpmag"]]).any(axis=1)]
