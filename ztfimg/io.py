@@ -118,7 +118,7 @@ class _CatCalibrator_( object ):
             indexes = np.array_split(indexes, npartitions)
             
         # Cannot use bag directly for the code needs 3 inputs
-        catalogs = [delayed(cls.fetch_data)(rcid[index_], field[index_], radec[index_], **kwargs)  
+        catalogs = [delayed(cls.fetch_data)(rcid[index_], field[index_], radec[index_], squeeze=False, **kwargs)  
                         for index_ in indexes]
         
         if as_dask is not None:
@@ -131,7 +131,9 @@ class _CatCalibrator_( object ):
             raise ValueError(f"as_dask can only be delayed or future, {as_dask} given")
         
         cdata = client.gather(client.compute(catalogs))
-        return np.concatenate( np.asarray(cdata, dtype='object'))
+
+        import itertools
+        return list(itertools.chain(*cdata))
         
         
     @classmethod
