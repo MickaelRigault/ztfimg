@@ -1,6 +1,30 @@
 import numpy as np
 from astropy import constants
 
+
+
+def fit_polynome(x, y, degree, variance=None):
+    """ """
+    from scipy.optimize import fmin
+    from scipy.special import orthogonal
+    xdata = (x-np.min(x))/(np.max(x)-np.min(x))*2-1.
+    basemodel = np.asarray([orthogonal.legendre(i)(xdata) for i in range(degree)])
+    
+    def get_model( parameters ):
+        """ """
+        return np.dot(basemodel.T, parameters.T).T
+    def get_chi2( parameters ):
+        res = (y - get_model(parameters) )**2
+        if variance is not None:
+            res /= variance
+            
+        return np.sum(res)
+        
+    guess = np.zeros(degree)
+    guess[0] = np.median(y)
+    param = fmin(get_chi2, guess, disp=0)
+    return get_model(param)
+
 # --------------------------- #
 # - Conversion Tools        - #
 # --------------------------- #
