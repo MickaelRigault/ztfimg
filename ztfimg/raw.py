@@ -8,7 +8,7 @@ from .tools import fit_polynome, rebin_arr, parse_vmin_vmax
 
 class _RawImage_( object ):
     """ """
-    def __init__(self, dasked=False):
+    def __init__(self, dasked=True):
         """ """
         self._use_dask = dasked
         
@@ -328,12 +328,12 @@ class RawCCD( _RawImage_ ):
         self.load_file(filename, **kwargs)
         
     @classmethod
-    def from_filename(cls, filename, **kwargs):
+    def from_filename(cls, filename, dasked=True, **kwargs):
         """ """
-        return cls(filename, **kwargs)
+        return cls(filename, dasked=dasked, **kwargs)
 
     @classmethod
-    def from_filefracday(cls, filefracday, ccdid, **kwargs):
+    def from_filefracday(cls, filefracday, ccdid, dasked=True, **kwargs):
         """ """
         from ztfquery.io import filefracday_to_local_rawdata
         filename = filefracday_to_local_rawdata(filefracday, ccdid=ccdid)
@@ -342,7 +342,7 @@ class RawCCD( _RawImage_ ):
         if len(filename)>1:
             raise IOError(f"Very strange: several local raw data found for filefracday: {filefracday} and ccdid: {ccdid}", filename)
         
-        return cls.from_filename(filename[0], **kwargs)
+        return cls.from_filename(filename[0], dasked=dasked, **kwargs)
         
     # =============== #
     #   Methods       #
@@ -519,8 +519,9 @@ class RawFocalPlane( _RawImage_):
     @classmethod
     def from_filenames(cls, ccd_filenames, dasked=True, **kwargs):
         """ """
+        print(f"dasked: {dasked}")
         this = cls(dasked=dasked)
-        
+        print(this._use_dask)
         for file_ in ccd_filenames:
             ccd_ = RawCCD.from_filename(file_, dasked=dasked, **kwargs)
             this.set_ccd(ccd_, ccdid=ccd_.ccdid)
