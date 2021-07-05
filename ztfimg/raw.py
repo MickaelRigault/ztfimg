@@ -2,7 +2,7 @@ from astropy.io import fits
 import numpy as np
 import dask
 import dask.array as da
-from .tools import fit_polynome
+from .tools import fit_polynome, rebin_arr, parse_vmin_vmax
 
 
 class _RawImage_( object ):
