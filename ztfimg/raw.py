@@ -1,5 +1,6 @@
 from astropy.io import fits
 import numpy as np
+import warnings
 import dask
 import dask.array as da
 from .tools import fit_polynome, rebin_arr, parse_vmin_vmax
@@ -331,6 +332,18 @@ class RawCCD( _RawImage_ ):
         """ """
         return cls(filename, **kwargs)
 
+    @classmethod
+    def from_filefracday(cls, filefracday, ccdid, **kwargs):
+        """ """
+        from ztfquery.io import filefracday_to_local_rawdata
+        filename = filefracday_to_local_rawdata(filefracday, ccdid=ccdid)
+        if len(filename)==0:
+            raise IOError(f"No local raw data found for filefracday: {filefracday} and ccdid: {ccdid}")
+        if len(filename)>1:
+            raise IOError(f"Very strange: several local raw data found for filefracday: {filefracday} and ccdid: {ccdid}", filename)
+        
+        return cls.from_filename(filename[0], **kwargs)
+        
     # =============== #
     #   Methods       #
     # =============== #
@@ -513,6 +526,22 @@ class RawFocalPlane( _RawImage_):
             this.set_ccd(ccd_, ccdid=ccd_.ccdid)
             
         return this
+
+    @classmethod
+    def from_filefracday(cls, filefracday, dasked=True, **kwargs):
+        """ """
+        from ztfquery.io import filefracday_to_local_rawdata
+        filenames = filefracday_to_local_rawdata(filefracday, ccdid="*")
+        if len(filenames)==0:
+            raise IOError(f"No local raw data found for filefracday: {filefracday}")
+        
+        if len(filenames)>16:
+            raise IOError(f"Very strange: more than 16 local raw data found for filefracday: {filefracday}", filename)
+        
+        if len(filenames)<16:
+            warnings.warn(f"Less than 16 local raw data found for filefracday: {filefracday}")
+        
+        return cls.from_filenames(filenames, dasked=dasked, **kwargs)
             
     # =============== #
     #   Methods       #
