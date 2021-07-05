@@ -597,8 +597,9 @@ class RawFocalPlane( _RawImage_):
         return getattr(np, logic)(is_none)
 
     @property
-    def mosaicshape(self):
+    def shape_full(self):
         """ shape with gap"""
+        print("gap missing")
         return self.ccdshape*4 
     
     @property
@@ -609,11 +610,11 @@ class RawFocalPlane( _RawImage_):
     @property
     def ccdshape(self):
         """ """
-        return np.asarray(qshape)*2
+        return self.qshape*2
 
     @property
     def qshape(self):
         """ """
-        return 3080, 3072
+        return np.asarray(3080, 3072)
     
         
