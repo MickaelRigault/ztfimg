@@ -1,6 +1,6 @@
 import numpy as np
 from astropy import constants
-
+import dask.array as da
 
 def fit_polynome(x, y, degree, variance=None):
     """ """
