@@ -615,6 +615,6 @@ class RawFocalPlane( _RawImage_):
     @property
     def qshape(self):
         """ """
-        return np.asarray(3080, 3072)
+        return np.asarray([3080, 3072])
     
         
