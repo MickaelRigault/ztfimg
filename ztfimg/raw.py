@@ -87,7 +87,7 @@ class RawQuadrant( _RawImage_ ):
         self.setup(data=data, header=header, overscan=overscan)
         
     @classmethod
-    def from_filename(cls, filename, qid, grab_imgkeys=True, **kwargs):
+    def from_filename(cls, filename, qid, grab_imgkeys=True, dasked=True, **kwargs):
         """ """
         if qid not in [1,2,3,4]:
             raise ValueError(f"qid must be 1,2, 3 or 4 {qid} given")
@@ -112,7 +112,7 @@ class RawQuadrant( _RawImage_ ):
             print("switching overscan")
             overscan = overscan[:,::-1]
             
-        return cls(data, header=header,overscan=overscan, **kwargs)
+        return cls(data, header=header,overscan=overscan, dasked=dasked, **kwargs)
 
     # -------- #
     #  SETTER  #
@@ -394,12 +394,13 @@ class RawCCD( _RawImage_ ):
         """ """
         return self.quadrants[qid]
     
-    def get_data(self, corr_overscan=True, corr_gain=True, 
+    def get_data(self, corr_overscan=True, corr_gain=True, corr_nl=True,
                 rebin=None, npstat="mean"):
-        """ """
+        """ ccd data
+        """
         ccd = np.zeros(self.shape)
         which = "data" if corr_gain else "raw"
-        prop_qdata = dict(which=which, corr_gain=corr_gain)
+        prop_qdata = dict(which=which, corr_gain=corr_gain, corr_nl=corr_nl)
         
         if self._use_dask:
             d = [da.from_delayed(self.get_quadrant(i).get_data(**prop_qdata),
@@ -519,9 +520,7 @@ class RawFocalPlane( _RawImage_):
     @classmethod
     def from_filenames(cls, ccd_filenames, dasked=True, **kwargs):
         """ """
-        print(f"dasked: {dasked}")
         this = cls(dasked=dasked)
-        print(this._use_dask)
         for file_ in ccd_filenames:
             ccd_ = RawCCD.from_filename(file_, dasked=dasked, **kwargs)
             this.set_ccd(ccd_, ccdid=ccd_.ccdid)
@@ -596,3 +595,25 @@ class RawFocalPlane( _RawImage_):
         """ """
         is_none = [v is not None for v in self.ccds.values()]
         return getattr(np, logic)(is_none)
+
+    @property
+    def mosaicshape(self):
+        """ shape with gap"""
+        return self.ccdshape*4 
+    
+    @property
+    def shape(self):
+        """ shape without gap"""
+        return self.ccdshape*4
+    
+    @property
+    def ccdshape(self):
+        """ """
+        return np.asarray(qshape)*2
+
+    @property
+    def qshape(self):
+        """ """
+        return 3080, 3072
+    
+        
