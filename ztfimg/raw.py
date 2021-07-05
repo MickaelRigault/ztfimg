@@ -134,7 +134,7 @@ class RawQuadrant( _RawImage_ ):
     # -------- #
     # GETTER   #
     # -------- #
-    def get_data(self, which="data", overscanprop={}, corr_gain=False):
+    def get_data(self, which="data", overscanprop={}, corr_gain=False, corr_nl=False):
         """ 
         
         Parameters
@@ -163,6 +163,9 @@ class RawQuadrant( _RawImage_ ):
             
         if corr_gain:
             data_ *=self.gain
+
+        #if corr_nl:
+            #data_ *=
             
         return data_
 
@@ -384,7 +387,6 @@ class RawCCD( _RawImage_ ):
         ccd = np.zeros(self.shape)
         which = "data" if corr_gain else "raw"
         prop_qdata = dict(which=which, corr_gain=corr_gain)
-        
         
         if self._use_dask:
             d = [da.from_delayed(self.get_quadrant(i).get_data(**prop_qdata),

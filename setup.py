@@ -59,7 +59,7 @@ if __name__ == "__main__":
           download_url=DOWNLOAD_URL,
           install_requires=install_requires,
           packages=packages,
-          #package_data={"zogytf":["config/*"]},#, 'data/*'
+          package_data={"ztfimg":["data/*"]},#, 'data/*'
           classifiers=[
               'Intended Audience :: Science/Research',
               'Programming Language :: Python :: 3.6',
