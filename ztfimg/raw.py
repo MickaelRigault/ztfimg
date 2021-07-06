@@ -1,5 +1,6 @@
 from astropy.io import fits
 import numpy as np
+import pandas
 import warnings
 import dask
 import dask.array as da
@@ -131,7 +132,7 @@ class RawQuadrant( _RawImage_ ):
         if "_f.fits" in filename:
             imgkeys += ["ILUM_LED", "ILUMWAVE", "ILUMPOWR"]
 
-        header    = fits.getheader(filename, ext=qid)
+        header  = fits.getheader(filename, ext=qid)
         if grab_imgkeys:
             imgheader = fits.getheader(filename, ext=0)
             for key in imgkeys:
