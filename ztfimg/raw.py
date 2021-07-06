@@ -118,8 +118,6 @@ class RawQuadrant( _RawImage_ ):
 
         
         if qid in [2, 3]:
-            print("switching overscan")
-            if dasked: print("using dask")
             overscan = overscan[:,::-1]
 
         if persist and dasked:
@@ -149,7 +147,8 @@ class RawQuadrant( _RawImage_ ):
     # -------- #
     # GETTER   #
     # -------- #
-    def get_data(self, which="data", overscanprop={}, corr_gain=False, corr_nl=False, rebin=None,
+    def get_data(self, corr_overscan=False, corr_gain=False, corr_nl=False, rebin=None,
+                     overscanprop={},
                      rebin_stat="nanmean"):
         """ 
         
@@ -168,14 +167,11 @@ class RawQuadrant( _RawImage_ ):
         -------
         2d array
         """
-        if which == "raw":
-            data_ = self.data
+        data_ = self.data
         
-        elif which == "data":
+        if corr_overscan:
             osmodel = self.get_overscan(**{**dict(which="model"),**overscanprop})
-            data_ = self.data - osmodel[:,None]
-        else:
-            raise ValueError(f"which can be 'raw' or 'data' ; {which} given")
+            data_ = data_ - osmodel[:,None]
             
         if corr_gain:
             data_ *=self.gain
@@ -429,13 +425,11 @@ class RawCCD( _RawImage_ ):
         """ """
         return self.quadrants[qid]
     
-    def get_data(self, corr_overscan=False, corr_gain=False, corr_nl=True,
+    def get_data(self, corr_overscan=False, corr_gain=False, corr_nl=False,
                 rebin=None, npstat="mean"):
-        """ ccd data
-        """
+        """ ccd data """
         ccd = np.zeros(self.shape)
-        which = "data" if corr_gain else "raw"
-        prop_qdata = dict(which=which, corr_gain=corr_gain, corr_nl=corr_nl)
+        prop_qdata = dict(corr_overscan=corr_overscan, corr_gain=corr_gain, corr_nl=corr_nl)
         
         if self._use_dask:
             d = [self.get_quadrant(i).get_data(**prop_qdata) for i in [1,2,3,4]]
