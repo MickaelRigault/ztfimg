@@ -180,7 +180,7 @@ class RawQuadrant( _RawImage_ ):
             #data_ *=
 
         if rebin is not None:
-            ccd = getattr(da if self._use_dask else np, rebin_stat)( rebin_arr(data_, (rebin,rebin), dasked=True), axis=(-2,-1))
+            data_ = getattr(da if self._use_dask else np, rebin_stat)( rebin_arr(data_, (rebin,rebin), dasked=True), axis=(-2,-1))
             
         return data_
 
