@@ -80,7 +80,9 @@ class _RawImage_( object ):
     
         
 class RawQuadrant( _RawImage_ ):
-    """ """
+
+    SHAPE = 3080, 3072
+    SHAPE_OVERSCAN = 3080, 30
     def __init__(self, data=None, header=None, overscan=None, dasked=True):
         """ """
         _ = super().__init__(dasked=dasked)
@@ -107,9 +109,9 @@ class RawQuadrant( _RawImage_ ):
 
         if dasked:
             data      = da.from_delayed(dask.delayed(fits.getdata)(filename, ext=qid),
-                                            shape=cls.shape, dtype="float")
+                                            shape=cls.SHAPE, dtype="float")
             overscan = da.from_delayed(dask.delayed(fits.getdata)(filename, ext=qid+4),
-                                            shape=cls.shape_overscan, dtype="float")
+                                            shape=cls.SHAPE_OVERSCAN, dtype="float")
         else:
             data      = fits.getdata(filename, ext=qid)
             overscan  = fits.getdata(filename, ext=qid+4)
@@ -312,16 +314,14 @@ class RawQuadrant( _RawImage_ ):
     #  Properties     #
     # =============== #
     @property
-    @staticmethod
-    def shape():
+    def shape(self):
         """  data shape """
-        return 3080, 3072    
+        return self.SHAPE
 
     @property
-    @staticmethod
     def shape_overscan():
         """ shape of the raw overscan data """
-        return 3080, 30
+        return self.SHAPE_OVERSCANE
     
     @property
     def overscan(self):
