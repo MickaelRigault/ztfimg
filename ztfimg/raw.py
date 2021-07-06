@@ -776,5 +776,4 @@ class RawFocalPlaneCollection( object ):
 
     def __init__(self, rawfocalplanes ):
         """ """
-
-    def set_
+        
