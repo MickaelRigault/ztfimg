@@ -89,32 +89,26 @@ class RawQuadrant( _RawImage_ ):
         self.setup(data=data, header=header, overscan=overscan)
         
     @classmethod
-    def from_filename(cls, filename, qid, grab_imgkeys=True, dasked=True, persist=True, **kwargs):
+    def from_filename(cls, filename, qid, grab_imgkeys=True, dasked=True,
+                          persist=True, **kwargs):
         """ """
         if qid not in [1,2,3,4]:
             raise ValueError(f"qid must be 1,2, 3 or 4 {qid} given")
     
-        imgkeys = ["EXPTIME", "IMGTYPE", "PIXSCALE", "THETA_X", "THETA_Y", "INST_ROT", 
-                   "FILTER", "OBSJD", "RAD", "DECD", "TELRA","TELDEC", "AZIMUTH","ELVATION",
-                   ]
         
-        if "_f.fits" in filename:
-            imgkeys += ["ILUM_LED", "ILUMWAVE", "ILUMPOWR"]
                         
-        header    = fits.getheader(filename, ext=qid)
-        imgheader = fits.getheader(filename, ext=0)
-        if grab_imgkeys:
-            for key in imgkeys:
-                header.set(key, imgheader.get(key), imgheader.comments[key])
 
         if dasked:
             data      = da.from_delayed(dask.delayed(fits.getdata)(filename, ext=qid),
                                             shape=cls.SHAPE, dtype="float")
-            overscan = da.from_delayed(dask.delayed(fits.getdata)(filename, ext=qid+4),
+            overscan  = da.from_delayed(dask.delayed(fits.getdata)(filename, ext=qid+4),
                                             shape=cls.SHAPE_OVERSCAN, dtype="float")
+            header    = dask.delayed(cls.read_rawfile_header)(filename, qid=qid,  grab_imgkeys=grab_imgkeys)
+            
         else:
             data      = fits.getdata(filename, ext=qid)
             overscan  = fits.getdata(filename, ext=qid+4)
+            header    = cls.read_rawfile_header(filename, qid=qid,  grab_imgkeys=grab_imgkeys)
 
         
         if qid in [2, 3]:
@@ -123,9 +117,31 @@ class RawQuadrant( _RawImage_ ):
         if persist and dasked:
             data = data.persist()
             overscan = overscan.persist()
+            header = header.persist()
             
         return cls(data, header=header, overscan=overscan, dasked=dasked, **kwargs)
 
+    @staticmethod
+    def read_rawfile_header(filename, qid, grab_imgkeys=True):
+        """ """
+        imgkeys = ["EXPTIME", "IMGTYPE", "PIXSCALE", "THETA_X", "THETA_Y", "INST_ROT", 
+                   "FILTER", "OBSJD", "RAD", "DECD", "TELRA","TELDEC", "AZIMUTH","ELVATION",
+                   ]
+        
+        if "_f.fits" in filename:
+            imgkeys += ["ILUM_LED", "ILUMWAVE", "ILUMPOWR"]
+
+        header    = fits.getheader(filename, ext=qid)
+        if grab_imgkeys:
+            imgheader = fits.getheader(filename, ext=0)
+            for key in imgkeys:
+                header.set(key, imgheader.get(key), imgheader.comments[key])
+            
+        del imgheader
+        return pandas.Series( dict(header) )
+
+        
+        
     # -------- #
     #  SETTER  #
     # -------- #
@@ -171,7 +187,7 @@ class RawQuadrant( _RawImage_ ):
         
         if corr_overscan:
             osmodel = self.get_overscan(**{**dict(which="model"),**overscanprop})
-            data_ = data_ - osmodel[:,None]
+            data_ -= osmodel[:,None]
             
         if corr_gain:
             data_ *=self.gain
