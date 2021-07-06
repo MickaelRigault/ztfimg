@@ -122,6 +122,23 @@ class RawQuadrant( _RawImage_ ):
             
         return cls(data, header=header, overscan=overscan, dasked=dasked, **kwargs)
 
+
+    @classmethod
+    def from_filefracday(cls, filefracday, rcid, dasked=True, persist=True, **kwargs):
+        """ """
+        from ztfquery.io import filefracday_to_local_rawdata
+        ccdid, qid = RawFocalPlane.rcid_to_ccdid_qid(rcid)
+        
+        filename = filefracday_to_local_rawdata(filefracday, ccdid=ccdid)
+        if len(filename)==0:
+            raise IOError(f"No local raw data found for filefracday: {filefracday} and ccdid: {ccdid}")
+        if len(filename)>1:
+            raise IOError(f"Very strange: several local raw data found for filefracday: {filefracday} and ccdid: {ccdid}", filename)
+        
+        return cls.from_filename(filename[0], qid=qid, dasked=dasked, persist=persist, **kwargs)
+    
+
+    
     @staticmethod
     def read_rawfile_header(filename, qid, grab_imgkeys=True):
         """ """
@@ -754,3 +771,10 @@ class RawFocalPlane( _RawImage_):
         return np.asarray([3080, 3072])
     
         
+
+class RawFocalPlaneCollection( object ):
+
+    def __init__(self, rawfocalplanes ):
+        """ """
+
+    def set_
