@@ -87,7 +87,7 @@ class RawQuadrant( _RawImage_ ):
         self.setup(data=data, header=header, overscan=overscan)
         
     @classmethod
-    def from_filename(cls, filename, qid, grab_imgkeys=True, dasked=True, **kwargs):
+    def from_filename(cls, filename, qid, grab_imgkeys=True, dasked=True, persist=True, **kwargs):
         """ """
         if qid not in [1,2,3,4]:
             raise ValueError(f"qid must be 1,2, 3 or 4 {qid} given")
@@ -98,21 +98,33 @@ class RawQuadrant( _RawImage_ ):
         
         if "_f.fits" in filename:
             imgkeys += ["ILUM_LED", "ILUMWAVE", "ILUMPOWR"]
-            
-            
-        data = fits.getdata(filename, ext=qid)
-        header = fits.getheader(filename, ext=qid)
+                        
+        header    = fits.getheader(filename, ext=qid)
         imgheader = fits.getheader(filename, ext=0)
         if grab_imgkeys:
             for key in imgkeys:
                 header.set(key, imgheader.get(key), imgheader.comments[key])
-            
-        overscan = fits.getdata(filename, ext=qid+4)
+
+        if dasked:
+            data      = da.from_delayed(dask.delayed(fits.getdata)(filename, ext=qid),
+                                            shape=cls.shape, dtype="float")
+            overscan = da.from_delayed(dask.delayed(fits.getdata)(filename, ext=qid+4),
+                                            shape=cls.shape_overscan, dtype="float")
+        else:
+            data      = fits.getdata(filename, ext=qid)
+            overscan  = fits.getdata(filename, ext=qid+4)
+
+        
         if qid in [2, 3]:
             print("switching overscan")
+            if dasked: print("using dask")
             overscan = overscan[:,::-1]
+
+        if persist and dasked:
+            data = data.persist()
+            overscan = overscan.persist()
             
-        return cls(data, header=header,overscan=overscan, dasked=dasked, **kwargs)
+        return cls(data, header=header, overscan=overscan, dasked=dasked, **kwargs)
 
     # -------- #
     #  SETTER  #
@@ -300,8 +312,16 @@ class RawQuadrant( _RawImage_ ):
     #  Properties     #
     # =============== #
     @property
-    def shape(self):
+    @staticmethod
+    def shape():
+        """  data shape """
         return 3080, 3072    
+
+    @property
+    @staticmethod
+    def shape_overscan():
+        """ shape of the raw overscan data """
+        return 3080, 30
     
     @property
     def overscan(self):
@@ -385,13 +405,7 @@ class RawCCD( _RawImage_ ):
             which = np.asarray(np.atleast_1d(which), dtype="int")
         
         for qid in which:
-            if self._use_dask:
-                qradrant = dask.delayed(RawQuadrant.from_filename)(filename, qid)
-                if persist:
-                    qradrant = qradrant.persist()
-            else:
-                qradrant = RawQuadrant.from_filename(filename, qid)
-                
+            qradrant = RawQuadrant.from_filename(filename, qid, dasked=self._use_dask, persist=persist)
             self.set_quadrant(qradrant,  qid=qid)
             
     def load_data(self, **kwargs):
