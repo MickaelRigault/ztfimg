@@ -175,7 +175,8 @@ class RawQuadrant( _RawImage_ ):
         return data_
 
         
-    def get_overscan(self, which="image", userange=[4,27], stackstat="nanmedian", modeldegree=5):
+    def get_overscan(self, which="data", userange=[4,27], stackstat="nanmedian",
+                         modeldegree=5, specaxis=1):
         """ 
         
         Parameters
@@ -184,28 +185,45 @@ class RawQuadrant( _RawImage_ ):
             could be:
             - 'raw': as stored
             - 'data': raw within userange
-            - 'spec': vertical profile of the overscan
+            - 'spec': vertical or horizontal profile of the overscan
                       see stackstat
+                      (see specaxis)
             - 'model': polynomial model of spec
+            
+
+        specaxis : [int] -optional-
+            axis along which you are doing the median 
+            = Careful: after userange applyed = 
+            - axis: 1 (default) -> horizontal overscan data spectrum (~3000 pixels)
+            - axis: 0 -> vertical stack of the overscan (~30 pixels)
+            (see stackstat for stacking statistic (mean, median etc)
+            
             
         stackstat: [string] -optional-
             numpy method to use to converting data into spec
             
         userange: [2d-array] 
             start and end of the raw overscan to be used.
-            
+                        
         Returns
         -------
         1 or 2d array (see which)
+
+        Examples
+        --------
+        To get the raw overscan vertically stacked spectra, using mean statistic do:
+        get_overscan('spec', userange=None, specaxis=0, stackstat='nanmean')
+
+
         """
-        if which == "raw":
+        if which == "raw" or (which=="data" and userange is None):
             return self.overscan
         
         if which == "data":
             return self.overscan[:, userange[0]:userange[1]]
         
         if which == "spec":
-            return getattr(np, stackstat)( self.get_overscan(which="data", userange=userange), axis=1 )
+            return getattr(np, stackstat)( self.get_overscan(which="data", userange=userange), axis=specaxis )
         
         if which == "model":
             spec = self.get_overscan( which = "spec", userange=userange, stackstat=stackstat)
@@ -268,8 +286,7 @@ class RawQuadrant( _RawImage_ ):
             axs.set_ylim(*ax.get_ylim())
         
         if axm is not None:
-            overraw = self.get_overscan("raw")
-            spec_to = np.nanmedian(overraw, axis=0)
+            spec_to = self.get_overscan("spec", userange=None, specaxis=0)
             axm.plot(np.arange(len(spec_to)), spec_to)
             axm.set_xticks([])
             axm.set_xlim(*ax.get_xlim())
@@ -398,7 +415,7 @@ class RawCCD( _RawImage_ ):
         """ """
         return self.quadrants[qid]
     
-    def get_data(self, corr_overscan=True, corr_gain=True, corr_nl=True,
+    def get_data(self, corr_overscan=False, corr_gain=False, corr_nl=True,
                 rebin=None, npstat="mean"):
         """ ccd data
         """
@@ -587,8 +604,8 @@ class RawFocalPlane( _RawImage_):
             
         return hpixels, vpixels
 
-    def get_data(self, rebin=None, corr_overscan=True, corr_gain=True, 
-                incl_gap=True):
+    def get_data(self, rebin=None, corr_overscan=False, corr_gain=False, 
+                incl_gap=False):
         """  """
         # Merge quadrants of the 16 CCDs
         prop = dict(rebin=rebin, corr_overscan=corr_overscan, corr_gain=corr_gain)
