@@ -438,9 +438,7 @@ class RawCCD( _RawImage_ ):
         prop_qdata = dict(which=which, corr_gain=corr_gain, corr_nl=corr_nl)
         
         if self._use_dask:
-            d = [da.from_delayed(self.get_quadrant(i).get_data(**prop_qdata),
-                               shape=self.qshape, dtype="float")
-                    for i in [1,2,3,4]]
+            d = [self.get_quadrant(i).get_data(**prop_qdata) for i in [1,2,3,4]]
             ccd_up   = da.concatenate([d[3],d[2]], axis=1)
             ccd_down = da.concatenate([d[0],d[1]], axis=1)
             ccd = da.concatenate([ccd_down,ccd_up], axis=0)
