@@ -249,10 +249,15 @@ class RawQuadrant( _RawImage_ ):
             return self.overscan[:, userange[0]:userange[1]]
         
         if which == "spec":
-            return getattr(np, stackstat)( self.get_overscan(which="data", userange=userange), axis=specaxis )
+            return getattr(np if not self._use_dask else da, stackstat
+                          )( self.get_overscan(which="data", userange=userange), axis=specaxis )
         
         if which == "model":
             spec = self.get_overscan( which = "spec", userange=userange, stackstat=stackstat)
+            if self._use_dask:
+                d_ = dask.delayed(fit_polynome)(np.arange( len(spec) ), spec, degree=modeldegree)
+                return da.from_delayed(d_, shape=spec.shape, dtype="float")
+                
             return fit_polynome(np.arange(len(spec)), spec, degree=modeldegree)
         
         raise ValueError(f'which should be "raw", "data", "spec", "model", {which} given')    
