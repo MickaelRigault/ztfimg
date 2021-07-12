@@ -474,7 +474,15 @@ class RawCCD( _RawImage_ ):
     def get_quadrant(self, qid):
         """ """
         return self.quadrants[qid]
-    
+
+    def get_quadrantheader(self):
+        """ returns a DataFrame of the header quadrants """
+        qid_range = [1,2,3,4]
+        hs = [self.get_quadrant(i).get_header() for i in qid_range]
+        df = pandas.concat(hs, axis=1)
+        df.columns = qid_range
+        return df
+        
     def get_data(self, corr_overscan=False, corr_gain=False, corr_nl=False,
                 rebin=None, npstat="mean"):
         """ ccd data """
@@ -643,6 +651,14 @@ class RawFocalPlane( _RawImage_):
         ccdid, qid = self.rcid_to_ccdid_qid(rcid)
         return self.get_ccd(ccdid).get_quadrant(qid)
 
+    def get_quadrantheader(self):
+        """ returns a DataFrame of the header quadrants """
+        qid_range = np.arange(64)
+        hs = [self.get_quadrant(i).get_header() for i in qid_range]
+        df = pandas.concat(hs, axis=1)
+        df.columns = qid_range
+        return df
+    
     @staticmethod
     def get_datagap(which, rebin=None, fillna=np.NaN):
         """ 
