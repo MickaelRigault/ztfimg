@@ -26,7 +26,12 @@ class _RawImage_( object ):
                
     # -------- #
     #  GETTER  #
-    # -------- #    
+    # -------- #
+    def get_header(self):
+        """ returns the header (self.header), see self.header
+        """
+        return self.header
+    
     def get_headerkey(self, key, default=None):
         """ """
         if self.header is None:
@@ -53,10 +58,14 @@ class _RawImage_( object ):
         return self.data is not None
     
     @property
-    def header(self):
+    def header(self, compute=True):
         """ """
         if not hasattr(self, "_header"):
             return None
+        
+        if "delayed" in str(type(self.header)) and compute:
+            self._header = self._header.compute()
+        
         return self._header
     
     @property
@@ -220,7 +229,6 @@ class RawQuadrant( _RawImage_ ):
             data_ = getattr(da if self._use_dask else np, rebin_stat)( rebin_arr(data_, (rebin,rebin), dasked=True), axis=(-2,-1))
             
         return data_
-
         
     def get_overscan(self, which="data", userange=[10,20], stackstat="nanmedian",
                          modeldegree=5, specaxis=1):
