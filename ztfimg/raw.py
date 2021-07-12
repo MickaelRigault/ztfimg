@@ -95,9 +95,6 @@ class RawQuadrant( _RawImage_ ):
         """ """
         if qid not in [1,2,3,4]:
             raise ValueError(f"qid must be 1,2, 3 or 4 {qid} given")
-    
-        
-                        
 
         if dasked:
             data      = da.from_delayed(dask.delayed(fits.getdata)(filename, ext=qid),
@@ -130,6 +127,7 @@ class RawQuadrant( _RawImage_ ):
         ccdid, qid = RawFocalPlane.rcid_to_ccdid_qid(rcid)
         
         filename = filefracday_to_local_rawdata(filefracday, ccdid=ccdid)
+        
         if len(filename)==0:
             raise IOError(f"No local raw data found for filefracday: {filefracday} and ccdid: {ccdid}")
         if len(filename)>1:
@@ -138,6 +136,10 @@ class RawQuadrant( _RawImage_ ):
         return cls.from_filename(filename[0], qid=qid, dasked=dasked, persist=persist, **kwargs)
     
 
+    @classmethod
+    def from_date(cls, date, rcid, imgtype, dasked=True, persist=True, **kwargs):
+        """ """
+        print("NOT IMPLEMENTED")
     
     @staticmethod
     def read_rawfile_header(filename, qid, grab_imgkeys=True):
@@ -156,7 +158,8 @@ class RawQuadrant( _RawImage_ ):
                 header.set(key, imgheader.get(key), imgheader.comments[key])
             
         del imgheader
-        return pandas.Series( dict(header) )
+        # DataFrame to be able to dask it.
+        return pandas.DataFrame( pandas.Series(header) )
 
         
         
@@ -219,7 +222,7 @@ class RawQuadrant( _RawImage_ ):
         return data_
 
         
-    def get_overscan(self, which="data", userange=[4,27], stackstat="nanmedian",
+    def get_overscan(self, which="data", userange=[10,20], stackstat="nanmedian",
                          modeldegree=5, specaxis=1):
         """ 
         
@@ -513,6 +516,7 @@ class RawCCD( _RawImage_ ):
     def show(self, ax=None, vmin="1", vmax="99", colorbar=False, cax=None, 
              rebin=None, dataprop={}, **kwargs):
         """ """
+        import matplotlib.pyplot as mpl
         if ax is None:
             fig = mpl.figure(figsize=[6,6])
             ax = fig.add_subplot(111)
