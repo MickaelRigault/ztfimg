@@ -63,7 +63,7 @@ class _RawImage_( object ):
         if not hasattr(self, "_header"):
             return None
         
-        if "delayed" in str(type(self.header)) and compute:
+        if "delayed" in str( type(self._header) ) and compute:
             self._header = self._header.compute()
         
         return self._header
