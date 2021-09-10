@@ -58,10 +58,29 @@ class _CatCalibrator_( object ):
         """ Direct access to the data.
         **kwargs goes to load_data
 
+        Parameters
+        ----------
+        rcid: [int or list of]
+            
+
         Returns
         -------
         DataFrame
         """
+        from collections.abc import Iterable
+        # Looping over rcid
+        if isinstance(np.asarray(rcid), Iterable):
+            return pandas.concat([cls.fetch_data(rcid_, field, radec=None, squeeze=True, **kwargs)
+                                      for rcid_ in rcid], keys=rcid)
+        
+        # Looping over fieldid
+        if isinstance(np.asarray(field), Iterable):
+            return pandas.concat([cls.fetch_data(rcid, field_, radec=None, squeeze=True, **kwargs)
+                                      for field_ in field], keys=field)
+
+
+
+        
         if kwargs.get("test_input", True):
             rcid, field, radec = parse_input(rcid, field, radec)
         
