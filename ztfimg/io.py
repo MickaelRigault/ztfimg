@@ -52,7 +52,7 @@ class _CatCalibrator_( object ):
         self.set_centroid(radec)
         if load:
             self.load_data(**kwargs)
-            
+        
     @classmethod
     def fetch_data(cls, rcid, field, radec=None, squeeze=True, drop_duplicate=True, **kwargs):
         """ Direct access to the data.
@@ -483,3 +483,17 @@ class GaiaCalibrators( _CatCalibrator_ ):
 class PS1Calibrators( _CatCalibrator_ ):
     _DIR = "ps1"
     BASENAME = "ps1"
+
+    @classmethod
+    def fetch_radecdata(cls, radec=None, **kwargs):
+        """ """
+        from ztfquery import fields
+        fidccid = fields.get_fields_containing_target(*radec, inclccd=True)
+        datas = []
+        for fieldid_ccd in fidccid:
+            fieldid,ccd = np.asarray(fieldid_ccd.split("_"), dtype="int")
+            rcid = fields.ccdid_qid_to_rcid(ccd, np.asarray([1,2,3,4]))
+            datas.append(cls.fetch_data(rcid, [fieldid]))
+
+        return pandas.concat(datas).drop_duplicates()
+        
