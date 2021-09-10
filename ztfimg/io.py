@@ -54,14 +54,25 @@ class _CatCalibrator_( object ):
             self.load_data(**kwargs)
             
     @classmethod
-    def fetch_data(cls, rcid, field, radec=None, squeeze=True, **kwargs):
+    def fetch_data(cls, rcid, field, radec=None, squeeze=True, drop_duplicate=True, **kwargs):
         """ Direct access to the data.
         **kwargs goes to load_data
 
         Parameters
         ----------
-        rcid: [int or list of]
-            
+        rcid, field: [int or list of]
+            rcid(s) and field(s) of the data you are looking for.
+            for instance: 
+            - this returns a multi-index dataframe 
+               io.PS1Calibrators.fetch_data([48,49], [751,752])
+               io.PS1Calibrators.fetch_data([48,49], 752)
+            - and this a DataFrame
+               io.PS1Calibrators.fetch_data(48, 751)
+
+
+        drop_duplicate: [bool]
+            // ignored if rcid and field are non iterable //
+            drop duplicated entry while keeping the first.
 
         Returns
         -------
@@ -70,13 +81,15 @@ class _CatCalibrator_( object ):
         from collections.abc import Iterable
         # Looping over rcid
         if isinstance(rcid, Iterable):
-            return pandas.concat([cls.fetch_data(rcid_, field, radec=None, squeeze=True, **kwargs)
-                                      for rcid_ in rcid], keys=rcid)
+            data = pandas.concat([cls.fetch_data(rcid_, field, radec=radec, squeeze=squeeze, **kwargs)
+                                      for rcid_ in rcid], keys=rcid).drop_duplicates()
+            return data if not drop_duplicate else data.drop_duplicates(keep="first")
         
         # Looping over fieldid
         if isinstance(field, Iterable):
-            return pandas.concat([cls.fetch_data(rcid, field_, radec=None, squeeze=True, **kwargs)
+            data = pandas.concat([cls.fetch_data(rcid, field_, radec=radec, squeeze=squeeze, **kwargs)
                                       for field_ in field], keys=field)
+            return data if not drop_duplicate else data.drop_duplicates(keep="first")
 
 
 
