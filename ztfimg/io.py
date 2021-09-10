@@ -226,8 +226,6 @@ class _CatCalibrator_( object ):
             
         raise ValueError(f"as_dask can only be delayed or future, {as_dask} given")
         
-        
-        
     # -------- #
     #  LOADER  #
     # -------- #        
@@ -496,4 +494,15 @@ class PS1Calibrators( _CatCalibrator_ ):
             datas.append(cls.fetch_data(rcid, [fieldid]))
 
         return pandas.concat(datas).drop_duplicates()
-        
+    
+    def download_data(self, store=True, radec=None, wait=None, **kwargs):
+        """ Actually, this down not download but build it from existing files """
+        if wait is not None: time.sleep(wait)
+        if radec is None:
+            radec = self.get_centroid()
+            
+        catdf = self.fetch_radecdata(radec, **kwargs)
+        if store:
+            self.store(catdf)
+            
+        return catdf
