@@ -345,8 +345,6 @@ class _CatCalibrator_( object ):
         
         raise ValueError(f"as_dask can only be delayed or future, {as_dask} given")
         
-
-
     # =============== #
     #  Properties     #
     # =============== #
@@ -369,6 +367,13 @@ class _CatCalibrator_( object ):
     def ncalibrators(self):
         """ Number of calibrator stars """
         return len(self.data)
+
+
+# =============== #
+#                 #
+#    Gaia         #
+#                 #
+# =============== #
 
 class GaiaCalibrators( _CatCalibrator_ ):
 
@@ -436,14 +441,13 @@ class GaiaCalibrators( _CatCalibrator_ ):
         #
         return gaiatable.to_pandas().set_index('Source').rename(mv_columns, axis=1)
 
-    
+
+# =============== #
+#                 #
+#    PS1          #
+#                 #
+# =============== #
+
 class PS1Calibrators( _CatCalibrator_ ):
     _DIR = "ps1"
     BASENAME = "ps1"
-
-    def load_data(self):
-        """ """
-        import h5py
-        hf = h5py.File(self.get_calibrator_filename(), "r")
-        self._data = pandas.DataFrame( hf.get(self.get_key())[()] )
-        hf.close()
