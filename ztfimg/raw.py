@@ -170,8 +170,6 @@ class RawQuadrant( _RawImage_ ):
         # DataFrame to be able to dask it.
         return pandas.DataFrame( pandas.Series(header) )
 
-        
-        
     # -------- #
     #  SETTER  #
     # -------- #

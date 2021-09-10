@@ -163,8 +163,17 @@ class ZTFImage( WCSHolder ):
 
         return ps1cat
 
-    def get_gaia_calibrators(self, setxy=True, drop_namag=True, drop_outside=True, pixelbuffer=10, **kwargs):
-        """ **kwargs goes to GaiaCalibrators (dl_wait for instance) """
+    def get_gaia_calibrators(self, setxy=True, drop_namag=True, drop_outside=True, pixelbuffer=10,
+                                 isolation=None, **kwargs):
+        """ **kwargs goes to GaiaCalibrators (dl_wait for instance) 
+
+        isolation: [None or positive float] -optional-
+            self isolation limit (in arcsec). A True / False flag will be added to the catalog
+            
+        Returns
+        -------
+        DataFrame
+        """
         cat = GaiaCalibrators.fetch_data(self.rcid, self.fieldid, radec=self.get_center(system="radec"), **kwargs)
         
         if drop_namag:
@@ -177,6 +186,15 @@ class ZTFImage( WCSHolder ):
         if setxy and ("ra" in cat.columns and "x" not in cat.columns):
             cat = self._setxy_to_cat_(cat, drop_outside=drop_outside, pixelbuffer=pixelbuffer)
 
+        
+        if isolation is not None:
+            from .catalog import get_isolated
+            isolation = float(isolation)
+            if isolation<=0:
+                raise ValueError(f"isolation should be positive ; {isolation} given")
+
+            cat["isolated"] = get_isolated(cat, seplimit=isolation)
+            
         return cat
 
     def get_data(self, applymask=True, maskvalue=np.NaN,
@@ -336,7 +354,6 @@ class ZTFImage( WCSHolder ):
         from .stamps import stamp_it
         return stamp_it( getattr(self,data), x0, y0, dx, dy=dy, asarray=asarray)
     
-
     def get_aperture(self, x0, y0, radius, bkgann=None, subpix=0,
                          data="dataclean", maskprop={}, noiseprop={},
                          unit="counts", clean_flagout=False, get_flag=False):
@@ -405,6 +422,38 @@ class ZTFImage( WCSHolder ):
                 return self.counts_to_mag(counts, counterr)
             return self.counts_to_mag(counts, counterr), flag
 
+    def getcat_aperture(self, catdf, radius, xykeys=["x","y"], join=True):
+        """ measures the aperture (using get_aperture) using a catalog dataframe as input
+        Parameters
+        ----------
+        catdf: [DataFrame]
+        dataframe containing, at minimum the x and y centroid positions
+    
+        xykeys: [string, string] -optional-
+        name of the x and y columns in the input dataframe
+        
+        join: [bool] -optional-
+        shall the returned dataframe be a new dataframe joined 
+        to the input one, or simply the aperture dataframe?
+        
+        Returns
+        -------
+        DataFrame
+        """
+        x, y = catdf[['x','y']].values.T
+        flux, fluxerr, flag = self.get_aperture(x,y, radius[:,None], unit="counts", get_flag = True)
+        dic = {**{f'f_{k}':f for k,f in enumerate(flux)},\
+                   **{f'f_{k}_e':f for k,f in enumerate(fluxerr)},
+                   **{f'f_{k}_f':f for k,f in enumerate(flag)}, # for each radius there is a flag
+                   }
+
+        fdata = pandas.DataFrame(dic, index=cat.index) #gaia dataframe
+        if join:
+            return catdf.join(fdata)
+        
+        return fdata
+
+        
     def get_center(self, system="xy"):
         """ x and y or RA, Dec coordinates of the centroid. (shape[::-1]) """
         if system in ["xy","pixel","pixels","pxl"]:
