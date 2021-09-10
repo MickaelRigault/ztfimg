@@ -439,7 +439,7 @@ class GaiaCalibrators( _CatCalibrator_ ):
     
 class PS1Calibrators( _CatCalibrator_ ):
     _DIR = "ps1"
-    BASENAME = "PS1cal_v2"
+    BASENAME = "ps1cal_v2"
 
     def load_data(self):
         """ """
