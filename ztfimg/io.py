@@ -69,12 +69,12 @@ class _CatCalibrator_( object ):
         """
         from collections.abc import Iterable
         # Looping over rcid
-        if isinstance(np.asarray(rcid), Iterable):
+        if isinstance(rcid, Iterable):
             return pandas.concat([cls.fetch_data(rcid_, field, radec=None, squeeze=True, **kwargs)
                                       for rcid_ in rcid], keys=rcid)
         
         # Looping over fieldid
-        if isinstance(np.asarray(field), Iterable):
+        if isinstance(field, Iterable):
             return pandas.concat([cls.fetch_data(rcid, field_, radec=None, squeeze=True, **kwargs)
                                       for field_ in field], keys=field)
 
