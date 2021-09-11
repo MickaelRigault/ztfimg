@@ -152,7 +152,7 @@ class ZTFImage( WCSHolder ):
 
     def get_calibrators(self, which=["gaia","ps1"],
                             setxy=True, drop_outside=True, drop_namag=True,
-                            pixelbuffer=10, isolation=None,  **kwargs):
+                            pixelbuffer=10, isolation=None, mergehow="in", **kwargs):
         """ get a DataFrame containing the requested calibrator catalog(s).
         If several catalog are given, a matching will be made and the dataframe merged (in)
 
@@ -187,7 +187,7 @@ class ZTFImage( WCSHolder ):
                 index1, index2 = get_coordmatching_indexes( catgaia, catps1)    
                 catps1.loc[index2, "Source"] = catgaia.loc[index1].index
                 return pandas.merge(catgaia.reset_index(), catps1.reset_index(),
-                                 on="Source", suffixes=('_gaia', '_ps1')).set_index("Source")
+                                 on="Source", suffixes=('_gaia', '_ps1'), how=mergehow)
             else:
                 raise ValueError(f"Only ps1 and gaia calibrators catalog have been implemented, {which} given.")
             
