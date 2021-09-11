@@ -152,7 +152,7 @@ class ZTFImage( WCSHolder ):
 
     def get_calibrators(self, which=["gaia","ps1"],
                             setxy=True, drop_outside=True, drop_namag=True,
-                            pixelbuffer=10, isolation=None, mergehow="in", **kwargs):
+                            pixelbuffer=10, isolation=None, mergehow="inner", **kwargs):
         """ get a DataFrame containing the requested calibrator catalog(s).
         If several catalog are given, a matching will be made and the dataframe merged (in)
 
