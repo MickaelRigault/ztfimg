@@ -172,7 +172,7 @@ class ZTFImage( WCSHolder ):
                 return self.get_gaia_calibrators(setxy=setxy, drop_namag=drop_namag, drop_outside=drop_outside, pixelbuffer=pixelbuffer,
                                                  isolation=isolation, **kwargs)
             elif which[0] == "ps1":
-                return self.get_ps1_calibrators(setxy=setxyrue, drop_outside=drop_outside, pixelbuffer=pixelbuffer, **kwargs)
+                return self.get_ps1_calibrators(setxy=setxy, drop_outside=drop_outside, pixelbuffer=pixelbuffer, **kwargs)
             else:
                 raise ValueError(f"Only ps1 or gaia calibrator catalog have been implemented, {which} given.")
             
@@ -180,7 +180,7 @@ class ZTFImage( WCSHolder ):
         if len(which) == 2:
             if which in [["gaia","ps1"], ["ps1","gaia"]]:
                 from .catalog import get_coordmatching_indexes
-                catps1  = self.get_ps1_calibrators(setxy=setxyrue, drop_outside=drop_outside, pixelbuffer=pixelbuffer, **kwargs)
+                catps1  = self.get_ps1_calibrators(setxy=setxy, drop_outside=drop_outside, pixelbuffer=pixelbuffer, **kwargs)
                 catgaia = self.get_gaia_calibrators(setxy=setxy, drop_namag=drop_namag, drop_outside=drop_outside, pixelbuffer=pixelbuffer,
                                                  isolation=isolation, **kwargs)
                 
