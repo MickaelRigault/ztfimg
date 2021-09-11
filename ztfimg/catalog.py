@@ -40,6 +40,35 @@ def get_isolated(catdf, catdf_ref=None, xkey="ra", ykey="dec", keyunit="deg",
     iso.loc[tiso.index] = tiso
     return iso
 
+def get_coordmatching_indexes(cat1, cat2, radeckey1=["ra","dec"], radeckey2=["ra","dec"], seplimit=0.5):
+    """ 
+    Parameters
+    ----------
+    cat1, cat2: [DataFrames]
+        pandas.DataFrame containing, at miminum, the radeckey1/2.
+        ra and dec entries (see radeckey1) must by in deg.
+        
+    radeckey1,radeckey2: [string,string] -optional-
+        name of the ra and dec coordinates for catalog 1 and 2, respectively.
+        
+    seplimit: [float] -optional-
+        maximal distance (in arcsec) for the matching.
+        
+    
+        
+    Returns
+    -------
+    index, index
+    """
+    # SkyCoord construction
+    sky1 = coordinates.SkyCoord(cat1[radeckey1].values, unit="deg")
+    sky2 = coordinates.SkyCoord(cat2[radeckey2].values, unit="deg")
+    # Matching by distance
+    id2, id1, sep2d, sep3d = sky1.search_around_sky(sky2, 1*units.arcsec)
+    # get indexes
+    return cat1.index[id1], cat2.index[id2]
+
+
 
 class CatalogCollection():
     """ """

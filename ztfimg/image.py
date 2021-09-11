@@ -149,7 +149,51 @@ class ZTFImage( WCSHolder ):
             cat = cat[cat["x"].between(-pixelbuffer, xmax+pixelbuffer) & \
                       cat["y"].between(-pixelbuffer, ymax+pixelbuffer)]
         return cat
-    
+
+    def get_calibrators(self, which=["gaia","ps1"],
+                            setxy=True, drop_outside=True, drop_namag=True,
+                            pixelbuffer=10, isolation=None,  **kwargs):
+        """ get a DataFrame containing the requested calibrator catalog(s).
+        If several catalog are given, a matching will be made and the dataframe merged (in)
+
+        = implemented: gaia, ps1 = 
+
+        Returns
+        ------
+        DataFrame
+        """
+        which = np.atleast_1d(which)
+        if len(which)==0:
+            raise ValueError("At least 1 catalog must be given")
+
+        # Single Catalog
+        if len(which) == 1:
+            if which[0] == "gaia":
+                return self.get_gaia_calibrators(setxy=setxy, drop_namag=drop_namag, drop_outside=drop_outside, pixelbuffer=pixelbuffer,
+                                                 isolation=isolation, **kwargs)
+            elif which[0] == "ps1":
+                return self.get_ps1_calibrators(setxy=setxyrue, drop_outside=drop_outside, pixelbuffer=pixelbuffer, **kwargs)
+            else:
+                raise ValueError(f"Only ps1 or gaia calibrator catalog have been implemented, {which} given.")
+            
+        # Two Catalogs
+        if len(which) == 2:
+            if which in [["gaia","ps1"], ["ps1","gaia"]]:
+                from .catalog import get_coordmatching_indexes
+                catps1  = self.get_ps1_calibrators(setxy=setxyrue, drop_outside=drop_outside, pixelbuffer=pixelbuffer, **kwargs)
+                catgaia = self.get_gaia_calibrators(setxy=setxy, drop_namag=drop_namag, drop_outside=drop_outside, pixelbuffer=pixelbuffer,
+                                                 isolation=isolation, **kwargs)
+                
+                index1, index2 = get_coordmatching_indexes( catgaia, catps1)    
+                catps1.loc[index2, "Source"] = catgaia.loc[index1].index
+                return pandas.merge(catgaia.reset_index(), catps1.reset_index(),
+                                 on="Source", suffixes=('_gaia', '_ps1')).set_index("Source")
+            else:
+                raise ValueError(f"Only ps1 and gaia calibrators catalog have been implemented, {which} given.")
+            
+            raise ValueError(f"Only single or pair or catalog (ps1 and/or gaia) been implemented, {which} given.")
+        
+        
     def get_ps1_calibrators(self, setxy=True, drop_outside=True, pixelbuffer=10, **kwargs):
         """ """
         # remark: radec is going to be used only the fieldid is not already downloaded.
