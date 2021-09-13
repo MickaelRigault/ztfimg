@@ -180,9 +180,10 @@ class ZTFImage( WCSHolder ):
         if len(which) == 2:
             if which.tolist() in [["gaia","ps1"], ["ps1","gaia"]]:
                 from .catalog import get_coordmatching_indexes
-                catps1  = self.get_ps1_calibrators(setxy=setxy, drop_outside=drop_outside, pixelbuffer=pixelbuffer, **kwargs)
-                catgaia = self.get_gaia_calibrators(setxy=setxy, drop_namag=drop_namag, drop_outside=drop_outside, pixelbuffer=pixelbuffer,
-                                                 isolation=isolation, **kwargs)
+                catps1  = self.get_ps1_calibrators(setxy=setxy,
+                                                       drop_outside=drop_outside, pixelbuffer=pixelbuffer, **kwargs)
+                catgaia = self.get_gaia_calibrators(setxy=setxy, drop_namag=drop_namag,isolation=isolation,
+                                                        drop_outside=drop_outside, pixelbuffer=pixelbuffer, **kwargs)
                 
                 index1, index2 = get_coordmatching_indexes( catgaia, catps1)    
                 catps1.loc[index2, "Source"] = catgaia.loc[index1].index
@@ -484,7 +485,7 @@ class ZTFImage( WCSHolder ):
         -------
         DataFrame
         """
-        x, y = catdf[['x','y']].values.T
+        x, y = catdf[xykeys].values.T
         flux, fluxerr, flag = self.get_aperture(x,y, radius[:,None], unit="counts", get_flag = True)
         dic = {**{f'f_{k}':f for k,f in enumerate(flux)},\
                    **{f'f_{k}_e':f for k,f in enumerate(fluxerr)},
