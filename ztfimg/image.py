@@ -492,7 +492,7 @@ class ZTFImage( WCSHolder ):
                    **{f'f_{k}_f':f for k,f in enumerate(flag)}, # for each radius there is a flag
                    }
 
-        fdata = pandas.DataFrame(dic, index=cat.index) #gaia dataframe
+        fdata = pandas.DataFrame(dic, index=catdf.index) #gaia dataframe
         if join:
             return catdf.join(fdata)
         
