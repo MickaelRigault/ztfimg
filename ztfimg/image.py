@@ -169,7 +169,8 @@ class ZTFImage( WCSHolder ):
         # Single Catalog
         if len(which) == 1:
             if which[0] == "gaia":
-                return self.get_gaia_calibrators(setxy=setxy, drop_namag=drop_namag, drop_outside=drop_outside, pixelbuffer=pixelbuffer,
+                return self.get_gaia_calibrators(setxy=setxy, drop_namag=drop_namag, drop_outside=drop_outside,
+                                                     pixelbuffer=pixelbuffer,
                                                  isolation=isolation, **kwargs)
             elif which[0] == "ps1":
                 return self.get_ps1_calibrators(setxy=setxy, drop_outside=drop_outside, pixelbuffer=pixelbuffer, **kwargs)
@@ -765,7 +766,13 @@ class ZTFImage( WCSHolder ):
         if not hasattr(self, "_filename"):
             return None
         return self._filename
-    
+
+    @property
+    def basename(self):
+        """ """
+        filename =  self.filename
+        return os.path.basename(self.filename) if filename is not None else None
+
     # // Header Short cut
     @property
     def filtername(self):
