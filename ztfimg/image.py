@@ -193,13 +193,18 @@ class ZTFImage( WCSHolder ):
         """ """
         from .catalog import match_and_merge
         cal  = self.get_calibrators(calibrator, isolation=isolation, seplimit=seplimit)
+        if "gaia" in np.atleast_1d(calibrator).tolist():
+            onleft = "Source"
+        else:
+            raise NotImplementedError("calibrator should contain gaia in the current implementation.")
         
         extra = np.atleast_1d(extra).tolist()
         if "psfcat" in extra:
             psfcat = self.get_psfcat()
-            
-        cat = match_and_merge(cal, psfcat, "Source", mergehow="left", suffixes=('', '_psfcat'), seplimit=seplimit)
-
+            return match_and_merge(cal, psfcat, "Source", mergehow="left", suffixes=('', '_psfcat'), seplimit=seplimit)
+        
+        return cal
+        
     def get_calibrators(self, which=["gaia","ps1"],
                             setxy=True, drop_outside=True, drop_namag=True,
                             pixelbuffer=10, isolation=None, mergehow="inner", seplimit=0.5, **kwargs):
