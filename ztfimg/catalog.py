@@ -41,7 +41,7 @@ def get_isolated(catdf, catdf_ref=None, xkey="ra", ykey="dec", keyunit="deg",
     return iso
 
 def match_and_merge(left, right, onleft,
-                        radeckey1=["ra","dec"], radeckey2=["ra","dec"], seplimit=0.5,
+                        radeckey1=["ra","dec"], radeckey2=["ra","dec"], seplimit=1,
                         mergehow="inner", suffixes=('_l', '_r'), **kwargs):
     """     
     Parameters
@@ -60,7 +60,7 @@ def match_and_merge(left, right, onleft,
     -------
     DataFrame
     """
-    indexl, indexr = get_coordmatching_indexes(left, right)
+    indexl, indexr = get_coordmatching_indexes(left, right, seplimit=seplimit)
     right.loc[indexr, onleft] = left.loc[indexl][onleft]
     return pandas.merge(left, right, on=onleft, suffixes=suffixes, how=mergehow, **kwargs)
 
