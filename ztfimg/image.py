@@ -159,6 +159,8 @@ class ZTFImage( WCSHolder ):
         psffilename = io.get_file(self.filename, suffix="psfcat.fits",
                                   show_progress=show_progress, **kwargs)
         data = Table(fits.open(psffilename)[1].data).to_pandas().set_index("sourceid")
+        # Not the same standard as calibrator cats.
+        data[["xpos","ypos"]] -= 1 
         return data.rename({"xpos":"x", "ypos":"y"}, axis=1)
 
     def get_sexcat(self, show_progress=False, astable=False,**kwargs):

@@ -135,15 +135,10 @@ class ScienceImageCollection( ImageCollection ):
         
         return self.call_down("get_calibrators", True, **propdown)
     
-    def get_calibrator_aperture(self, radius, which=["gaia","ps1"], calkwargs={}, **kwargs):
+    def get_calibrator_aperture(self, radius, which=["gaia","ps1"], xykeys=["x","y"], calkwargs={}, **kwargs):
         """ for each image: calls get_calibrators() and then getcat_aperture()
         """
         cals = self.get_calibrators(which=which, **calkwargs)
-        if which==["gaia","ps1"] or which==["ps1","gaia"]:
-            xykeys = ["x_gaia","y_gaia"]
-        else:
-            xykeys = ["x","y"]
-            
         return self.map_down("getcat_aperture", cals, radius, xykeys=xykeys, **kwargs)
     
     
