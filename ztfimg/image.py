@@ -218,17 +218,15 @@ class ZTFImage( WCSHolder ):
         # Two Catalogs
         if len(which) == 2:
             if which.tolist() in [["gaia","ps1"], ["ps1","gaia"]]:
-                from .catalog import get_coordmatching_indexes
+                from .catalog import match_and_merge
                 catps1  = self.get_ps1_calibrators(setxy=setxy,
                                                        drop_outside=drop_outside, pixelbuffer=pixelbuffer, **kwargs)
                 catgaia = self.get_gaia_calibrators(setxy=setxy, drop_namag=drop_namag,isolation=isolation,
                                                         drop_outside=drop_outside, pixelbuffer=pixelbuffer, **kwargs)
-                
-                index1, index2 = get_coordmatching_indexes( catgaia, catps1)
-                catps1.loc[index2, "Source"] = catgaia.loc[index1].index
-                return pandas.merge(catgaia.reset_index(), catps1.reset_index(),
-                                 on="Source", suffixes=('', '_ps1'), how=mergehow)
-            
+
+                return match_and_merge(catgaia.reset_index(),
+                                               catps1.reset_index(),
+                                               "Source", suffixes=('', '_ps1'), how=mergehow)            
             else:
                 raise ValueError(f"Only ps1 and gaia calibrators catalog have been implemented, {which} given.")
             

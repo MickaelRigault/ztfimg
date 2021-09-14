@@ -40,8 +40,10 @@ def get_isolated(catdf, catdf_ref=None, xkey="ra", ykey="dec", keyunit="deg",
     iso.loc[tiso.index] = tiso
     return iso
 
-def get_coordmatching_indexes(cat1, cat2, radeckey1=["ra","dec"], radeckey2=["ra","dec"], seplimit=0.5):
-    """ 
+def match_and_merge(cat1, cat2, on,
+                        radeckey1=["ra","dec"], radeckey2=["ra","dec"], seplimit=0.5,
+                        mergehow="inner", suffixes=('_1', '_2'), **kwargs):
+    """     
     Parameters
     ----------
     cat1, cat2: [DataFrames]
@@ -54,7 +56,28 @@ def get_coordmatching_indexes(cat1, cat2, radeckey1=["ra","dec"], radeckey2=["ra
     seplimit: [float] -optional-
         maximal distance (in arcsec) for the matching.
         
-    
+    Returns
+    -------
+    DataFrame
+    """
+    index1, index2 = get_coordmatching_indexes(cat1, cat2)
+    cat2.loc[index2, on] = cat1.loc[index1][on]
+    return pandas.merge(cat1,cat2, on=on, suffixes=suffixes, how=mergehow, **kwargs)
+
+def get_coordmatching_indexes(cat1, cat2, radeckey1=["ra","dec"], radeckey2=["ra","dec"], seplimit=0.5):
+    """ get the dataframe indexes corresponding to the matching rows
+
+    Parameters
+    ----------
+    cat1, cat2: [DataFrames]
+        pandas.DataFrame containing, at miminum, the radeckey1/2.
+        ra and dec entries (see radeckey1) must by in deg.
+        
+    radeckey1,radeckey2: [string,string] -optional-
+        name of the ra and dec coordinates for catalog 1 and 2, respectively.
+        
+    seplimit: [float] -optional-
+        maximal distance (in arcsec) for the matching.
         
     Returns
     -------
