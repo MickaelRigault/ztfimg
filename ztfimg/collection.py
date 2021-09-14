@@ -123,6 +123,13 @@ class ScienceImageCollection( ImageCollection ):
         """
         return [img.get_stamps(x0_, y0_, dx, dy=None, data=data, asarray=asarray, **kwargs)
                     for img, x0_, y0_ in zip(self.images, x0s, y0s)]
+
+    def get_catalog(self, calibrator=["gaia","ps1"], extra=["psfcat"], isolation=20, seplimit=0.5, **kwargs):
+        """ """
+        propdown = {**dict( calibrator=calibrator, extra=extra, isolation=isolation, seplimit=seplimit),
+                    **kwargs}
+        
+        return self.call_down("get_catalog", True, **propdown)
     
     def get_calibrators(self, which=["gaia","ps1"],
                             setxy=True, drop_outside=True, drop_namag=True,

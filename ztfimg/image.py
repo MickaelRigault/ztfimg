@@ -189,10 +189,10 @@ class ZTFImage( WCSHolder ):
         return fits.getdata(psffile)
 
 
-    def get_catalog(self, calibrator=["gaia","ps1"], extra=["psfcat"], isolation=20, seplimit=0.5):
-        """ """
+    def get_catalog(self, calibrator=["gaia","ps1"], extra=["psfcat"], isolation=20, seplimit=0.5, **kwargs):
+        """ **kwargs goes to get_calibrators """
         from .catalog import match_and_merge
-        cal  = self.get_calibrators(calibrator, isolation=isolation, seplimit=seplimit)
+        cal  = self.get_calibrators(calibrator, isolation=isolation, seplimit=seplimit, **kwargs)
         if "gaia" in np.atleast_1d(calibrator).tolist():
             onleft = "Source"
         else:
