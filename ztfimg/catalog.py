@@ -61,8 +61,8 @@ def match_and_merge(left, right, onleft,
     DataFrame
     """
     indexl, indexr = get_coordmatching_indexes(left, right)
-    right.loc[indexr, on] = left.loc[indexl][on]
-    return pandas.merge(left, right, on=on, suffixes=suffixes, how=mergehow, **kwargs)
+    right.loc[indexr, onleft] = left.loc[indexl][onleft]
+    return pandas.merge(left, right, on=onleft, suffixes=suffixes, how=mergehow, **kwargs)
 
 def get_coordmatching_indexes(left, right, radeckeyl=["ra","dec"], radeckeyr=["ra","dec"], seplimit=0.5):
     """ get the dataframe indexes corresponding to the matching rows
