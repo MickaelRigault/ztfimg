@@ -296,7 +296,7 @@ class ZTFImage( WCSHolder ):
 
             cat["isolated"] = get_isolated(cat, seplimit=isolation)
             
-        return cat
+        return cat.astype({"ps1_id":'string',"sdssdr13_id":'string'})
 
     def get_data(self, applymask=True, maskvalue=np.NaN,
                        rmbkgd=True, whichbkgd="default", **kwargs):
