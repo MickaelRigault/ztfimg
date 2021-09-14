@@ -494,8 +494,8 @@ class PS1Calibrators( _CatCalibrator_ ):
             datas.append(cls.fetch_data(rcid, [fieldid]))
             
         return pandas.concat(datas).drop_duplicates().rename(
-            {"level_0":"rcid","level_1":"fieldid","level_2":"index"},
-            axis=1)
+                  {"level_0":"rcid","level_1":"fieldid","level_2":"index"},
+                  axis=1)
     
     def download_data(self, store=True, radec=None, wait=None, **kwargs):
         """ Actually, this down not download but build it from existing files """
