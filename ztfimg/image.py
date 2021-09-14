@@ -222,10 +222,11 @@ class ZTFImage( WCSHolder ):
                 catgaia = self.get_gaia_calibrators(setxy=setxy, drop_namag=drop_namag,isolation=isolation,
                                                         drop_outside=drop_outside, pixelbuffer=pixelbuffer, **kwargs)
                 
-                index1, index2 = get_coordmatching_indexes( catgaia, catps1)    
+                index1, index2 = get_coordmatching_indexes( catgaia, catps1)
                 catps1.loc[index2, "Source"] = catgaia.loc[index1].index
                 return pandas.merge(catgaia.reset_index(), catps1.reset_index(),
                                  on="Source", suffixes=('', '_ps1'), how=mergehow)
+            
             else:
                 raise ValueError(f"Only ps1 and gaia calibrators catalog have been implemented, {which} given.")
             
