@@ -25,8 +25,7 @@ class ImageCollection( object ):
     def set_images(self, images):
         """ """
         self._images = np.atleast_1d(images).tolist()
-
-
+        
     # -------- #
     # INTERNAL #
     # -------- #
@@ -125,7 +124,6 @@ class ScienceImageCollection( ImageCollection ):
         return [img.get_stamps(x0_, y0_, dx, dy=None, data=data, asarray=asarray, **kwargs)
                     for img, x0_, y0_ in zip(self.images, x0s, y0s)]
     
-    
     def get_calibrators(self, which=["gaia","ps1"],
                             setxy=True, drop_outside=True, drop_namag=True,
                             pixelbuffer=10, isolation=None, mergehow="inner", **kwargs):
@@ -141,7 +139,12 @@ class ScienceImageCollection( ImageCollection ):
         """ for each image: calls get_calibrators() and then getcat_aperture()
         """
         cals = self.get_calibrators(which=which, **calkwargs)
-        return self.map_down("getcat_aperture", cals, radius, xykeys=["x_gaia","y_gaia"], **kwargs)
+        if which==["gaia","ps1"] or which=["ps1","gaia"]:
+            xykeys = ["x_gaia","y_gaia"]
+        else:
+            xykeys = ["x","y"]
+            
+        return self.map_down("getcat_aperture", cals, radius, xykeys=xykeys, **kwargs)
     
     
     # =============== #
