@@ -139,7 +139,7 @@ class ScienceImageCollection( ImageCollection ):
         """ for each image: calls get_calibrators() and then getcat_aperture()
         """
         cals = self.get_calibrators(which=which, **calkwargs)
-        if which==["gaia","ps1"] or which=["ps1","gaia"]:
+        if which==["gaia","ps1"] or which==["ps1","gaia"]:
             xykeys = ["x_gaia","y_gaia"]
         else:
             xykeys = ["x","y"]
