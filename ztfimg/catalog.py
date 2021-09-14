@@ -40,9 +40,9 @@ def get_isolated(catdf, catdf_ref=None, xkey="ra", ykey="dec", keyunit="deg",
     iso.loc[tiso.index] = tiso
     return iso
 
-def match_and_merge(cat1, cat2, on,
+def match_and_merge(left, right, onleft,
                         radeckey1=["ra","dec"], radeckey2=["ra","dec"], seplimit=0.5,
-                        mergehow="inner", suffixes=('_1', '_2'), **kwargs):
+                        mergehow="inner", suffixes=('_l', '_r'), **kwargs):
     """     
     Parameters
     ----------
@@ -60,21 +60,21 @@ def match_and_merge(cat1, cat2, on,
     -------
     DataFrame
     """
-    index1, index2 = get_coordmatching_indexes(cat1, cat2)
-    cat2.loc[index2, on] = cat1.loc[index1][on]
-    return pandas.merge(cat1,cat2, on=on, suffixes=suffixes, how=mergehow, **kwargs)
+    indexl, indexr = get_coordmatching_indexes(left, right)
+    right.loc[indexr, on] = left.loc[indexl][on]
+    return pandas.merge(left, right, on=on, suffixes=suffixes, how=mergehow, **kwargs)
 
-def get_coordmatching_indexes(cat1, cat2, radeckey1=["ra","dec"], radeckey2=["ra","dec"], seplimit=0.5):
+def get_coordmatching_indexes(left, right, radeckeyl=["ra","dec"], radeckeyr=["ra","dec"], seplimit=0.5):
     """ get the dataframe indexes corresponding to the matching rows
 
     Parameters
     ----------
-    cat1, cat2: [DataFrames]
-        pandas.DataFrame containing, at miminum, the radeckey1/2.
+    left, right: [DataFrames]
+        pandas.DataFrame containing, at miminum, the radeckey l or r.
         ra and dec entries (see radeckey1) must by in deg.
         
-    radeckey1,radeckey2: [string,string] -optional-
-        name of the ra and dec coordinates for catalog 1 and 2, respectively.
+    radeckeyl,radeckeyr: [string,string] -optional-
+        name of the ra and dec coordinates for catalog left or right, respectively.
         
     seplimit: [float] -optional-
         maximal distance (in arcsec) for the matching.
@@ -84,12 +84,12 @@ def get_coordmatching_indexes(cat1, cat2, radeckey1=["ra","dec"], radeckey2=["ra
     index, index
     """
     # SkyCoord construction
-    sky1 = coordinates.SkyCoord(cat1[radeckey1].values, unit="deg")
-    sky2 = coordinates.SkyCoord(cat2[radeckey2].values, unit="deg")
+    skyl = coordinates.SkyCoord(left[radeckeyl].values, unit="deg")
+    skyr = coordinates.SkyCoord(right[radeckeyr].values, unit="deg")
     # Matching by distance
-    id2, id1, sep2d, sep3d = sky1.search_around_sky(sky2, 1*units.arcsec)
+    idr, idl, sep2d, sep3d = skyl.search_around_sky(skyr, seplimit*units.arcsec)
     # get indexes
-    return cat1.index[id1], cat2.index[id2]
+    return left.index[idl], right.index[idr]
 
 
 

@@ -226,7 +226,7 @@ class ZTFImage( WCSHolder ):
 
                 return match_and_merge(catgaia.reset_index(),
                                                catps1.reset_index(),
-                                               "Source", suffixes=('', '_ps1'), how=mergehow)            
+                                               "Source", suffixes=('', '_ps1'), mergehow=mergehow)            
             else:
                 raise ValueError(f"Only ps1 and gaia calibrators catalog have been implemented, {which} given.")
             
