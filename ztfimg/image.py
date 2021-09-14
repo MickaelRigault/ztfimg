@@ -455,7 +455,7 @@ class ZTFImage( WCSHolder ):
         from .stamps import stamp_it
         return stamp_it( getattr(self,data), x0, y0, dx, dy=dy, asarray=asarray)
     
-    def get_aperture(self, x0, y0, radius, bkgann=None, subpix=0,
+    def get_aperture(self, x0, y0, radius, bkgann=None, subpix=0, system="xy",
                          data="dataclean", maskprop={}, noiseprop={},
                          unit="counts", clean_flagout=False, get_flag=False):
         """ Get the Apeture photometry corrected from the background annulus if any.
@@ -466,6 +466,7 @@ class ZTFImage( WCSHolder ):
         ----------
         x0, y0, radius: [array]
             Center coordinates and radius (radii) of aperture(s).
+            (could be x,y, ra,dec or u,v ; see system)
 
         bkgann: [None/2D array] -optional-
             Length 2 tuple giving the inner and outer radius of a “background annulus”.
@@ -473,6 +474,12 @@ class ZTFImage( WCSHolder ):
 
         subpix: [int] -optional-
             Subpixel sampling factor. If 0, exact overlap is calculated. 5 is acceptable.
+
+        system: [string] -optional-
+            In which system are the input x0, y0:
+            - xy (ccd )
+            - radec (in deg, sky)
+            - uv (focalplane)
 
         data: [string] -optional-
             the aperture will be applied on self.`data`
@@ -502,6 +509,13 @@ class ZTFImage( WCSHolder ):
         if unit not in ["counts","count", "flux", "mag"]:
             raise ValueError(f"Cannot parse the input unit. counts/flux/mag accepted {unit} given")
 
+        if system == "radec":
+            x0, y0 = self.radec_to_xy(x0, y0)
+        elif system == "uv":
+            x0, y0 = self.uv_to_xy(x0, y0)
+        elif system != "xy":
+            raise ValueError(f"system must be xy, radec or uv ;  {system} given")
+
         counts, counterr, flag = sum_circle(getattr(self,data).byteswap().newbyteorder(),
                                                         x0, y0, radius,
                                                         err=self.get_noise(**noiseprop),
@@ -523,26 +537,27 @@ class ZTFImage( WCSHolder ):
                 return self.counts_to_mag(counts, counterr)
             return self.counts_to_mag(counts, counterr), flag
 
-    def getcat_aperture(self, catdf, radius, xykeys=["x","y"], join=True):
+    def getcat_aperture(self, catdf, radius, xykeys=["x","y"], join=True, system="xy", **kwargs):
         """ measures the aperture (using get_aperture) using a catalog dataframe as input
         Parameters
         ----------
         catdf: [DataFrame]
-        dataframe containing, at minimum the x and y centroid positions
+            dataframe containing, at minimum the x and y centroid positions
     
         xykeys: [string, string] -optional-
-        name of the x and y columns in the input dataframe
+            name of the x and y columns in the input dataframe
         
         join: [bool] -optional-
-        shall the returned dataframe be a new dataframe joined 
-        to the input one, or simply the aperture dataframe?
+            shall the returned dataframe be a new dataframe joined 
+            to the input one, or simply the aperture dataframe?
         
+        **kwargs goes to get_aperture
+
         Returns
         -------
         DataFrame
         """
-        x, y = catdf[xykeys].values.T
-        flux, fluxerr, flag = self.get_aperture(x,y, radius[:,None], unit="counts", get_flag = True)
+        flux, fluxerr, flag = self.get_aperture(x,y, radius[:,None], unit="counts", get_flag = True, system=system, **kwargs)
         dic = {**{f'f_{k}':f for k,f in enumerate(flux)},\
                    **{f'f_{k}_e':f for k,f in enumerate(fluxerr)},
                    **{f'f_{k}_f':f for k,f in enumerate(flag)}, # for each radius there is a flag
@@ -554,7 +569,6 @@ class ZTFImage( WCSHolder ):
         
         return fdata
 
-        
     def get_center(self, system="xy"):
         """ x and y or RA, Dec coordinates of the centroid. (shape[::-1]) """
         if system in ["xy","pixel","pixels","pxl"]:

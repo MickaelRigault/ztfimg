@@ -124,11 +124,37 @@ class ScienceImageCollection( ImageCollection ):
         return [img.get_stamps(x0_, y0_, dx, dy=None, data=data, asarray=asarray, **kwargs)
                     for img, x0_, y0_ in zip(self.images, x0s, y0s)]
 
+    def get_aperture(self, x0s, y0s, radius, bkgann=None, system="xy", data="dataclean",
+                         **kwargs):
+        """ 
+        x0, y0: [2d-array, 2d-array]
+           x and y positions where you want your stamp for each images.
+           len(x0) and len(y0) must be equal to self.nimages.
+           for instance: if you have N images and M positions to stamps for each.
+           Note: M does not need to be the same for all images.
+           x0 = [[x0_0, x0_1,...,x0_M], 
+                 [x1_0, x1_1, ..., x1_M], 
+                 ... 
+                 [xN_0, xN_1, ..., xN_M]
+                 ]
+            same for y0
+
+        system: [string] -optional-
+            In which system are the input x0, y0:
+            - xy (ccd )
+            - radec (in deg, sky)
+            - uv (focalplane)
+
+        **kwargs goes to each individual image's get_aperture """
+        propdown = {**dict( bkgann=bkgann, system=system, data=data),
+                    **kwargs}
+        return [img.get_aperture(x0_, y0_, radius, **propdown)
+                    for img, x0_, y0_ in zip(self.images, x0s, y0s)]
+    
     def get_catalog(self, calibrator=["gaia","ps1"], extra=["psfcat"], isolation=20, seplimit=0.5, **kwargs):
         """ """
         propdown = {**dict( calibrator=calibrator, extra=extra, isolation=isolation, seplimit=seplimit),
                     **kwargs}
-        
         return self.call_down("get_catalog", True, **propdown)
     
     def get_calibrators(self, which=["gaia","ps1"],
@@ -142,11 +168,13 @@ class ScienceImageCollection( ImageCollection ):
         
         return self.call_down("get_calibrators", True, **propdown)
     
-    def get_calibrator_aperture(self, radius, which=["gaia","ps1"], xykeys=["x","y"], calkwargs={}, **kwargs):
+    def get_calibrator_aperture(self, radius, which=["gaia","ps1"], xykeys=["x","y"],
+                                    calkwargs={}, system="xy", **kwargs):
         """ for each image: calls get_calibrators() and then getcat_aperture()
         """
         cals = self.get_calibrators(which=which, **calkwargs)
-        return self.map_down("getcat_aperture", cals, radius, xykeys=xykeys, **kwargs)
+        return self.map_down("getcat_aperture", cals, radius, xykeys=xykeys,
+                                 system=system, **kwargs)
     
     
     # =============== #
