@@ -41,7 +41,7 @@ def get_isolated(catdf, catdf_ref=None, xkey="ra", ykey="dec", keyunit="deg",
     return iso
 
 def match_and_merge(left, right, onleft,
-                        radeckey1=["ra","dec"], radeckey2=["ra","dec"], seplimit=1,
+                        radeckey1=["ra","dec"], radeckey2=["ra","dec"], seplimit=0.5,
                         mergehow="inner", suffixes=('_l', '_r'), **kwargs):
     """     
     Parameters

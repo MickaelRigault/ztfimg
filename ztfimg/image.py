@@ -145,8 +145,8 @@ class ZTFImage( WCSHolder ):
 
         if drop_outside:
             ymax, xmax = self.shape
-            cat = cat[cat["x"].between(-pixelbuffer, xmax+pixelbuffer) & \
-                      cat["y"].between(-pixelbuffer, ymax+pixelbuffer)]
+            cat = cat[cat["x"].between(+pixelbuffer, ymax-pixelbuffer) & \
+                      cat["y"].between(+pixelbuffer, xmax-pixelbuffer)]
         return cat
 
     def get_psfcat(self, show_progress=False, **kwargs):
@@ -190,7 +190,7 @@ class ZTFImage( WCSHolder ):
     
     def get_calibrators(self, which=["gaia","ps1"],
                             setxy=True, drop_outside=True, drop_namag=True,
-                            pixelbuffer=10, isolation=None, mergehow="inner", seplimit=1, **kwargs):
+                            pixelbuffer=10, isolation=None, mergehow="inner", seplimit=0.5, **kwargs):
         """ get a DataFrame containing the requested calibrator catalog(s).
         If several catalog are given, a matching will be made and the dataframe merged (in)
 
