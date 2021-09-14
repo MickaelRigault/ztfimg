@@ -187,7 +187,19 @@ class ZTFImage( WCSHolder ):
         
         psffile = io.get_file(img.filename, "sciimgdaopsfcent.fits", show_progress=False)
         return fits.getdata(psffile)
-    
+
+
+    def get_catalog(self, calibrator=["gaia","ps1"], extra=["psfcat"], isolation=20, seplimit=0.5):
+        """ """
+        from .catalog import match_and_merge
+        cal  = self.get_calibrators(calibrator, isolation=isolation, seplimit=seplimit)
+        
+        extra = np.atleast_1d(extra).tolist()
+        if "psfcat" in extra:
+            psfcat = self.get_psfcat()
+            
+        cat = match_and_merge(cal, psfcat, "Source", mergehow="left", suffixes=('', '_psfcat'), seplimit=seplimit)
+
     def get_calibrators(self, which=["gaia","ps1"],
                             setxy=True, drop_outside=True, drop_namag=True,
                             pixelbuffer=10, isolation=None, mergehow="inner", seplimit=0.5, **kwargs):
