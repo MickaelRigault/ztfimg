@@ -1,4 +1,5 @@
 
+import numpy as np
 import dask
 import os
 import pandas
