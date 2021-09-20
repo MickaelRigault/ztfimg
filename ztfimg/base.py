@@ -234,7 +234,7 @@ class _CCD_( _Image_ ):
         
     
     def show(self, ax=None, vmin="1", vmax="99", colorbar=False, cax=None, 
-             rebin=None, dataprop={}, **kwargs):
+             rebin=None, rebin_ccd=None, dataprop={}, **kwargs):
         """ """
         import matplotlib.pyplot as mpl
         if ax is None:
@@ -243,7 +243,7 @@ class _CCD_( _Image_ ):
         else:
             fig = ax.figure
         
-        data  = self.get_data(rebin=rebin, **dataprop)
+        data  = self.get_data(rebin=rebin, rebin_ccd=rebin_ccd, **dataprop).compute()
         vmin, vmax = parse_vmin_vmax(data, vmin, vmax)
 
         prop = {**dict(origin="lower", cmap="cividis", vmin=vmin, vmax=vmax),
@@ -421,6 +421,32 @@ class _FocalPlane_( _Image_):
                                                   line_4), axis=0)
 
         return mosaic
+
+
+
+    def show(self, ax=None, vmin="1", vmax="99", colorbar=False, cax=None, 
+             rebin=None, rebin_ccd=None, incl_gap=True, dataprop={}, **kwargs):
+        """ """
+        import matplotlib.pyplot as mpl
+        if ax is None:
+            fig = mpl.figure(figsize=[6,6])
+            ax = fig.add_subplot(111)
+        else:
+            fig = ax.figure
+        
+        data  = self.get_data(rebin=rebin, rebin_ccd=rebin_ccd, incl_gap=incl_gap, **dataprop).compute()
+        
+        vmin, vmax = parse_vmin_vmax(data, vmin, vmax)
+
+        prop = {**dict(origin="lower", cmap="cividis", vmin=vmin, vmax=vmax),
+                **kwargs}
+        
+        im = ax.imshow(data, **prop)
+        
+        if colorbar:
+            fig.colorbar(im, cax=cax, ax=ax)
+            
+        return ax
 
     # --------- #
     # CONVERTS  #
