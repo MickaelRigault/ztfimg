@@ -311,7 +311,26 @@ class ScienceQuadrant( _Quadrant_, WCSHolder ):
         if self._use_dask and type(self._data) == DaskArray:
             self._data = self._data.compute()
             self._mask = self._mask.compute()
-            
+
+    # --------- #
+    #  INTERNAL #
+    # --------- #
+    def _setxy_to_cat_(self, cat, drop_outside=True, pixelbuffer=10):
+        """ """
+        x,y = self.radec_to_xy(cat["ra"], cat["dec"])
+        u,v = self.radec_to_uv(cat["ra"], cat["dec"])
+        cat["x"] = x
+        cat["y"] = y
+        cat["u"] = u
+        cat["v"] = v
+
+        if drop_outside:
+            ymax, xmax = self.shape
+            cat = cat[cat["x"].between(+pixelbuffer, ymax-pixelbuffer) & \
+                      cat["y"].between(+pixelbuffer, xmax-pixelbuffer)]
+        return cat
+
+    
     # =============== #
     #  Properties     #
     # =============== #
