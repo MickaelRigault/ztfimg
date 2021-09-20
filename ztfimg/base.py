@@ -69,6 +69,14 @@ class _Image_( object ):
             fig.colorbar(im, cax=cax, ax=ax)
             
         return ax
+
+    # -------- #
+    # PLOTTER  #
+    # -------- #   
+    def _compute_header(self):
+        """ """
+        if self._use_dask and type(self.header) == Delayed:
+            self._header = pandas.Series( dict(self._header.compute()) )
     # =============== #
     #  Properties     #
     # =============== #
@@ -88,10 +96,8 @@ class _Image_( object ):
         """ """
         if not hasattr(self, "_header"):
             return None
-        
-#        if "delayed" in str( type(self._header) ) and compute:
-#            self._header = self._header.compute()
-        
+        # Computes the header only if necessary
+        self._compute_header()
         return self._header
     
     @property

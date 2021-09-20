@@ -297,7 +297,7 @@ class ScienceQuadrant( _Quadrant_ ):
     def _compute_header(self):
         """ """
         if self._use_dask and type(self.header) == Delayed:
-            self._header = self.header.compute()
+            self._header = pandas.Series( dict(self._header.compute()) )
         
     def _compute_data(self):
         """ """
