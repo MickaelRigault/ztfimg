@@ -98,7 +98,6 @@ class ScienceQuadrant( _Quadrant_ ):
     def load_wcs(self, header=None):
         """ """
         if header is None:
-            self._compute_header()
             header = self.header
             
         super().load_wcs(header)
@@ -294,10 +293,6 @@ class ScienceQuadrant( _Quadrant_ ):
             self._data = self._data.compute()
             self._mask = self._mask.compute()
         
-    def _compute_header(self):
-        """ """
-        if self._use_dask and type(self._header) == Delayed:
-            self._header = pandas.Series( dict(self._header.compute()) )
         
     def _compute_data(self):
         """ """
