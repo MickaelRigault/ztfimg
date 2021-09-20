@@ -315,8 +315,8 @@ class ScienceQuadrant( _Quadrant_, WCSHolder ):
         ps1cat = PS1Calibrators.fetch_data(self.rcid, self.fieldid, radec=self.get_center(system="radec"), **kwargs)
         
         # Set mag as the current band magnitude
-        ps1cat['mag'] = ps1cat["%smag"%self.filtername[-1]]
-        ps1cat['e_mag'] = ps1cat["e_%smag"%self.filtername[-1]]
+        # ps1cat['mag'] = ps1cat["%smag"%self.filtername[-1]]
+        # ps1cat['e_mag'] = ps1cat["e_%smag"%self.filtername[-1]]
         if setxy and ("ra" in ps1cat.columns and "x" not in ps1cat.columns):
             ps1cat = self._setxy_to_cat_(ps1cat, drop_outside=drop_outside, pixelbuffer=pixelbuffer)
 
