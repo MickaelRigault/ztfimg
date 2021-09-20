@@ -297,6 +297,7 @@ class ScienceQuadrant( _Quadrant_, WCSHolder ):
     # -------- #
     def get_ps1_calibrators(self, setxy=True, drop_outside=True, pixelbuffer=10, **kwargs):
         """ """
+        from .io import PS1Calibrators
         if kwargs.get("use_dask", self._use_dask):
             kwargs["use_dask"] = False
             delayed_cat = dask.delayed(self.get_ps1_calibrators)( setxy=setxy, drop_outside=drop_outside,
