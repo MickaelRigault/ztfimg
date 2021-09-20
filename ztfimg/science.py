@@ -146,7 +146,7 @@ class ScienceQuadrant( _Quadrant_ ):
         2d array (data)
 
         """ 
-        data_ = self.data
+        data_ = self.data.copy()
         
         if applymask:
             data_[self.get_mask(**kwargs)] = maskvalue # OK
