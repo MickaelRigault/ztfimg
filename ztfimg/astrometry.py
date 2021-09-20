@@ -205,3 +205,4 @@ class WCS( WCSHolder ):
         header = io.fits.getheader( io.get_file(filename, suffix=suffix, **kwargs) )
         return cls.from_header(header, pointingkey=pointingkey)
     
+    

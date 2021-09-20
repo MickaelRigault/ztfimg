@@ -6,6 +6,13 @@ from astropy.io import fits
 from astropy.nddata import bitmask
 from .io import PS1Calibrators, GaiaCalibrators
 from . import tools
+
+
+import dask
+import dask.array as da
+
+from dask.array.core import Array as DaskArray
+from dask.delayed import Delayed
 ZTF_FILTERS = {"ztfg":{"wave_eff":4813.97, "fid":1},
                "ztfr":{"wave_eff":6421.81, "fid":2},
                "ztfi":{"wave_eff":7883.06, "fid":3}
@@ -16,12 +23,16 @@ from .astrometry import WCSHolder
     
 class ZTFImage( WCSHolder ):
     """ """
+    SHAPE = 3080, 3072
     BITMASK_KEY = [ "tracks","sexsources","lowresponsivity","highresponsivity",
                     "noisy","ghosts","spillage","spikes","saturated",
                     "dead","nan","psfsources","brightstarhalo"]
 
-    def __init__(self, imagefile=None, maskfile=None):
+    def __init__(self, imagefile=None, maskfile=None, use_dask=False):
         """ """
+        if use_dask:
+            self._use_dask = use_dask
+
         if imagefile is not None:
             self.load_data(imagefile)
 
@@ -36,29 +47,51 @@ class ZTFImage( WCSHolder ):
     # =============== #
     #  Methods        #
     # =============== #
-    def query_associated_data(self, suffix=None, source="irsa", which="science", verbose=False, **kwargs):
+    def query_associated_data(self, suffix=None, source="irsa", which="science",
+                                  verbose=False, **kwargs):
         """ """
         from ztfquery import buildurl
-        return getattr(buildurl,f"filename_to_{which}url")(self._filename, source=source, suffix=suffix,
+        return getattr(buildurl,f"filename_to_{which}url")(self._filename, source=source,
+                                                               suffix=suffix,
                                                                verbose=False, **kwargs)
 
     # -------- #
     # LOADER   #
     # -------- #
-    def load_data(self, imagefile, **kwargs):
+    def load_data(self, imagefile, persist=True, **kwargs):
         """ """
         self._filename = imagefile
-        self._data = fits.getdata(imagefile,**kwargs)
-        self._header = fits.getheader(imagefile,**kwargs)
+        if not self._use_dask:
+            self._data = fits.getdata(imagefile, **kwargs)
+            self._header = fits.getheader(imagefile, **kwargs)
+            return
+        
+        # Dasked
+        data = da.from_delayed(dask.delayed(fits.getdata)(imagefile, **kwargs),
+                                            shape=self.SHAPE, dtype="float")
+        header = dask.delayed(fits.getheader)(imagefile, **kwargs)
+        # instanciate        
+        self._data = data.persist() if persist else data
+        self._header = header.persist() if persist else header
 
-    def load_mask(self, maskfile, **kwargs):
+    def load_mask(self, maskfile, persist=True, **kwargs):
         """ """
-        self._mask = fits.getdata(maskfile,**kwargs)
-        self._maskheader = fits.getheader(maskfile,**kwargs)
+        if not self._use_dask:
+            self._mask = fits.getdata(maskfile,**kwargs)
+            self._maskheader = fits.getheader(maskfile,**kwargs)
+            return
+
+        mask = da.from_delayed(dask.delayed(fits.getdata)(maskfile, **kwargs),
+                                            shape=self.SHAPE, dtype="float")
+        maskheader = dask.delayed(fits.getheader)(maskfile, **kwargs)
+        # instanciate
+        self._mask = mask.persist() if persist else mask
+        self._maskheader = maskheader.persist() if persist else maskheader
 
     def load_wcs(self, header=None):
         """ """
         if header is None:
+            self._compute_header()
             header = self.header
             
         super().load_wcs(header)
@@ -324,7 +357,10 @@ class ZTFImage( WCSHolder ):
         2d array (data)
 
         """
+        self._compute_data()
+            
         data_ = self.data.copy()
+        
         if applymask:
             data_[self.get_mask(**kwargs)] = maskvalue
             
@@ -357,6 +393,8 @@ class ZTFImage( WCSHolder ):
         -------
         2D array (True where should be masked out)
         """
+        self._compute_data()
+
         # Source mask
         if from_sources is not None and from_sources is not False:
             if type(from_sources)== bool and from_sources:
@@ -437,11 +475,12 @@ class ZTFImage( WCSHolder ):
 
         if method in ["nmad"]:
             from scipy import stats
-            return stats.median_absolute_deviation(self.data[~np.isnan(self.data)])
+            data_ = self.get_data(applymask=False, rmbkgd=False)
+            return stats.median_absolute_deviation(data_[~np.isnan(data_)])
 
         if method in ["std","16-84","84-16"]:
             data_ = self.get_data(rmbkgd=rmbkgd, applymask=True, alltrue=True)
-            lowersigma,upsigma = np.percentile(data_[data_==data_], [16,84]) # clean nans out
+            lowersigma,upsigma = np.percentile(data_[~np.isnan(data_)], [16,84]) # clean nans out
             return 0.5*(upsigma-lowersigma)
 
         if method in ["sep","sextractor", "globalrms"]:
@@ -662,6 +701,7 @@ class ZTFImage( WCSHolder ):
         elif mask in ["None"]:
             mask = None
 
+        self._compute_data()
         sout = extract(getattr(self, data).byteswap().newbyteorder(),
                         thresh, err=err, mask=mask, **kwargs)
 
@@ -693,6 +733,8 @@ class ZTFImage( WCSHolder ):
             fig = ax.figure
 
         # - Data
+        self._compute_data()
+            
         toshow_ = getattr(self,which)
         if transpose:
             toshow_ = np.transpose(toshow_)
@@ -736,6 +778,30 @@ class ZTFImage( WCSHolder ):
         # - return
         return ax
 
+    # -------- #
+    #  DASK    #
+    # -------- #
+    def _compute(self, client=None):
+        """ """
+        if client is not None:
+            f_ = client.compute([self._header, self._data, self._mask])
+            self._header, self._data, self._mask = client.gather(f_)
+        else:
+            self._header = self.header.compute()
+            self._data = self._data.compute()
+            self._mask = self._mask.compute()
+        
+    def _compute_header(self):
+        """ """
+        if self._use_dask and type(self.header) == Delayed:
+            self._header = self.header.compute()
+        
+    def _compute_data(self):
+        """ """
+        if self._use_dask and type(self._data) == DaskArray:
+            self._data = self._data.compute()
+            self._mask = self._mask.compute()        
+        
     # =============== #
     #  Properties     #
     # =============== #
@@ -747,7 +813,7 @@ class ZTFImage( WCSHolder ):
     @property
     def shape(self):
         """ Shape of the data """
-        return self.data.shape
+        return self.SHAPE
 
     @property
     def datamasked(self):
@@ -847,6 +913,7 @@ class ZTFImage( WCSHolder ):
     @property
     def filtername(self):
         """ """
+        self._compute_header()
         return self.header.get("FILTER", None).replace("_","").replace(" ","").lower()
 
     @property
@@ -857,27 +924,32 @@ class ZTFImage( WCSHolder ):
     @property
     def pixel_scale(self):
         """ Pixel scale, in arcsec per pixel """
+        self._compute_header()
         return self.header.get("PIXSCALE", self.header.get("PXSCAL", None) )
 
     @property
     def magzp(self):
         """ """
+        self._compute_header()        
         return self.header.get("MAGZP", None)
 
     @property
     def maglim(self):
         """ 5 sigma magnitude limit """
+        self._compute_header()        
         return self.header.get("MAGLIM", None)
 
     @property
     def saturation(self):
         """ """
+        self._compute_header()
         return self.header.get("SATURATE", None)
 
     # -> IDs
     @property
     def rcid(self):
         """ """
+        self._compute_header()        
         return self.header.get("RCID", self.header.get("DBRCID", None))
 
     @property
@@ -893,19 +965,24 @@ class ZTFImage( WCSHolder ):
     @property
     def fieldid(self):
         """ """
+        self._compute_header()
         return self.header.get("FIELDID", self.header.get("DBFIELD", None))
 
     @property
     def filterid(self):
         """ """
+        self._compute_header()        
         return self.header.get("FILTERID", self.header.get("DBFID", None)) #science vs. ref
 
     
     
 class ScienceImage( ZTFImage ):
 
-    def __init__(self, imagefile=None, maskfile=None):
+    def __init__(self, imagefile=None, maskfile=None, use_dask=False):
         """ """
+        if use_dask:
+            self._use_dask = use_dask
+            
         if imagefile is not None:
             self.load_data(imagefile)
 
@@ -913,7 +990,7 @@ class ScienceImage( ZTFImage ):
             self.load_mask(maskfile)
 
     @classmethod
-    def from_filename(cls, filename, filenamemask=None, download=True, **kwargs):
+    def from_filename(cls, filename, filenamemask=None, download=True, use_dask=False, **kwargs):
         """ 
         Parameters
         ----------
@@ -924,8 +1001,9 @@ class ScienceImage( ZTFImage ):
         """
         from ztfquery import io
         sciimgpath = io.get_file(filename, suffix="sciimg.fits", downloadit=download, **kwargs)
-        mskimgpath = io.get_file(filename if filenamemask is None else filenamemask, suffix="mskimg.fits", downloadit=download,**kwargs)
-        return cls(sciimgpath, mskimgpath)
+        mskimgpath = io.get_file(filename if filenamemask is None else filenamemask,
+                                     suffix="mskimg.fits", downloadit=download, **kwargs)
+        return cls(sciimgpath, mskimgpath, use_dask=use_dask)
         
     # -------- #
     #  LOADER  #

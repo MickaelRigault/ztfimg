@@ -58,12 +58,12 @@ def parse_vmin_vmax(data, vmin, vmax):
     return vmin, vmax
 
 
-def rebin_arr(arr, bins, dasked=False):
+def rebin_arr(arr, bins, use_dask=False):
     ccd_bins = arr.ravel().reshape( int(arr.shape[0]/bins[0]), 
                                     bins[0],
                                     int(arr.shape[1]/bins[1]), 
                                     bins[1])
-    if dasked:
+    if use_dask:
         return da.moveaxis(ccd_bins, 1,2)
     return np.moveaxis(ccd_bins, 1,2)
 

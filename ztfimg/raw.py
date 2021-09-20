@@ -7,110 +7,29 @@ import dask.array as da
 from .tools import fit_polynome, rebin_arr, parse_vmin_vmax
 
 
-class _RawImage_( object ):
-    """ """
-    def __init__(self, dasked=True):
-        """ """
-        self._use_dask = dasked
-        
-    # -------- #
-    #  SETTER  #
-    # -------- #
-    def set_header(self, header):
-        """ """
-        self._header = header
+from .base import _Quadrant_, _CCD_, _FocalPlane_
     
-    def set_data(self, data):
-        """ """
-        self._data = data
-               
-    # -------- #
-    #  GETTER  #
-    # -------- #
-    def get_header(self):
-        """ returns the header (self.header), see self.header
-        """
-        return self.header
-    
-    def get_headerkey(self, key, default=None):
-        """ """
-        if self.header is None:
-            raise AttributeError("No header set. see the set_header() method")
-            
-        return self.header.get(key, default)
+class RawQuadrant( _Quadrant_ ):
 
-    # -------- #
-    # PLOTTER  #
-    # -------- #   
-        
-    # =============== #
-    #  Properties     #
-    # =============== #
-    @property
-    def data(self):
+    def __init__(self, data=None, header=None, overscan=None, use_dask=True):
         """ """
-        if not hasattr(self, "_data"):
-            return None
-        return self._data
-        
-    def has_data(self):
-        """ """
-        return self.data is not None
-    
-    @property
-    def header(self, compute=True):
-        """ """
-        if not hasattr(self, "_header"):
-            return None
-        
-        if "delayed" in str( type(self._header) ) and compute:
-            self._header = self._header.compute()
-        
-        return self._header
-    
-    @property
-    def shape(self):
-        """ """
-        return None if not self.has_data() else np.shape(self.data)
-    
-    # // header 
-    @property
-    def filtername(self):
-        """ """
-        return self.get_headerkey("FILTER", "unknown")
-    
-    @property
-    def exptime(self):
-        """ """
-        return self.get_headerkey("EXPTIME", np.NaN)
-    
-    def obsjd(self):
-        """ """
-        return self.get_headerkey("OBSJD", None)
-    
-        
-class RawQuadrant( _RawImage_ ):
-
-    SHAPE = 3080, 3072
-    SHAPE_OVERSCAN = 3080, 30
-    def __init__(self, data=None, header=None, overscan=None, dasked=True):
-        """ """
-        _ = super().__init__(dasked=dasked)
+        _ = super().__init__(use_dask=use_dask)
         self.setup(data=data, header=header, overscan=overscan)
         
     @classmethod
-    def from_filename(cls, filename, qid, grab_imgkeys=True, dasked=True,
+    def from_filename(cls, filename, qid, grab_imgkeys=True, use_dask=True,
                           persist=True, **kwargs):
         """ """
         if qid not in [1,2,3,4]:
             raise ValueError(f"qid must be 1,2, 3 or 4 {qid} given")
 
-        if dasked:
+        if use_dask:
             data      = da.from_delayed(dask.delayed(fits.getdata)(filename, ext=qid),
                                             shape=cls.SHAPE, dtype="float")
             overscan  = da.from_delayed(dask.delayed(fits.getdata)(filename, ext=qid+4),
                                             shape=cls.SHAPE_OVERSCAN, dtype="float")
-            header    = dask.delayed(cls.read_rawfile_header)(filename, qid=qid,  grab_imgkeys=grab_imgkeys)
+            header    = dask.delayed(cls.read_rawfile_header)(filename, qid=qid,
+                                                              grab_imgkeys=grab_imgkeys)
             
         else:
             data      = fits.getdata(filename, ext=qid)
@@ -121,16 +40,16 @@ class RawQuadrant( _RawImage_ ):
         if qid in [2, 3]:
             overscan = overscan[:,::-1]
 
-        if persist and dasked:
+        if persist and use_dask:
             data = data.persist()
             overscan = overscan.persist()
             header = header.persist()
             
-        return cls(data, header=header, overscan=overscan, dasked=dasked, **kwargs)
+        return cls(data, header=header, overscan=overscan, use_dask=use_dask, **kwargs)
 
 
     @classmethod
-    def from_filefracday(cls, filefracday, rcid, dasked=True, persist=True, **kwargs):
+    def from_filefracday(cls, filefracday, rcid, use_dask=True, persist=True, **kwargs):
         """ """
         from ztfquery.io import filefracday_to_local_rawdata
         ccdid, qid = RawFocalPlane.rcid_to_ccdid_qid(rcid)
@@ -142,11 +61,12 @@ class RawQuadrant( _RawImage_ ):
         if len(filename)>1:
             raise IOError(f"Very strange: several local raw data found for filefracday: {filefracday} and ccdid: {ccdid}", filename)
         
-        return cls.from_filename(filename[0], qid=qid, dasked=dasked, persist=persist, **kwargs)
+        return cls.from_filename(filename[0], qid=qid, use_dask=use_dask,
+                                     persist=persist, **kwargs)
     
 
     @classmethod
-    def from_date(cls, date, rcid, imgtype, dasked=True, persist=True, **kwargs):
+    def from_date(cls, date, rcid, imgtype, use_dask=True, persist=True, **kwargs):
         """ """
         print("NOT IMPLEMENTED")
     
@@ -224,7 +144,7 @@ class RawQuadrant( _RawImage_ ):
             #data_ *=
 
         if rebin is not None:
-            data_ = getattr(da if self._use_dask else np, rebin_stat)( rebin_arr(data_, (rebin,rebin), dasked=True), axis=(-2,-1))
+            data_ = getattr(da if self._use_dask else np, rebin_stat)( rebin_arr(data_, (rebin,rebin), use_dask=True), axis=(-2,-1))
             
         return data_
         
@@ -292,33 +212,6 @@ class RawQuadrant( _RawImage_ ):
     # -------- #
     # PLOTTER  #
     # -------- #
-    def show_data(self, ax=None, colorbar=True, cax=None, apply=None, 
-                  vmin="1", vmax="99", **kwargs):
-        """ """
-        import matplotlib.pyplot as mpl
-        
-        if ax is None:
-            fig = mpl.figure(figsize=[5 + (1.5 if colorbar else 0),5])
-            ax = fig.add_subplot(111)
-        else:
-            fig = ax.figure
-        
-        if apply is not None:
-            data = getattr(np,apply)(self.data)
-        else:
-            data = self.data
-
-            
-        vmin, vmax= parse_vmin_vmax(data, vmin, vmax)
-        prop = dict(origin="lower", cmap="cividis", vmin=vmin,vmax=vmax)
-            
-            
-        im = ax.imshow(data, **{**prop,**kwargs})
-        if colorbar:
-            fig.colorbar(im, cax=cax, ax=ax)
-            
-        return ax
-    
     def show_overscan(self, ax=None, axs=None, axm=None, 
                       colorbar=False, cax=None, **kwargs):
         """ """
@@ -357,11 +250,6 @@ class RawQuadrant( _RawImage_ ):
     # =============== #
     #  Properties     #
     # =============== #
-    @property
-    def shape(self):
-        """  data shape """
-        return self.SHAPE
-
     @property
     def shape_overscan():
         """ shape of the raw overscan data """
@@ -405,20 +293,20 @@ class RawQuadrant( _RawImage_ ):
         return self.get_headerkey("READNOI", None)
         
         
-class RawCCD( _RawImage_ ):
+class RawCCD( _CCD_ ):
 
-    def __init__(self, filename=None, dasked=True, **kwargs):
+    def __init__(self, filename=None, use_dask=True, **kwargs):
         """ """
-        _ = super().__init__(dasked=dasked)
+        _ = super().__init__(use_dask=use_dask)
         self.load_file(filename, **kwargs)
         
     @classmethod
-    def from_filename(cls, filename, dasked=True, **kwargs):
+    def from_filename(cls, filename, use_dask=True, **kwargs):
         """ """
-        return cls(filename, dasked=dasked, **kwargs)
+        return cls(filename, use_dask=use_dask, **kwargs)
 
     @classmethod
-    def from_filefracday(cls, filefracday, ccdid, dasked=True, **kwargs):
+    def from_filefracday(cls, filefracday, ccdid, use_dask=True, **kwargs):
         """ """
         from ztfquery.io import filefracday_to_local_rawdata
         filename = filefracday_to_local_rawdata(filefracday, ccdid=ccdid)
@@ -427,7 +315,7 @@ class RawCCD( _RawImage_ ):
         if len(filename)>1:
             raise IOError(f"Very strange: several local raw data found for filefracday: {filefracday} and ccdid: {ccdid}", filename)
         
-        return cls.from_filename(filename[0], dasked=dasked, **kwargs)
+        return cls.from_filename(filename[0], use_dask=use_dask, **kwargs)
         
     # =============== #
     #   Methods       #
@@ -449,170 +337,55 @@ class RawCCD( _RawImage_ ):
             which = np.asarray(np.atleast_1d(which), dtype="int")
         
         for qid in which:
-            qradrant = RawQuadrant.from_filename(filename, qid, dasked=self._use_dask, persist=persist)
+            qradrant = RawQuadrant.from_filename(filename, qid, use_dask=self._use_dask, persist=persist)
             self.set_quadrant(qradrant,  qid=qid)
             
-    def load_data(self, **kwargs):
-        """  **kwargs goes to self.get_data() """
-        self._data = self.get_data(**kwargs)
-        
     # -------- #
     #  SETTER  #
     # -------- #                
-    def set_quadrant(self, rawquadrant, qid=None, persist=True):
-        """ """
-        if qid is None:
-            qid = rawquadrant.qid
-            
-        self.quadrants[qid] = rawquadrant
-        
+
     # --------- #
     #  GETTER   #
     # --------- # 
-    def get_quadrant(self, qid):
-        """ """
-        return self.quadrants[qid]
-
-    def get_quadrantheader(self):
-        """ returns a DataFrame of the header quadrants """
-        qid_range = [1,2,3,4]
-        hs = [self.get_quadrant(i).get_header() for i in qid_range]
-        df = pandas.concat(hs, axis=1)
-        df.columns = qid_range
-        return df
-        
-    def get_data(self, corr_overscan=False, corr_gain=False, corr_nl=False,
-                rebin=None, npstat="mean"):
-        """ ccd data """
-        ccd = np.zeros(self.shape)
-        prop_qdata = dict(corr_overscan=corr_overscan, corr_gain=corr_gain, corr_nl=corr_nl)
-        
-        if self._use_dask:
-            d = [self.get_quadrant(i).get_data(**prop_qdata) for i in [1,2,3,4]]
-            ccd_up   = da.concatenate([d[3],d[2]], axis=1)
-            ccd_down = da.concatenate([d[0],d[1]], axis=1)
-            ccd = da.concatenate([ccd_down,ccd_up], axis=0)
-            if rebin is not None:
-                ccd = getattr(da,npstat)( rebin_arr(ccd, (rebin,rebin), dasked=True), axis=(-2,-1))
-        else:
-            d = [self.get_quadrant(i).get_data(**prop_qdata)
-                        for i in [1,2,3,4]]
-            
-            ccd_up   = np.concatenate([d[3],d[2]], axis=1)
-            ccd_down = np.concatenate([d[0],d[1]], axis=1)
-            ccd = np.concatenate([ccd_down,ccd_up], axis=0)
-            if rebin is not None:
-                ccd = getattr(np,npstat)( rebin_arr(ccd, (rebin,rebin), dasked=False), axis=(-2,-1))
-
-        return ccd
-        
+           
     # --------- #
     #  PLOTTER  #
     # --------- # 
-    def show_quadrants(self, **kwargs):
-        """ """
-        fig = mpl.figure(figsize=[6,6])
-        ax1 = fig.add_axes([0.1,0.1,0.4,0.4])
-        ax2 = fig.add_axes([0.5,0.1,0.4,0.4])
-        ax3 = fig.add_axes([0.5,0.5,0.4,0.4])    
-        ax4 = fig.add_axes([0.1,0.5,0.4,0.4])    
+        
+        
 
-        prop = {**dict(colorbar=False),**kwargs}
-        self.quadrants[1].show_data(ax=ax1, **prop)
-        self.quadrants[2].show_data(ax=ax2, **prop)
-        self.quadrants[3].show_data(ax=ax3, **prop)
-        self.quadrants[4].show_data(ax=ax4, **prop) 
-
-        [ax_.set_xticks([]) for ax_ in [ax3, ax4]]
-        [ax_.set_yticks([]) for ax_ in [ax2, ax3]]
-        
-        
-    def show(self, ax=None, vmin="1", vmax="99", colorbar=False, cax=None, 
-             rebin=None, dataprop={}, **kwargs):
-        """ """
-        import matplotlib.pyplot as mpl
-        if ax is None:
-            fig = mpl.figure(figsize=[6,6])
-            ax = fig.add_subplot(111)
-        else:
-            fig = ax.figure
-        
-        data  = self.get_data(rebin=rebin, **dataprop)
-        vmin, vmax = parse_vmin_vmax(data, vmin, vmax)
-
-        prop = {**dict(origin="lower", cmap="cividis", vmin=vmin, vmax=vmax),
-                **kwargs}
-        
-        im = ax.imshow(data, **prop)
-        
-        if colorbar:
-            fig.colorbar(im, cax=cax, ax=ax)
-            
-        return ax
 
     # =============== #
     #  Properties     #
     # =============== #
     @property
-    def data(self):
-        """ """
-        if not hasattr(self, "_data"):
-            if not self.has_quadrants("all"):
-                return None
-            
-            self.load_data()
-            
-        return self._data
-    
-    @property
-    def quadrants(self):
-        """ """
-        if not hasattr(self,"_quadrants"):
-            self._quadrants = {k:None for k in [1,2,3,4]}
-        return self._quadrants
-    
-    def has_quadrants(self, logic="all"):
-        """ """
-        is_none = [v is not None for v in self.quadrants.values()]
-        return getattr(np, logic)(is_none)
-        
-    @property
-    def shape(self):
-        """ shape of ccd image """        
-        return 3080*2, 3072*2
-    
-    @property
-    def qshape(self):
-        """ shape of an individual ccd quadrant """
-        return 3080, 3072
-    
-    @property
     def ccdid(self):
         """ number of the CCD """
         return self.get_headerkey("CCD_ID", None)
+    
     @property
     def filename(self):
         """ """
         return self.get_headerkey("FILENAME", None)
     
     
-class RawFocalPlane( _RawImage_):
+class RawFocalPlane( _FocalPlane_ ):
     # INFORMATION
     # 15 µm/arcsec  (ie 1 arcsec/pixel) and using 
     # 7.2973 mm = 487 pixel gap along rows (ie between columns) 
     # and 671 pixels along columns.
     @classmethod
-    def from_filenames(cls, ccd_filenames, dasked=True, **kwargs):
+    def from_filenames(cls, ccd_filenames, use_dask=True, **kwargs):
         """ """
-        this = cls(dasked=dasked)
+        this = cls(use_dask=use_dask)
         for file_ in ccd_filenames:
-            ccd_ = RawCCD.from_filename(file_, dasked=dasked, **kwargs)
+            ccd_ = RawCCD.from_filename(file_, use_dask=use_dask, **kwargs)
             this.set_ccd(ccd_, ccdid=ccd_.ccdid)
             
         return this
 
     @classmethod
-    def from_filefracday(cls, filefracday, dasked=True, **kwargs):
+    def from_filefracday(cls, filefracday, use_dask=True, **kwargs):
         """ """
         from ztfquery.io import filefracday_to_local_rawdata
         filenames = filefracday_to_local_rawdata(filefracday, ccdid="*")
@@ -625,180 +398,14 @@ class RawFocalPlane( _RawImage_):
         if len(filenames)<16:
             warnings.warn(f"Less than 16 local raw data found for filefracday: {filefracday}")
         
-        return cls.from_filenames(filenames, dasked=dasked, **kwargs)
+        return cls.from_filenames(filenames, use_dask=use_dask, **kwargs)
             
     # =============== #
     #   Methods       #
     # =============== #
-    def set_ccd(self, rawccd, ccdid=None):
-        """ """
-        if ccdid is None:
-            ccdid = rawccd.qid
-            
-        self.ccds[ccdid] = rawccd
-        
     # --------- #
     #  GETTER   #
     # --------- # 
-    def get_ccd(self, ccdid):
-        """ """
-        return self.ccds[ccdid]
-    
-    def get_quadrant(self, rcid):
-        """ """
-        ccdid, qid = self.rcid_to_ccdid_qid(rcid)
-        return self.get_ccd(ccdid).get_quadrant(qid)
-
-    def get_quadrantheader(self, rcid_range="all"):
-        """ returns a DataFrame of the header quadrants (rcid) """
-        if rcid_range in ["*","all"]:
-            rcid_range = np.arange(64)
-            
-        hs = [self.get_quadrant(i).get_header() for i in rcid_range]
-        df = pandas.concat(hs, axis=1)
-        df.columns = rcid_range
-        return df
-    
-    @staticmethod
-    def get_datagap(which, rebin=None, fillna=np.NaN):
-        """ 
-        horizontal (or row) = between rows
-        """
-        if which in ["horizontal", "row", "rows"]:
-            hpixels = 672
-            vpixels = 3072*2
-        else:
-            hpixels = 3080*2
-            vpixels = 488
-
-        if rebin is not None:
-            hpixels /= rebin
-            vpixels /= rebin
-            
-        return hpixels, vpixels
-
-    def get_data(self, rebin=None, corr_overscan=False, corr_gain=False, 
-                incl_gap=False):
-        """  """
-        # Merge quadrants of the 16 CCDs
-        prop = dict(rebin=rebin, corr_overscan=corr_overscan, corr_gain=corr_gain)
-
-        npda = da if self._use_dask else np
-
-        if not incl_gap:
-            line_1 = getattr(npda,"concatenate")(( self.get_ccd(4).get_data(**prop), 
-                                                 self.get_ccd(3).get_data(**prop), 
-                                                 self.get_ccd(2).get_data(**prop), 
-                                                 self.get_ccd(1).get_data(**prop)), axis=1)
-            line_2 = getattr(npda,"concatenate")(( self.get_ccd(8).get_data(**prop), 
-                                                 self.get_ccd(7).get_data(**prop), 
-                                                 self.get_ccd(6).get_data(**prop), 
-                                                 self.get_ccd(5).get_data(**prop)), axis=1)
-            line_3 = getattr(npda,"concatenate")(( self.get_ccd(12).get_data(**prop), 
-                                                self.get_ccd(11).get_data(**prop), 
-                                                self.get_ccd(10).get_data(**prop), 
-                                                self.get_ccd(9).get_data(**prop)), axis=1)
-            line_4 = getattr(npda,"concatenate")(( self.get_ccd(16).get_data(**prop), 
-                                                self.get_ccd(15).get_data(**prop), 
-                                                self.get_ccd(14).get_data(**prop), 
-                                                self.get_ccd(13).get_data(**prop)), axis=1)
-
-
-            mosaic = getattr(npda,"concatenate")((line_1, line_2, line_3, line_4), axis=0)
-        else:
-            line_1 = getattr(npda,"concatenate")(( self.get_ccd(4).get_data(**prop), 
-                                                  da.ones(self.get_datagap("columns", rebin=rebin))*np.NaN,
-                                                 self.get_ccd(3).get_data(**prop), 
-                                                  da.ones(self.get_datagap("columns", rebin=rebin))*np.NaN,
-                                                 self.get_ccd(2).get_data(**prop), 
-                                                  da.ones(self.get_datagap("columns", rebin=rebin))*np.NaN,
-                                                 self.get_ccd(1).get_data(**prop)), axis=1)
-            line_2 = getattr(npda,"concatenate")(( self.get_ccd(8).get_data(**prop), 
-                                                  da.ones(self.get_datagap("columns", rebin=rebin))*np.NaN,
-                                                 self.get_ccd(7).get_data(**prop), 
-                                                  da.ones(self.get_datagap("columns", rebin=rebin))*np.NaN,
-                                                 self.get_ccd(6).get_data(**prop), 
-                                                  da.ones(self.get_datagap("columns", rebin=rebin))*np.NaN,
-                                                 self.get_ccd(5).get_data(**prop)), axis=1)
-            line_3 = getattr(npda,"concatenate")(( self.get_ccd(12).get_data(**prop), 
-                                                  da.ones(self.get_datagap("columns", rebin=rebin))*np.NaN,
-                                                self.get_ccd(11).get_data(**prop), 
-                                                  da.ones(self.get_datagap("columns", rebin=rebin))*np.NaN,
-                                                self.get_ccd(10).get_data(**prop), 
-                                                  da.ones(self.get_datagap("columns", rebin=rebin))*np.NaN,
-                                                self.get_ccd(9).get_data(**prop)), axis=1)
-            line_4 = getattr(npda,"concatenate")(( self.get_ccd(16).get_data(**prop), 
-                                                  da.ones(self.get_datagap("columns", rebin=rebin))*np.NaN,
-                                                self.get_ccd(15).get_data(**prop), 
-                                                  da.ones(self.get_datagap("columns", rebin=rebin))*np.NaN,
-                                                self.get_ccd(14).get_data(**prop), 
-                                                  da.ones(self.get_datagap("columns", rebin=rebin))*np.NaN,
-                                                self.get_ccd(13).get_data(**prop)), axis=1)
-            size_shape= self.get_datagap("rows", rebin=rebin)[0]
-
-            mosaic = getattr(npda,"concatenate")((line_1, 
-                                                  da.ones((size_shape, line_1.shape[1]))*np.NaN,
-                                                  line_2, 
-                                                  da.ones((size_shape, line_1.shape[1]))*np.NaN,                                              
-                                                  line_3, 
-                                                  da.ones((size_shape, line_1.shape[1]))*np.NaN,
-                                                  line_4), axis=0)
-
-        return mosaic
-    
-    # --------- #
-    # CONVERTS  #
-    # --------- # 
-    @staticmethod
-    def ccdid_qid_to_rcid(ccdid, qid):
-        """ computes the rcid """
-        return 4*(ccdid - 1) + qid - 1
-    
-    @staticmethod
-    def rcid_to_ccdid_qid(rcid):
-        """ computes the rcid """
-        qid = (rcid%4)+1
-        ccdid  = int((rcid-(qid - 1))/4 +1)
-        return ccdid,qid
-          
-    # =============== #
-    #  Properties     #
-    # =============== #
-    @property
-    def ccds(self):
-        """ """
-        if not hasattr(self,"_ccds"):
-            self._ccds = {k:None for k in np.arange(1,17)}
-            
-        return self._ccds
-    
-    def has_ccds(self, logic="all"):
-        """ """
-        is_none = [v is not None for v in self.ccds.values()]
-        return getattr(np, logic)(is_none)
-
-    @property
-    def shape_full(self):
-        """ shape with gap"""
-        print("gap missing")
-        return self.ccdshape*4 
-    
-    @property
-    def shape(self):
-        """ shape without gap"""
-        return self.ccdshape*4
-    
-    @property
-    def ccdshape(self):
-        """ """
-        return self.qshape*2
-
-    @property
-    def qshape(self):
-        """ """
-        return np.asarray([3080, 3072])
-    
-        
 
 class RawFocalPlaneCollection( object ):
 
