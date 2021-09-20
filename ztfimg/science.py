@@ -9,9 +9,9 @@ from astropy.nddata import bitmask
 
 from .base import _Quadrant_, _CCD_, _FocalPlane_
 from .tools import rebin_arr, parse_vmin_vmax
+from .astrometry import WCSHolder
 
-
-class ScienceQuadrant( _Quadrant_ ):
+class ScienceQuadrant( _Quadrant_, WCSHolder ):
 
     BITMASK_KEY = [ "tracks","sexsources","lowresponsivity","highresponsivity",
                     "noisy","ghosts","spillage","spikes","saturated",
@@ -93,7 +93,6 @@ class ScienceQuadrant( _Quadrant_ ):
     def set_mask(self, mask):
         """ """
         self._mask = mask
-
 
     def load_wcs(self, header=None):
         """ """
