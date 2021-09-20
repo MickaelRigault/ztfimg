@@ -357,7 +357,7 @@ class _FocalPlane_( _Image_):
     def get_data(self, rebin=None, rebin_ccd=None, incl_gap=False, **kwargs):
         """  """
         # Merge quadrants of the 16 CCDs
-        prop = {**dict(rebin=rebin, rebin_ccd=rebin_ccd), **kwargs
+        prop = {**dict(rebin=rebin, rebin_ccd=rebin_ccd), **kwargs}
 
         npda = da if self._use_dask else np
 
