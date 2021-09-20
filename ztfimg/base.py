@@ -75,8 +75,9 @@ class _Image_( object ):
     # -------- #   
     def _compute_header(self):
         """ """
-        if self._use_dask and type(self.header) == Delayed:
+        if self._use_dask and type(self._header) == Delayed:
             self._header = pandas.Series( dict(self._header.compute()) )
+
     # =============== #
     #  Properties     #
     # =============== #
