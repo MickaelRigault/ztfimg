@@ -299,7 +299,7 @@ class ScienceQuadrant( _Quadrant_, WCSHolder ):
         """ """
         if kwargs.get("use_dask", self._use_dask):
             kwargs["use_dask"] = False
-            delayed_cat = dask.delayed(self.get_ps1_calibrators)( setxy=Truesetxy, drop_outside=drop_outside,
+            delayed_cat = dask.delayed(self.get_ps1_calibrators)( setxy=setxy, drop_outside=drop_outside,
                                                                   pixelbuffer=pixelbuffer,
                                                                   **kwargs)
             
