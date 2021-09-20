@@ -398,7 +398,7 @@ class ScienceCCD( _CCD_ ):
         """ """
         return [q.filenames for q in self.quandrants]
     
-class ScienceFocalPlan( _FocalPlane_ ):
+class ScienceFocalPlane( _FocalPlane_ ):
     """ """
     
     @classmethod
