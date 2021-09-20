@@ -3,7 +3,7 @@ import pandas
 import numpy as np
 import dask
 import dask.array as da
-
+import dask.dataframe as dd
 
 from astropy.nddata import bitmask
 
@@ -292,6 +292,35 @@ class ScienceQuadrant( _Quadrant_, WCSHolder ):
             return np.nanmedian( self.get_data(rmbkgd=rmbkgd, applymask=True, alltrue=True) )
 
 
+    # -------- #
+    # CATALOGS # 
+    # -------- #
+    def get_ps1_calibrators(self, setxy=True, drop_outside=True, pixelbuffer=10, **kwargs):
+        """ """
+        if kwargs.get("use_dask", self._use_dask):
+            kwargs["use_dask"] = False
+            delayed_cat = dask.delayed(self.get_ps1_calibrators)( setxy=Truesetxy, drop_outside=drop_outside,
+                                                                  pixelbuffer=pixelbuffer,
+                                                                  **kwargs)
+            
+            columns = ['ra', 'dec', 'gmag', 'e_gmag', 'rmag', 'e_rmag', 'imag', 'e_imag','zmag', 'e_zmag']
+            if setxy:
+                columns += ["x","y","u","v"]
+        
+            meta = pandas.DataFrame(columns=columns,  dtype="float64")
+            return dd.from_delayed(delayed_cat, meta=meta)
+            
+        # remark: radec is going to be used only the fieldid is not already downloaded.
+        ps1cat = PS1Calibrators.fetch_data(self.rcid, self.fieldid, radec=self.get_center(system="radec"), **kwargs)
+        
+        # Set mag as the current band magnitude
+        ps1cat['mag'] = ps1cat["%smag"%self.filtername[-1]]
+        ps1cat['e_mag'] = ps1cat["e_%smag"%self.filtername[-1]]
+        if setxy and ("ra" in ps1cat.columns and "x" not in ps1cat.columns):
+            ps1cat = self._setxy_to_cat_(ps1cat, drop_outside=drop_outside, pixelbuffer=pixelbuffer)
+
+        return ps1cat
+    
     # -------- #
     #  DASK    #
     # -------- #
