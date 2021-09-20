@@ -108,6 +108,19 @@ class ScienceQuadrant( _Quadrant_, WCSHolder ):
     # -------- #
     #  GETTER  #
     # -------- #
+    def get_center(self, system="xy"):
+        """ x and y or RA, Dec coordinates of the centroid. (shape[::-1]) """
+        if system in ["xy","pixel","pixels","pxl"]:
+            return (np.asarray(self.shape[::-1])+1)/2
+
+        if system in ["uv","tangent"]:
+            return np.squeeze(self.xy_to_uv(*self.get_center(system="xy")) )
+        
+        if system in ["radec","coords","worlds"]:
+            return np.squeeze(self.xy_to_radec(*self.get_center(system="xy")) )
+
+        raise ValueError(f"cannot parse the given system {system}, use xy, radec or uv")
+    
     def get_ccd(self, use_dask=True, **kwargs):
         """ """
         return ScienceCCD.from_single_filename(self.filename, use_dask=use_dask, **kwargs)
@@ -311,6 +324,13 @@ class ScienceQuadrant( _Quadrant_, WCSHolder ):
     def mask(self):
         """ """
         return self._mask
+
+    @property
+    def wcs(self):
+        """ Astropy WCS solution loaded from the header """
+        if not hasattr(self,"_wcs"):
+            self.load_wcs()
+        return self._wcs
 
     @property
     def filename(self):

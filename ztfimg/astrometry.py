@@ -5,9 +5,6 @@ from astropy.wcs import WCS as astropyWCS
 import pandas
 from . import tools
 
-
-
-
 def read_radec(filename, ext=0, as_serie=False):
     """ """
     ra, dec = WCS.from_filename(filename).get_centroid("radec")
