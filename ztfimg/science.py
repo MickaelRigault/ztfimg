@@ -352,10 +352,10 @@ class ScienceQuadrant( _Quadrant_, WCSHolder ):
                         'e_pmde', 'colormag']
 
             if setxy:
-                columns += ["x","y","u","v"
+                columns += ["x","y","u","v"]
                 
             meta = pandas.DataFrame(columns=columns,  dtype="float")
-            meta = meta.astype({"ps1_id":'string',"sdssdr13_id":'string'})            
+            meta = meta.astype({"ps1_id":'string',"sdssdr13_id":'string'})     
             return dd.from_delayed(delayed_cat, meta=meta)
         #
         # Not Dasked
