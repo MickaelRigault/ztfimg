@@ -323,7 +323,7 @@ class ScienceQuadrant( _Quadrant_, WCSHolder ):
                 self._source_background = da.from_delayed( dask.delayed(Background)(data).back(),
                                                 shape = self.shape, dtype="float")
             else:
-                self._source_background = Background(data).back()
+                self._source_background = Background(data.astype("float32")).back()
                 
         return self._source_background
         
