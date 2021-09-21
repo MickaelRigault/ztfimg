@@ -401,7 +401,7 @@ class ScienceQuadrant( _Quadrant_, WCSHolder ):
                                                                   isolation=isolation,
                                                                   use_dask=False, # get the df
                                                                   **kwargs)
-            columns = ['ps1_id', 'sdssdr13_id', 'ra', 'dec', 'gmag', 'e_gmag', 'gmagcorr',
+            columns = ['Source', 'ps1_id', 'sdssdr13_id', 'ra', 'dec', 'gmag', 'e_gmag', 'gmagcorr',
                         'rpmag', 'e_rpmag', 'bpmag', 'e_bpmag', 'fg', 'e_fg', 'fgcorr', 'frp',
                         'e_frp', 'fbp', 'e_fbp', 'plx', 'e_plx', 'pm', 'pmra', 'e_pmra', 'pmde',
                         'e_pmde', 'colormag']
