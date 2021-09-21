@@ -291,9 +291,23 @@ class ScienceQuadrant( _Quadrant_, WCSHolder ):
             
             return np.nanmedian( self.get_data(rmbkgd=rmbkgd, applymask=True, alltrue=True) )
 
-
-    def get_source_background(self):
+    def get_source_mask(self, thresh=2):
         """ """
+        if not hasattr(self, "_source_mask"):
+            from .tools import extract_sources, get_source_mask
+            npda = da if self._use_dask else np
+            datamasked = self.get_data(applymask=True, rmbkgd=True, whichbkgd="median", alltrue=True)
+            noise = da.nanstd(datamasked)
+            bkgd  = da.nanmean(datamasked)
+            data = self.data.copy() - bkgd
+            mask = self.get_mask()
+            data[mask] = np.NaN
+            sources = extract_sources(data, thresh_=thresh, err=noise, mask=mask, use_dask=self._use_dask)
+            self._source_mask = tools.get_source_mask(sources, self.shape, use_dask=self._use_dask)
+            
+        return self._source_mask
+            
+        
     # -------- #
     # CATALOGS # 
     # -------- #
