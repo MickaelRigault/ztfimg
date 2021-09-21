@@ -291,6 +291,13 @@ class ScienceQuadrant( _Quadrant_, WCSHolder ):
             
             return np.nanmedian( self.get_data(rmbkgd=rmbkgd, applymask=True, alltrue=True) )
 
+    def get_dataclean(self):
+        """ """
+        if not hasattr(self, "_dataclean"):
+            self._dataclean = self.get_data(applymask=True, rmbkgd=False) - self.get_source_background()
+            
+        return self._dataclean
+    
     def get_source_mask(self, thresh=2):
         """ """
         if not hasattr(self, "_source_mask"):
@@ -515,6 +522,11 @@ class ScienceQuadrant( _Quadrant_, WCSHolder ):
     # =============== #
     #  Properties     #
     # =============== #
+    @property
+    def dataclean(self):
+        """ shortcut to get_dataclean() """
+        return self.get_dataclean()
+    
     @property
     def meta(self):
         """ """
