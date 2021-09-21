@@ -353,7 +353,6 @@ class ScienceQuadrant( _Quadrant_, WCSHolder ):
 
             if setxy:
                 columns += ["x","y","u","v"]
-                dtypes += ['float', "float", 'float', "float"]
                 
             meta = pandas.DataFrame(columns=columns,  dtype="float")
             meta = meta.astype({"ps1_id":'string',"sdssdr13_id":'string'})            
