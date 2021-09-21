@@ -304,7 +304,7 @@ class ScienceQuadrant( _Quadrant_, WCSHolder ):
             from .tools import extract_sources, get_source_mask
             npda = da if self._use_dask else np
             datamasked = self.get_data(applymask=True, rmbkgd=True, whichbkgd="median", alltrue=True)
-            noise = da.nanstd(datamasked)
+            noise = npda.nanstd(datamasked)
             data = self.get_data(applymask=True, rmbkgd=True, whichbkgd="median")
             mask = self.get_mask()
             sources = extract_sources(data, thresh_=thresh, err=noise, mask=mask, use_dask=self._use_dask)
