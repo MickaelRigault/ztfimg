@@ -668,6 +668,7 @@ class ZTFImage( WCSHolder ):
                               setradec=True, setmag=True,
                               update=True, **kwargs):
         """ uses sep.extract to extract sources 'a la Sextractor' """
+        
         from sep import extract
 
         if err is None:
