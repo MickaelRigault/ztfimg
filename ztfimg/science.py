@@ -303,7 +303,7 @@ class ScienceQuadrant( _Quadrant_, WCSHolder ):
             mask = self.get_mask()
             data[mask] = np.NaN
             sources = extract_sources(data, thresh_=thresh, err=noise, mask=mask, use_dask=self._use_dask)
-            self._source_mask = tools.get_source_mask(sources, self.shape, use_dask=self._use_dask)
+            self._source_mask = get_source_mask(sources, self.shape, use_dask=self._use_dask)
             
         return self._source_mask
             
