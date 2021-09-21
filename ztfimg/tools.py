@@ -104,7 +104,8 @@ def extract_sources(data, thresh=2, err=None, mask=None, use_dask=False, **kwarg
         """ uses sep.extract to extract sources 'a la Sextractor' """
         #
         # Dask
-        #    
+        #
+        import pandas        
         if use_dask:
             import dask
             import dask.dataframe as dd
