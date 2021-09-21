@@ -314,7 +314,7 @@ class ScienceQuadrant( _Quadrant_, WCSHolder ):
 
     def get_source_background(self):
         """ """
-        if not hasattr(self, "_source_mask"):
+        if not hasattr(self, "_source_background"):
             from sep import Background
             data = self.data.copy()
             smask = self.get_source_mask()
