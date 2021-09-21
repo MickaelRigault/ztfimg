@@ -220,8 +220,7 @@ class ZTFImage( WCSHolder ):
         
     def get_calibrators(self, which=["gaia","ps1"],
                             setxy=True, drop_outside=True, drop_namag=True,
-                            pixelbuffer=10, isolation=None, mergehow="inner", seplimit=0.5,
-                            use_dask=None, **kwargs):
+                            pixelbuffer=10, isolation=None, mergehow="inner", seplimit=0.5, **kwargs):
         """ get a DataFrame containing the requested calibrator catalog(s).
         If several catalog are given, a matching will be made and the dataframe merged (in)
 
@@ -239,14 +238,10 @@ class ZTFImage( WCSHolder ):
         if len(which) == 1:
             if which[0] == "gaia":
                 return self.get_gaia_calibrators(setxy=setxy, drop_namag=drop_namag, drop_outside=drop_outside,
-                                                 pixelbuffer=pixelbuffer,
-                                                 isolation=isolation, use_dask=use_dask,
-                                                 **kwargs)
+                                                     pixelbuffer=pixelbuffer,
+                                                 isolation=isolation, **kwargs)
             elif which[0] == "ps1":
-                return self.get_ps1_calibrators( setxy=setxy, drop_outside=drop_outside,
-                                                 pixelbuffer=pixelbuffer,
-                                                 use_dask=use_dask,
-                                                 **kwargs)
+                return self.get_ps1_calibrators(setxy=setxy, drop_outside=drop_outside, pixelbuffer=pixelbuffer, **kwargs)
             else:
                 raise ValueError(f"Only ps1 or gaia calibrator catalog have been implemented, {which} given.")
             
@@ -254,21 +249,11 @@ class ZTFImage( WCSHolder ):
         if len(which) == 2:
             if which.tolist() in [["gaia","ps1"], ["ps1","gaia"]]:
                 from .catalog import match_and_merge
-                catps1  = self.get_ps1_calibrators( setxy=setxy,
-                                                    drop_outside=drop_outside, pixelbuffer=pixelbuffer,
-                                                    use_dask=use_dask,
-                                                    **kwargs)
-                catgaia = self.get_gaia_calibrators( setxy=setxy, drop_namag=drop_namag,isolation=isolation,
-                                                     drop_outside=drop_outside, pixelbuffer=pixelbuffer,
-                                                     use_dask=use_dask,
-                                                     **kwargs)
-                if use_dask is None:
-                    use_dask = self._use_dask:
-                if use_dask:
-                    meta = pandas.DataFrame()
-                    
-                    
-                
+                catps1  = self.get_ps1_calibrators(setxy=setxy,
+                                                       drop_outside=drop_outside, pixelbuffer=pixelbuffer, **kwargs)
+                catgaia = self.get_gaia_calibrators(setxy=setxy, drop_namag=drop_namag,isolation=isolation,
+                                                        drop_outside=drop_outside, pixelbuffer=pixelbuffer, **kwargs)
+
                 return match_and_merge(catgaia.reset_index(),
                                            catps1.reset_index(),
                                            "Source", suffixes=('', '_ps1'), mergehow=mergehow,
