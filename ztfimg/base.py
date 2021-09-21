@@ -45,8 +45,8 @@ class _Image_( object ):
     # -------- #
     # PLOTTER  #
     # -------- #   
-    def show_data(self, ax=None, colorbar=True, cax=None, apply=None, 
-                  vmin="1", vmax="99", dataprop={}, **kwargs):
+    def show(self, ax=None, colorbar=True, cax=None, apply=None, 
+                  vmin="1", vmax="99", dataprop={}, savefile=None, **kwargs):
         """ """
         import matplotlib.pyplot as mpl
         
@@ -67,6 +67,9 @@ class _Image_( object ):
         im = ax.imshow(data, **{**prop,**kwargs})
         if colorbar:
             fig.colorbar(im, cax=cax, ax=ax)
+            
+        if savefile is not None:
+            fig.savefig(savefile)
             
         return ax
 
@@ -225,26 +228,8 @@ class _CCD_( _Image_ ):
     # ----------- #
     #   PLOTTER   #
     # ----------- #
-    def show_quadrants(self, **kwargs):
-        """ """
-        fig = mpl.figure(figsize=[6,6])
-        ax1 = fig.add_axes([0.1,0.1,0.4,0.4])
-        ax2 = fig.add_axes([0.5,0.1,0.4,0.4])
-        ax3 = fig.add_axes([0.5,0.5,0.4,0.4])    
-        ax4 = fig.add_axes([0.1,0.5,0.4,0.4])    
-
-        prop = {**dict(colorbar=False),**kwargs}
-        self.quadrants[1].show_data(ax=ax1, **prop)
-        self.quadrants[2].show_data(ax=ax2, **prop)
-        self.quadrants[3].show_data(ax=ax3, **prop)
-        self.quadrants[4].show_data(ax=ax4, **prop) 
-
-        [ax_.set_xticks([]) for ax_ in [ax3, ax4]]
-        [ax_.set_yticks([]) for ax_ in [ax2, ax3]]
-        
-    
     def show(self, ax=None, vmin="1", vmax="99", colorbar=False, cax=None, 
-             rebin=None, rebin_ccd=None, dataprop={}, **kwargs):
+             rebin=None, rebin_ccd=None, dataprop={}, savefile=None, **kwargs):
         """ """
         import matplotlib.pyplot as mpl
         if ax is None:
@@ -263,7 +248,9 @@ class _CCD_( _Image_ ):
         
         if colorbar:
             fig.colorbar(im, cax=cax, ax=ax)
-            
+
+        if savefile is not None:
+            fig.savefig(savefile)
         return ax
 
     # =============== #
@@ -437,7 +424,8 @@ class _FocalPlane_( _Image_):
 
 
     def show(self, ax=None, vmin="1", vmax="99", colorbar=False, cax=None, 
-             rebin=None, rebin_ccd=None, incl_gap=True, dataprop={}, **kwargs):
+             rebin=None, rebin_ccd=None, incl_gap=True, dataprop={}, savefile=None,
+             **kwargs):
         """ """
         import matplotlib.pyplot as mpl
         if ax is None:
@@ -457,7 +445,10 @@ class _FocalPlane_( _Image_):
         
         if colorbar:
             fig.colorbar(im, cax=cax, ax=ax)
-            
+
+        if savefile is not None:
+            fig.savefig(savefile)
+
         return ax
 
     # --------- #
