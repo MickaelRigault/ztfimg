@@ -135,9 +135,9 @@ def get_source_mask(sourcedf, shape, r=5, use_dask=False):
     """ """
     from sep import mask_ellipse
     if use_dask:
-        return da.from_delayed( dask.delayed(get_source_mask)(sourcedf, shape,
-                                                              dtype=dtype, r=r, use_dask=False)
-                              shape=shape, dtype="bool")
+        return da.from_delayed( dask.delayed(get_source_mask)(sourcedf, shape, dtype=dtype, r=r, use_dask=False),
+                                shape=shape, dtype="bool"
+                              )
         
     mask = np.zeros(shape).astype("bool")
     ellipsemask = mask_ellipse(mask, *sourcedf[["x","y","a","b","theta"]].astype("float").values.T, r=r)
