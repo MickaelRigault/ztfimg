@@ -340,10 +340,9 @@ class ScienceQuadrant( _Quadrant_, WCSHolder ):
                                                      use_dask=use_dask,
                                                      **kwargs)
                                         
-                return match_and_merge(catgaia.reset_index(),
-                                           catps1.reset_index(),
-                                           "Source", suffixes=('', '_ps1'), mergehow=mergehow,
-                                           seplimit=seplimit)
+                return match_and_merge( catgaia, catps1,
+                                        suffixes=('', '_ps1'), mergehow=mergehow,
+                                        seplimit=seplimit)
             else:
                 raise ValueError(f"Only ps1 and gaia calibrators catalog have been implemented, {which} given.")
             

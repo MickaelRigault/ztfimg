@@ -424,7 +424,7 @@ class GaiaCalibrators( _CatCalibrator_ ):
 
     @classmethod
     def download_catalog(cls, radec, radius=1, r_unit="deg",
-                            columns=None, column_filters={'Gmag': '10..20'}):
+                            columns=None, column_filters={'Gmag': '<22'}):
         """ """
         from astroquery import vizier
         from astropy import coordinates, units
