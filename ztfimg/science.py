@@ -298,34 +298,167 @@ class ScienceQuadrant( _Quadrant_, WCSHolder ):
             
         return self._dataclean
     
+    def get_noise(self, which="nanstd"):
+        """ """
+        if which == "nanstd":
+            npda = da if self._use_dask else np
+            datamasked = self.get_data(applymask=True, rmbkgd=True, whichbkgd="median", alltrue=True)
+            return npda.nanstd(datamasked)
+        
+        if which in ["sep","sextractor", "globalrms"]:
+            if not hasattr(self,"_back"):
+                self._load_background_()
+            return self._back.globalrms
+        
+        if which in ["backgroundrms", "rms"]:
+            if not hasattr(self,"_back"):
+                self._load_background_()
+            if self._use_dask:
+                return da.from_delayed( self._back.rms(),
+                                        shape = self.shape, dtype="float")
+            return self._back.rms()
+        
+        raise ValueError(f"which should be nanstd, globalrms or rms ; {which} given")
+                
+        
     def get_source_mask(self, thresh=2):
         """ """
         if not hasattr(self, "_source_mask"):
             from .tools import extract_sources, get_source_mask
-            npda = da if self._use_dask else np
-            datamasked = self.get_data(applymask=True, rmbkgd=True, whichbkgd="median", alltrue=True)
-            noise = npda.nanstd(datamasked)
             data = self.get_data(applymask=True, rmbkgd=True, whichbkgd="median")
             mask = self.get_mask()
+            noise = self.get_noise(which="nanstd")
             sources = extract_sources(data, thresh_=thresh, err=noise, mask=mask, use_dask=self._use_dask)
             self._source_mask = get_source_mask(sources, self.shape, use_dask=self._use_dask)
             
         return self._source_mask
-
+                
     def get_source_background(self):
         """ """
         if not hasattr(self, "_source_background"):
-            from sep import Background
-            data = self.data.copy()
-            smask = self.get_source_mask()
-            data[smask] = np.NaN
+            if not hasattr(self,"_back"):
+                self._load_background_()
             if self._use_dask:
-                self._source_background = da.from_delayed( dask.delayed(Background)(data).back(),
-                                                shape = self.shape, dtype="float")
+                self._source_background = da.from_delayed( self._back.back(),
+                                                            shape = self.shape, dtype="float")
             else:
-                self._source_background = Background(data.astype("float32")).back()
-                
-        return self._source_background
+                self._source_background = self._back.back()
+
+
+    def get_aperture(self, x0, y0, radius, bkgann=None, subpix=0, system="xy",
+                         data="dataclean", maskprop={}, noiseprop={},
+                         unit="counts", clean_flagout=False, get_flag=False):
+        """ Get the Apeture photometry corrected from the background annulus if any.
+
+        # Based on sep.sum_circle() #
+
+        Parameters
+        ----------
+        x0, y0, radius: [array]
+            Center coordinates and radius (radii) of aperture(s).
+            (could be x,y, ra,dec or u,v ; see system)
+
+        bkgann: [None/2D array] -optional-
+            Length 2 tuple giving the inner and outer radius of a “background annulus”.
+            If supplied, the background is estimated by averaging unmasked pixels in this annulus.
+
+        subpix: [int] -optional-
+            Subpixel sampling factor. If 0, exact overlap is calculated. 5 is acceptable.
+
+        system: [string] -optional-
+            In which system are the input x0, y0:
+            - xy (ccd )
+            - radec (in deg, sky)
+            - uv (focalplane)
+
+        data: [string] -optional-
+            the aperture will be applied on self.`data`
+
+        unit: [string] -optional-
+            unit of the output | counts, flux and mag are accepted.
+
+        clean_flagout: [bool] -optional-
+            remove entries that are masked or partially masked
+            (remove sum_circle flag!=0)
+            = Careful, this does not affects the returned flags, len(flag) remains len(x0)=len(y0) = 
+            
+        get_flag: [bool]  -optional-
+            shall this also return the sum_circle flags
+
+        maskprop, noiseprop:[dict] -optional-
+            options entering self.get_mask() and self.get_noise() for `mask` and `err`
+            attribute of the sep.sum_circle function.
+            
+
+        Returns
+        -------
+        2D array (see unit: (counts, dcounts) | (flux, dflux) | (mag, dmag))
+           + flag (see get_flag option)
+        """
+        from sep import sum_circle
+        if unit not in ["counts","count", "flux", "mag"]:
+            raise ValueError(f"Cannot parse the input unit. counts/flux/mag accepted {unit} given")
+
+        if system == "radec":
+            x0, y0 = self.radec_to_xy(x0, y0)
+        elif system == "uv":
+            x0, y0 = self.uv_to_xy(x0, y0)
+        elif system != "xy":
+            raise ValueError(f"system must be xy, radec or uv ;  {system} given")
+
+        counts, counterr, flag = sum_circle(getattr(self,data).byteswap().newbyteorder(),
+                                                        x0, y0, radius,
+                                                        err=self.get_noise(**noiseprop),
+                                                        mask=self.get_mask(**maskprop),
+                                                        bkgann=bkgann, subpix=subpix)
+        if clean_flagout:
+            counts, counterr = counts[flag==0], counterr[flag==0]
+            
+        if unit in ["count","counts"]:
+            if not get_flag:
+                return counts, counterr
+            return counts, counterr, flag
+        if unit in ["flux"]:
+            if not get_flag:
+                return self.counts_to_flux(counts, counterr)
+            return self.counts_to_flux(counts, counterr), flag
+        if unit in ["mag"]:
+            if not get_flag:
+                return self.counts_to_mag(counts, counterr)
+            return self.counts_to_mag(counts, counterr), flag
+
+    def getcat_aperture(self, catdf, radius, xykeys=["x","y"], join=True, system="xy", **kwargs):
+        """ measures the aperture (using get_aperture) using a catalog dataframe as input
+        Parameters
+        ----------
+        catdf: [DataFrame]
+            dataframe containing, at minimum the x and y centroid positions
+    
+        xykeys: [string, string] -optional-
+            name of the x and y columns in the input dataframe
+        
+        join: [bool] -optional-
+            shall the returned dataframe be a new dataframe joined 
+            to the input one, or simply the aperture dataframe?
+        
+        **kwargs goes to get_aperture
+
+        Returns
+        -------
+        DataFrame
+        """
+        x, y = catdf[xykeys].values.T
+        flux, fluxerr, flag = self.get_aperture(x,y, radius[:,None], unit="counts", get_flag = True, system=system, **kwargs)
+        dic = {**{f'f_{k}':f for k,f in enumerate(flux)},\
+                   **{f'f_{k}_e':f for k,f in enumerate(fluxerr)},
+                   **{f'f_{k}_f':f for k,f in enumerate(flag)}, # for each radius there is a flag
+                   }
+
+        fdata = pandas.DataFrame(dic, index=catdf.index) #gaia dataframe
+        if join:
+            return catdf.join(fdata)
+        
+        return fdata    
         
     # -------- #
     # CATALOGS # 
@@ -483,26 +616,21 @@ class ScienceQuadrant( _Quadrant_, WCSHolder ):
     # -------- #
     #  DASK    #
     # -------- #
-    def _compute(self, client=None):
-        """ """
-        if client is not None:
-            f_ = client.compute([self._header, self._data, self._mask])
-            self._header, self._data, self._mask = client.gather(f_)
-        else:
-            self._header = self.header.compute()
-            self._data = self._data.compute()
-            self._mask = self._mask.compute()
-        
-        
-    def _compute_data(self):
-        """ """
-        if self._use_dask and type(self._data) == DaskArray:
-            self._data = self._data.compute()
-            self._mask = self._mask.compute()
 
     # --------- #
     #  INTERNAL #
     # --------- #
+    def _load_background_(self):
+        """ """
+        from sep import Background
+        data = self.data.copy()
+        smask = self.get_source_mask()
+        data[smask] = np.NaN
+        if self._use_dask:
+            self._back = dask.delayed(Background)(data)
+        else:
+            self._back = Background(data.astype("float32"))
+            
     def _setxy_to_cat_(self, cat, drop_outside=True, pixelbuffer=10):
         """ """
         x,y = self.radec_to_xy(cat["ra"], cat["dec"])
