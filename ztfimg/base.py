@@ -199,7 +199,7 @@ class _CCD_( _Image_ ):
         df.columns = qid_range
         return df
         
-    def get_data(self, rebin=None, npstat="mean", rebin_ccd=None, persist=False **kwargs):
+    def get_data(self, rebin=None, npstat="mean", rebin_ccd=None, persist=False, **kwargs):
         """ ccd data 
         
         rebin, rebin_ccd: [None, int]
