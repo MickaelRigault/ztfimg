@@ -40,7 +40,7 @@ def get_isolated(catdf, catdf_ref=None, xkey="ra", ykey="dec", keyunit="deg",
     iso.loc[tiso.index] = tiso
     return iso
 
-def match_and_merge(left, right, onleft,
+def match_and_merge(left, right,
                         radeckey1=["ra","dec"], radeckey2=["ra","dec"], seplimit=0.5,
                         mergehow="inner", suffixes=('_l', '_r'), **kwargs):
     """     
@@ -61,8 +61,9 @@ def match_and_merge(left, right, onleft,
     DataFrame
     """
     indexl, indexr = get_coordmatching_indexes(left, right, seplimit=seplimit)
-    right.loc[indexr, onleft] = left.loc[indexl][onleft].values
-    return pandas.merge(left, right, on=onleft, suffixes=suffixes, how=mergehow, **kwargs)
+    right.loc[indexr, "index_left"] = indexl
+    return pandas.merge(left, right, left_index=True, right_on="index_left",
+                        suffixes=suffixes, how=mergehow, **kwargs)
 
 def get_coordmatching_indexes(left, right, radeckeyl=["ra","dec"], radeckeyr=["ra","dec"], seplimit=0.5):
     """ get the dataframe indexes corresponding to the matching rows
