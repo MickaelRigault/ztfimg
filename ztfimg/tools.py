@@ -114,7 +114,7 @@ def extract_sources(data, thresh_=2, err=None, mask=None, use_dask=False, **kwar
                        'cyy', 'cxy', 'cflux', 'flux', 'cpeak', 'peak', 'xcpeak', 'ycpeak',
                        'xpeak', 'ypeak', 'flag']
             
-            meta = pandas.DataFrame(columns, dtype="float")
+            meta = pandas.DataFrame(columns=columns, dtype="float")
             meta = meta.astype({k:"int" for k in ['npix', 'tnpix',
                                                   'xmin', 'xmax', 'ymin', 'ymax', 'xcpeak', 'ycpeak',
                                                   'xpeak', 'ypeak', 'flag']})
