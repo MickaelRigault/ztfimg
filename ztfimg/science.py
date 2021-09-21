@@ -354,6 +354,7 @@ class ScienceQuadrant( _Quadrant_, WCSHolder ):
         from .io import PS1Calibrators
         if use_dask is None:
             use_dask = self._use_dask
+            
         # // Dask
         if use_dask:
             delayed_cat = dask.delayed(self.get_ps1_calibrators)( setxy=setxy, drop_outside=drop_outside,
@@ -416,7 +417,7 @@ class ScienceQuadrant( _Quadrant_, WCSHolder ):
         #
         # Not Dasked
         #
-        cat = GaiaCalibrators.fetch_data(self.rcid, self.fieldid, radec=self.get_center(system="radec"), **kwargs)
+        cat = GaiaCalibrators.fetch_data(self.rcid, self.fieldid, radec=self.get_center(system="radec"), **kwargs).reset_index()
         
         if drop_namag:
             cat = cat[~pandas.isna(cat[["gmag","rpmag","bpmag"]]).any(axis=1)]
