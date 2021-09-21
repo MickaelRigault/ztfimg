@@ -163,7 +163,7 @@ class ScienceQuadrant( _Quadrant_, WCSHolder ):
 
         """
         if clean:
-            data_ self.get_dataclean()
+            data_ = self.get_dataclean()
         else:
             data_ = self.data.copy()
         
