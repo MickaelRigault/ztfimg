@@ -344,7 +344,12 @@ class ScienceQuadrant( _Quadrant_, WCSHolder ):
             else:
                 self._source_background = self._back.back()
 
+        return self._source_background
 
+
+
+
+    
     def get_aperture(self, x0, y0, radius, bkgann=None, subpix=0, system="xy",
                          data="dataclean", maskprop={}, noiseprop={},
                          unit="counts", clean_flagout=False, get_flag=False):
