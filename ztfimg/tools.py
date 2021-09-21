@@ -125,7 +125,7 @@ def extract_sources(data, thresh_=2, err=None, mask=None, use_dask=False, **kwar
         # No Dask
         #
         from sep import extract
-        sout = extract(np.asarray(data).byteswap().newbyteorder(),
+        sout = extract(np.asarray(data, dtype="float").byteswap().newbyteorder(),
                         thresh_, err=err, mask=mask, **kwargs)
 
         return pandas.DataFrame(sout)
