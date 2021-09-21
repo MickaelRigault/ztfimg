@@ -262,7 +262,10 @@ class ZTFImage( WCSHolder ):
                                                      drop_outside=drop_outside, pixelbuffer=pixelbuffer,
                                                      use_dask=use_dask,
                                                      **kwargs)
-                if use_dask is None or self._use_dask:
+                if use_dask is None:
+                    use_dask = self._use_dask:
+                if use_dask:
+                    meta = pandas.DataFrame()
                     
                     
                 
