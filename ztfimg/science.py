@@ -307,15 +307,18 @@ class ScienceQuadrant( _Quadrant_, WCSHolder ):
 
     def get_source_background(self):
         """ """
-        if not hasattr(self, "_source_mask"):        
+        if not hasattr(self, "_source_mask"):
+            from sep import Background
             data = self.data.copy()
             smask = self.get_source_mask()
             data[smask] = np.NaN
             if self._use_dask:
-                self._source_mask = da.from_delayed( dask.delayed(Background)(data).back(),
+                self._source_background = da.from_delayed( dask.delayed(Background)(data).back(),
                                                 shape = self.shape, dtype="float")
             else:
-                self._source_mask = Background(data).back()
+                self._source_background = Background(data).back()
+                
+        return self._source_background
         
     # -------- #
     # CATALOGS # 
