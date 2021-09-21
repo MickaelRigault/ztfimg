@@ -292,7 +292,8 @@ class ScienceQuadrant( _Quadrant_, WCSHolder ):
             return np.nanmedian( self.get_data(rmbkgd=rmbkgd, applymask=True, alltrue=True) )
 
 
-    def get_source_background(self,)
+    def get_source_background(self):
+        """ """
     # -------- #
     # CATALOGS # 
     # -------- #
