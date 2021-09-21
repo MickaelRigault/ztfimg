@@ -350,12 +350,14 @@ class ScienceQuadrant( _Quadrant_, WCSHolder ):
                         'rpmag', 'e_rpmag', 'bpmag', 'e_bpmag', 'fg', 'e_fg', 'fgcorr', 'frp',
                         'e_frp', 'fbp', 'e_fbp', 'plx', 'e_plx', 'pm', 'pmra', 'e_pmra', 'pmde',
                         'e_pmde', 'colormag']
-
+            spetypes = {"ps1_id":'string',"sdssdr13_id":'string'}
             if setxy:
                 columns += ["x","y","u","v"]
-                
+            if isolation is not None:
+                columns += ["isolated"]
+                spetypes["isolated"] = "bool"
             meta = pandas.DataFrame(columns=columns,  dtype="float")
-            meta = meta.astype({"ps1_id":'string',"sdssdr13_id":'string'})     
+            meta = meta.astype(spetypes)            
             return dd.from_delayed(delayed_cat, meta=meta)
         #
         # Not Dasked
