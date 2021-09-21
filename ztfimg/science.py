@@ -299,6 +299,7 @@ class ScienceQuadrant( _Quadrant_, WCSHolder ):
             datamasked = self.get_data(applymask=True, rmbkgd=True, whichbkgd="median", alltrue=True)
             noise = da.nanstd(datamasked)
             data = self.get_data(applymask=True, rmbkgd=True, whichbkgd="median")
+            mask = self.get_mask()
             sources = extract_sources(data, thresh_=thresh, err=noise, mask=mask, use_dask=self._use_dask)
             self._source_mask = get_source_mask(sources, self.shape, use_dask=self._use_dask)
             
