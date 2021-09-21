@@ -1,6 +1,9 @@
 import numpy as np
 from astropy import constants
+
+import dask
 import dask.array as da
+import dask.dataframe as dd
 
 def fit_polynome(x, y, degree, variance=None):
     """ """
@@ -107,8 +110,6 @@ def extract_sources(data, thresh_=2, err=None, mask=None, use_dask=False, **kwar
         #
         import pandas        
         if use_dask:
-            import dask
-            import dask.dataframe as dd
             columns = ['thresh', 'npix', 'tnpix', 'xmin', 'xmax', 'ymin', 'ymax', 'x', 'y',
                        'x2', 'y2', 'xy', 'errx2', 'erry2', 'errxy', 'a', 'b', 'theta', 'cxx',
                        'cyy', 'cxy', 'cflux', 'flux', 'cpeak', 'peak', 'xcpeak', 'ycpeak',
@@ -130,7 +131,19 @@ def extract_sources(data, thresh_=2, err=None, mask=None, use_dask=False, **kwar
 
         return pandas.DataFrame(sout)
 
+def get_source_mask(sourcedf, shape, r=5, use_dask=False):
+    """ """
+    from sep import mask_ellipse
+    if use_dask:
+        return da.from_delayed( dask.delayed(get_source_mask)(sourcedf, shape,
+                                                              dtype=dtype, r=r, use_dask=False)
+                              shape=shape, dtype="bool")
+        
+    mask = np.zeros(shape).astype("bool")
+    ellipsemask = mask_ellipse(mask, *sourcedf[["x","y","a","b","theta"]].astype("float").values.T, r=r)
+    return mask
 
+    
 
 # --------------------------- #
 # - Conversion Tools        - #
