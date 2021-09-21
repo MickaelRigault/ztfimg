@@ -352,7 +352,7 @@ class ScienceQuadrant( _Quadrant_, WCSHolder ):
                         'e_pmde', 'colormag']
 
             if setxy:
-                columns += ["x","y","u","v"]
+                columns += ["x","y","u","v"
                 
             meta = pandas.DataFrame(columns=columns,  dtype="float")
             meta = meta.astype({"ps1_id":'string',"sdssdr13_id":'string'})            
@@ -364,7 +364,7 @@ class ScienceQuadrant( _Quadrant_, WCSHolder ):
         
         if drop_namag:
             cat = cat[~pandas.isna(cat[["gmag","rpmag","bpmag"]]).any(axis=1)]
-        cat[["ps1_id","sdssdr13_id"]] = cat[["ps1_id","sdssdr13_id"]].fillna("None")
+        #cat[["ps1_id","sdssdr13_id"]] = cat[["ps1_id","sdssdr13_id"]].fillna("None")
         
         # Set mag as the current band magnitude
         if setxy and ("ra" in cat.columns and "x" not in cat.columns):
