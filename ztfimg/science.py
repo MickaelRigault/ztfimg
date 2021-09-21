@@ -783,6 +783,12 @@ class ScienceFocalPlane( _FocalPlane_ ):
                                                     use_dask=use_dask, persist=persist, **kwargs)
                      for i in ccdids]
         return cls(ccds, ccdids, use_dask=use_dask)
+
+    def get_files(self, client, suffix=["sciimg.fits","mskimg.fits"], as_dask="futures"):
+        """ """
+        from ztfquery import io
+        return io.bulk_get_file(self.filenames, client=client,
+                                    suffix=suffix, as_dask=as_dask)
     
     @property
     def meta(self):
