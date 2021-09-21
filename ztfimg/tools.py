@@ -119,7 +119,7 @@ def extract_sources(data, thresh_=2, err=None, mask=None, use_dask=False, **kwar
                                                   'xmin', 'xmax', 'ymin', 'ymax', 'xcpeak', 'ycpeak',
                                                   'xpeak', 'ypeak', 'flag']})
             return dd.from_delayed(
-                        dask.delayed(extract_sources)(data, thresh_=thresh_, err=err, mask=mask, use_dask=False, **kwargs)
+                        dask.delayed(extract_sources)(data, thresh_=thresh_, err=err, mask=mask, use_dask=False, **kwargs),
                                   meta=meta)
         #
         # No Dask
