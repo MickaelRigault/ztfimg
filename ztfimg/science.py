@@ -163,15 +163,15 @@ class ScienceQuadrant( _Quadrant_, WCSHolder ):
 
         """
         if clean:
-            return self.get_dataclean()
+            data_ self.get_dataclean()
+        else:
+            data_ = self.data.copy()
         
-        data_ = self.data.copy()
-        
-        if applymask:
-            data_[self.get_mask(**kwargs)] = maskvalue # OK
+            if applymask:
+                data_[self.get_mask(**kwargs)] = maskvalue # OK
             
-        if rmbkgd:
-            data_ -= self.get_background(method=whichbkgd, rmbkgd=False)
+            if rmbkgd:
+                data_ -= self.get_background(method=whichbkgd, rmbkgd=False)
 
         if rebin is not None:
             data_ = getattr(da if self._use_dask else np, rebin_stat)(
