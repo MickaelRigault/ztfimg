@@ -469,7 +469,7 @@ class GaiaCalibrators( _CatCalibrator_ ):
         gaiatable['colormag'] = gaiatable['BPmag'] - gaiatable['RPmag']
         # - 
         #
-        return gaiatable.to_pandas().set_index('Source').rename(mv_columns, axis=1)
+        return gaiatable.to_pandas().rename(mv_columns, axis=1)
 
 
 # =============== #
