@@ -343,8 +343,11 @@ class ScienceQuadrant( _Quadrant_, WCSHolder ):
                     use_dask = self._use_dask
                     
                 if use_dask:
+                    if persist:
+                        catgaia = catgaia.persist()
+                        catps1 = catps1.persist()
                     return dd.from_delayed(dask.delayed(match_and_merge)(
-                        catgaia.persist(), catps1.persist(), suffixes=('', '_ps1'), mergehow=mergehow, seplimit=seplimit))
+                        catgaia, catps1, suffixes=('', '_ps1'), mergehow=mergehow, seplimit=seplimit))
                 
                 return match_and_merge( catgaia, catps1,
                                         suffixes=('', '_ps1'), mergehow=mergehow,
