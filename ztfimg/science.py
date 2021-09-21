@@ -298,7 +298,7 @@ class ScienceQuadrant( _Quadrant_, WCSHolder ):
     def get_calibrators(self, which=["gaia","ps1"],
                             setxy=True, drop_outside=True, drop_namag=True,
                             pixelbuffer=10, isolation=None, mergehow="inner", seplimit=0.5,
-                            use_dask=None, **kwargs):
+                            use_dask=None, persist=False, **kwargs):
         """ get a DataFrame containing the requested calibrator catalog(s).
         If several catalog are given, a matching will be made and the dataframe merged (in)
 
@@ -339,7 +339,13 @@ class ScienceQuadrant( _Quadrant_, WCSHolder ):
                                                      drop_outside=drop_outside, pixelbuffer=pixelbuffer,
                                                      use_dask=use_dask,
                                                      **kwargs)
-                                        
+                if use_dask is None:
+                    use_dask = self._use_dask
+                    
+                if use_dask:
+                    return dd.from_delayed(dask.delayed(match_and_merge)(
+                        catgaia.persist(), catps1.persist(), suffixes=('', '_ps1'), mergehow=mergehow, seplimit=seplimit))
+                
                 return match_and_merge( catgaia, catps1,
                                         suffixes=('', '_ps1'), mergehow=mergehow,
                                         seplimit=seplimit)
