@@ -100,7 +100,7 @@ def parse_vmin_vmax(data, vmin, vmax):
         
     return vmin, vmax
 
-def extract_sources(data, thresh=2, err=None, mask=None, use_dask=False, **kwargs):
+def extract_sources(data, thresh_=2, err=None, mask=None, use_dask=False, **kwargs):
         """ uses sep.extract to extract sources 'a la Sextractor' """
         #
         # Dask
@@ -119,14 +119,14 @@ def extract_sources(data, thresh=2, err=None, mask=None, use_dask=False, **kwarg
                                                   'xmin', 'xmax', 'ymin', 'ymax', 'xcpeak', 'ycpeak',
                                                   'xpeak', 'ypeak', 'flag']})
             return dd.from_delayed(
-                        dask.delayed(extract_sources)(data, thresh=thresh, err=err, mask=mask, use_dask=False, **kwargs)
-                                  )
+                        dask.delayed(extract_sources)(data, thresh_=thresh_, err=err, mask=mask, use_dask=False, **kwargs)
+                                  meta=meta)
         #
         # No Dask
         #
         from sep import extract
         sout = extract(data.byteswap().newbyteorder(),
-                        thresh, err=err, mask=mask, **kwargs)
+                        thresh_, err=err, mask=mask, **kwargs)
 
         return pandas.DataFrame(sout)
 
