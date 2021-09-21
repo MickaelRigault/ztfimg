@@ -295,32 +295,91 @@ class ScienceQuadrant( _Quadrant_, WCSHolder ):
     # -------- #
     # CATALOGS # 
     # -------- #
-    def get_ps1_calibrators(self, setxy=True, drop_outside=True, pixelbuffer=10, **kwargs):
+    def get_ps1_calibrators(self, setxy=True, drop_outside=True, pixelbuffer=10, use_dask=None, **kwargs):
         """ """
         from .io import PS1Calibrators
-        if kwargs.get("use_dask", self._use_dask):
-            kwargs["use_dask"] = False
+        if use_dask is None:
+            use_dask = self._use_dask
+        # // Dask
+        if use_dask:
             delayed_cat = dask.delayed(self.get_ps1_calibrators)( setxy=setxy, drop_outside=drop_outside,
                                                                   pixelbuffer=pixelbuffer,
+                                                                  use_dask=False, # get the df
                                                                   **kwargs)
-            
-            columns = ['ra', 'dec', 'gmag', 'e_gmag', 'rmag', 'e_rmag', 'imag', 'e_imag','zmag', 'e_zmag']
+            columns = ['ra', 'dec', 'gmag', 'e_gmag',
+                       'rmag', 'e_rmag', 'imag', 'e_imag',
+                       'zmag', 'e_zmag']
             if setxy:
                 columns += ["x","y","u","v"]
         
             meta = pandas.DataFrame(columns=columns,  dtype="float64")
             return dd.from_delayed(delayed_cat, meta=meta)
-            
-        # remark: radec is going to be used only the fieldid is not already downloaded.
+
+        #
+        # Not Dasked
+        #
         ps1cat = PS1Calibrators.fetch_data(self.rcid, self.fieldid, radec=self.get_center(system="radec"), **kwargs)
-        
-        # Set mag as the current band magnitude
-        # ps1cat['mag'] = ps1cat["%smag"%self.filtername[-1]]
-        # ps1cat['e_mag'] = ps1cat["e_%smag"%self.filtername[-1]]
         if setxy and ("ra" in ps1cat.columns and "x" not in ps1cat.columns):
             ps1cat = self._setxy_to_cat_(ps1cat, drop_outside=drop_outside, pixelbuffer=pixelbuffer)
 
         return ps1cat
+
+    def get_gaia_calibrators(self, setxy=True, drop_namag=True, drop_outside=True, pixelbuffer=10,
+                                 isolation=None, use_dask=None, **kwargs):
+        """ **kwargs goes to GaiaCalibrators (dl_wait for instance) 
+
+        isolation: [None or positive float] -optional-
+            self isolation limit (in arcsec). A True / False flag will be added to the catalog
+            
+        Returns
+        -------
+        DataFrame
+        """
+        from .io import GaiaCalibrators
+        if use_dask is None:
+            use_dask = self._use_dask
+        
+        if use_dask:
+            delayed_cat = dask.delayed(self.get_gaia_calibrators)( setxy=setxy, drop_namag=drop_namag,
+                                                                    drop_outside=drop_outside,
+                                                                  pixelbuffer=pixelbuffer,
+                                                                  isolation=isolation,
+                                                                  use_dask=False, # get the df
+                                                                  **kwargs)
+            columns = ['ps1_id', 'sdssdr13_id', 'ra', 'dec', 'gmag', 'e_gmag', 'gmagcorr',
+                        'rpmag', 'e_rpmag', 'bpmag', 'e_bpmag', 'fg', 'e_fg', 'fgcorr', 'frp',
+                        'e_frp', 'fbp', 'e_fbp', 'plx', 'e_plx', 'pm', 'pmra', 'e_pmra', 'pmde',
+                        'e_pmde', 'colormag']
+
+            if setxy:
+                columns += ["x","y","u","v"]
+                dtypes += ['float', "float", 'float', "float"]
+                
+            meta = pandas.DataFrame(columns=columns,  dtype="float")
+            meta = meta.astype({"ps1_id":'string',"sdssdr13_id":'string'})            
+            return dd.from_delayed(delayed_cat, meta=meta)
+        #
+        # Not Dasked
+        #
+        cat = GaiaCalibrators.fetch_data(self.rcid, self.fieldid, radec=self.get_center(system="radec"), **kwargs)
+        
+        if drop_namag:
+            cat = cat[~pandas.isna(cat[["gmag","rpmag","bpmag"]]).any(axis=1)]
+        cat[["ps1_id","sdssdr13_id"]] = cat[["ps1_id","sdssdr13_id"]].fillna("None")
+        
+        # Set mag as the current band magnitude
+        if setxy and ("ra" in cat.columns and "x" not in cat.columns):
+            cat = self._setxy_to_cat_(cat, drop_outside=drop_outside, pixelbuffer=pixelbuffer)
+        
+        if isolation is not None:
+            from .catalog import get_isolated
+            isolation = float(isolation)
+            if isolation<=0:
+                raise ValueError(f"isolation should be positive ; {isolation} given")
+
+            cat["isolated"] = get_isolated(cat, seplimit=isolation)
+            
+        return cat.astype({"ps1_id":'string',"sdssdr13_id":'string'})
     
     # -------- #
     #  DASK    #

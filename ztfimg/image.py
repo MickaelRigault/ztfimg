@@ -28,11 +28,8 @@ class ZTFImage( WCSHolder ):
                     "noisy","ghosts","spillage","spikes","saturated",
                     "dead","nan","psfsources","brightstarhalo"]
 
-    def __init__(self, imagefile=None, maskfile=None, use_dask=False):
+    def __init__(self, imagefile=None, maskfile=None):
         """ """
-        if use_dask:
-            self._use_dask = use_dask
-
         if imagefile is not None:
             self.load_data(imagefile)
 
@@ -58,40 +55,23 @@ class ZTFImage( WCSHolder ):
     # -------- #
     # LOADER   #
     # -------- #
-    def load_data(self, imagefile, persist=True, **kwargs):
+    def load_data(self, imagefile, **kwargs):
         """ """
         self._filename = imagefile
-        if not self._use_dask:
-            self._data = fits.getdata(imagefile, **kwargs)
-            self._header = fits.getheader(imagefile, **kwargs)
-            return
+        self._data = fits.getdata(imagefile, **kwargs)
+        self._header = fits.getheader(imagefile, **kwargs)
+
         
-        # Dasked
-        data = da.from_delayed(dask.delayed(fits.getdata)(imagefile, **kwargs),
-                                            shape=self.SHAPE, dtype="float")
-        header = dask.delayed(fits.getheader)(imagefile, **kwargs)
-        # instanciate        
-        self._data = data.persist() if persist else data
-        self._header = header.persist() if persist else header
 
-    def load_mask(self, maskfile, persist=True, **kwargs):
+    def load_mask(self, maskfile, **kwargs):
         """ """
-        if not self._use_dask:
-            self._mask = fits.getdata(maskfile,**kwargs)
-            self._maskheader = fits.getheader(maskfile,**kwargs)
-            return
-
-        mask = da.from_delayed(dask.delayed(fits.getdata)(maskfile, **kwargs),
-                                            shape=self.SHAPE, dtype="float")
-        maskheader = dask.delayed(fits.getheader)(maskfile, **kwargs)
-        # instanciate
-        self._mask = mask.persist() if persist else mask
-        self._maskheader = maskheader.persist() if persist else maskheader
+        self._mask = fits.getdata(maskfile,**kwargs)
+        self._maskheader = fits.getheader(maskfile,**kwargs)
+        
 
     def load_wcs(self, header=None):
         """ """
         if header is None:
-            self._compute_header()
             header = self.header
             
         super().load_wcs(header)
@@ -781,26 +761,7 @@ class ZTFImage( WCSHolder ):
     # -------- #
     #  DASK    #
     # -------- #
-    def _compute(self, client=None):
-        """ """
-        if client is not None:
-            f_ = client.compute([self._header, self._data, self._mask])
-            self._header, self._data, self._mask = client.gather(f_)
-        else:
-            self._header = self.header.compute()
-            self._data = self._data.compute()
-            self._mask = self._mask.compute()
         
-    def _compute_header(self):
-        """ """
-        if self._use_dask and type(self.header) == Delayed:
-            self._header = self.header.compute()
-        
-    def _compute_data(self):
-        """ """
-        if self._use_dask and type(self._data) == DaskArray:
-            self._data = self._data.compute()
-            self._mask = self._mask.compute()        
         
     # =============== #
     #  Properties     #
@@ -978,11 +939,8 @@ class ZTFImage( WCSHolder ):
     
 class ScienceImage( ZTFImage ):
 
-    def __init__(self, imagefile=None, maskfile=None, use_dask=False):
-        """ """
-        if use_dask:
-            self._use_dask = use_dask
-            
+    def __init__(self, imagefile=None, maskfile=None):
+        """ """            
         if imagefile is not None:
             self.load_data(imagefile)
 
@@ -990,7 +948,7 @@ class ScienceImage( ZTFImage ):
             self.load_mask(maskfile)
 
     @classmethod
-    def from_filename(cls, filename, filenamemask=None, download=True, use_dask=False, **kwargs):
+    def from_filename(cls, filename, filenamemask=None, download=True, **kwargs):
         """ 
         Parameters
         ----------
@@ -1003,7 +961,7 @@ class ScienceImage( ZTFImage ):
         sciimgpath = io.get_file(filename, suffix="sciimg.fits", downloadit=download, **kwargs)
         mskimgpath = io.get_file(filename if filenamemask is None else filenamemask,
                                      suffix="mskimg.fits", downloadit=download, **kwargs)
-        return cls(sciimgpath, mskimgpath, use_dask=use_dask)
+        return cls(sciimgpath, mskimgpath)
         
     # -------- #
     #  LOADER  #

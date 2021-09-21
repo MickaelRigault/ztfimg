@@ -77,7 +77,7 @@ class _Image_( object ):
         """ """
         if self._use_dask and type(self._header) == Delayed:
             self._header = self._header.compute()
-
+                
     # =============== #
     #  Properties     #
     # =============== #
@@ -199,7 +199,7 @@ class _CCD_( _Image_ ):
         df.columns = qid_range
         return df
         
-    def get_data(self, rebin=None, npstat="mean", rebin_ccd=None, **kwargs):
+    def get_data(self, rebin=None, npstat="mean", rebin_ccd=None, persist=False **kwargs):
         """ ccd data 
         
         rebin, rebin_ccd: [None, int]
@@ -218,6 +218,9 @@ class _CCD_( _Image_ ):
         if rebin_ccd is not None:
             ccd = getattr(npda,npstat)( rebin_arr(ccd, (rebin_ccd, rebin_ccd), use_dask=self._use_dask),
                                               axis=(-2,-1))
+        if self._use_dask and persist:
+            return ccd.persist()
+        
         return ccd
     # ----------- #
     #   PLOTTER   #
@@ -361,7 +364,7 @@ class _FocalPlane_( _Image_):
             
         return hpixels, vpixels
 
-    def get_data(self, rebin=None, rebin_ccd=None, incl_gap=False, **kwargs):
+    def get_data(self, rebin=None, rebin_ccd=None, incl_gap=True, persist=False, **kwargs):
         """  """
         # Merge quadrants of the 16 CCDs
         prop = {**dict(rebin=rebin, rebin_ccd=rebin_ccd), **kwargs}
@@ -426,6 +429,8 @@ class _FocalPlane_( _Image_):
                                                   line_3, 
                                                   da.ones((size_shape, line_1.shape[1]))*np.NaN,
                                                   line_4), axis=0)
+        if self._use_dask and persist:
+            return mosaic.persist()
 
         return mosaic
 
