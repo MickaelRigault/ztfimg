@@ -11,6 +11,7 @@ from .base import _Quadrant_, _CCD_, _FocalPlane_
     
 class RawQuadrant( _Quadrant_ ):
 
+    SHAPE_OVERSCAN = 3080, 30
     def __init__(self, data=None, header=None, overscan=None, use_dask=True):
         """ """
         _ = super().__init__(use_dask=use_dask)
