@@ -486,7 +486,7 @@ class PS1Calibrators( _CatCalibrator_ ):
     def fetch_radecdata(cls, radec=None, **kwargs):
         """ """
         from ztfquery import fields
-        fidccid = fields.get_fields_containing_target(*radec, inclccd=True)
+        fidccid = fields.get_fields_containing_target(*radec, inclccd=True, buffer=0.3) # Make sure it does not fall within a gap.
         datas = []
         for fieldid_ccd in fidccid:
             fieldid,ccd = np.asarray(fieldid_ccd.split("_"), dtype="int")

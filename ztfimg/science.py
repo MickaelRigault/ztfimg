@@ -794,7 +794,8 @@ class ScienceFocalPlane( _FocalPlane_ ):
     def meta(self):
         """ """
         if not hasattr(self, "_meta") or self._meta is None:
-            self._meta = pandas.concat({i:ccd.meta for i,ccd in self.ccds.items()}).set_index("rcid")
+            self._meta = pandas.concat({i:ccd.meta for i,ccd in self.ccds.items()}
+                                      ).set_index("rcid")
             
         return self._meta
     

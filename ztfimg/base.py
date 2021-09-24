@@ -46,7 +46,8 @@ class _Image_( object ):
     # PLOTTER  #
     # -------- #   
     def show(self, ax=None, colorbar=True, cax=None, apply=None, 
-                  vmin="1", vmax="99", dataprop={}, savefile=None, **kwargs):
+                  vmin="1", vmax="99", dataprop={}, savefile=None,
+                  dpi=150, **kwargs):
         """ """
         import matplotlib.pyplot as mpl
         
@@ -69,7 +70,7 @@ class _Image_( object ):
             fig.colorbar(im, cax=cax, ax=ax)
             
         if savefile is not None:
-            fig.savefig(savefile)
+            fig.savefig(savefile, dpi=dpi)
             
         return ax
 
@@ -229,7 +230,8 @@ class _CCD_( _Image_ ):
     #   PLOTTER   #
     # ----------- #
     def show(self, ax=None, vmin="1", vmax="99", colorbar=False, cax=None, 
-             rebin=None, rebin_ccd=None, dataprop={}, savefile=None, **kwargs):
+             rebin=None, rebin_ccd=None, dataprop={}, savefile=None,
+                 dpi=150, **kwargs):
         """ """
         import matplotlib.pyplot as mpl
         if ax is None:
@@ -250,7 +252,7 @@ class _CCD_( _Image_ ):
             fig.colorbar(im, cax=cax, ax=ax)
 
         if savefile is not None:
-            fig.savefig(savefile)
+            fig.savefig(savefile, dpi=dpi)
         return ax
 
     # =============== #
@@ -424,7 +426,8 @@ class _FocalPlane_( _Image_):
 
 
     def show(self, ax=None, vmin="1", vmax="99", colorbar=False, cax=None, 
-             rebin=None, rebin_ccd=None, incl_gap=True, dataprop={}, savefile=None,
+             rebin=None, rebin_ccd=None, incl_gap=True, dataprop={},
+             savefile=None, dpi=150,
              **kwargs):
         """ """
         import matplotlib.pyplot as mpl
@@ -447,7 +450,7 @@ class _FocalPlane_( _Image_):
             fig.colorbar(im, cax=cax, ax=ax)
 
         if savefile is not None:
-            fig.savefig(savefile)
+            fig.savefig(savefile, dpi=dpi)
 
         return ax
 
