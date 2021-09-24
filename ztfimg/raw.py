@@ -29,13 +29,12 @@ class RawQuadrant( _Quadrant_ ):
                                             shape=cls.SHAPE, dtype="float")
             overscan  = da.from_delayed(dask.delayed(fits.getdata)(filename, ext=qid+4),
                                             shape=cls.SHAPE_OVERSCAN, dtype="float")
-            header    = dask.delayed(cls.read_rawfile_header)(filename, qid=qid,
-                                                              grab_imgkeys=grab_imgkeys)
+            header    = dask.delayed(fits.getheader)(filename, qid=qid)
             
         else:
             data      = fits.getdata(filename, ext=qid)
             overscan  = fits.getdata(filename, ext=qid+4)
-            header    = cls.read_rawfile_header(filename, qid=qid,  grab_imgkeys=grab_imgkeys)
+            header    = fits.getheader(filename, qid=qid)
 
         
         if qid in [2, 3]:
@@ -407,9 +406,4 @@ class RawFocalPlane( _FocalPlane_ ):
     # --------- #
     #  GETTER   #
     # --------- # 
-
-class RawFocalPlaneCollection( object ):
-
-    def __init__(self, rawfocalplanes ):
-        """ """
         

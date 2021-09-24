@@ -325,12 +325,12 @@ class _FocalPlane_( _Image_):
         ccdid, qid = self.rcid_to_ccdid_qid(rcid)
         return self.get_ccd(ccdid).get_quadrant(qid)
 
-    def get_quadrantheader(self, rcid_range="all"):
+    def get_quadrantheader(self, rcids="all"):
         """ returns a DataFrame of the header quadrants (rcid) """
-        if rcid_range in ["*","all"]:
-            rcid_range = np.arange(64)
+        if rcids in ["*","all"]:
+            rcids = np.arange(64)
             
-        hs = [self.get_quadrant(i).get_header() for i in rcid_range]
+        hs = [self.get_quadrant(i).get_header() for i in rcids]
         df = pandas.concat(hs, axis=1)
         df.columns = rcid_range
         return df
