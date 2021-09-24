@@ -132,7 +132,7 @@ class RawQuadrant( _Quadrant_ ):
         -------
         2d array
         """
-        data_ = self.data
+        data_ = self.data.copy()
         
         if corr_overscan:
             osmodel = self.get_overscan(**{**dict(which="model"),**overscanprop})
