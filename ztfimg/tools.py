@@ -104,7 +104,7 @@ def parse_vmin_vmax(data, vmin, vmax):
     return vmin, vmax
 
 def get_aperture(data, x0, y0, radius, err=None, mask=None,
-                         bkgdann=None, subpix=0, use_dask=False, **kwargs ):
+                         bkgann=None, subpix=0, use_dask=False, **kwargs ):
     """ 
     Returns
     -------
