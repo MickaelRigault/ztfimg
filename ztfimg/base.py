@@ -153,8 +153,10 @@ class _Quadrant_( _Image_ ):
         return data_
 
     def get_aperture(self, x0, y0, radius, bkgann=None, subpix=0, system="xy",
-                         data="dataclean", maskprop={}, noiseprop={},
-                         unit="counts", clean_flagout=False, get_flag=False):
+                         dataprop={},
+                         mask=None, maskprop={},
+                         err=None, noiseprop={}, use_dask=True,
+                         ):
         """ Get the Apeture photometry corrected from the background annulus if any.
 
         # Based on sep.sum_circle() #
@@ -175,8 +177,8 @@ class _Quadrant_( _Image_ ):
         system: [string] -optional-
             In which system are the input x0, y0:
             - xy (ccd )
-            - radec (in deg, sky) // Available only if wcs known.
-            - uv (focalplane) // Available only if wcs known.
+            - radec (in deg, sky)
+            - uv (focalplane)
 
         data: [string] -optional-
             the aperture will be applied on self.`data`
@@ -202,7 +204,7 @@ class _Quadrant_( _Image_ ):
         2D array (see unit: (counts, dcounts) | (flux, dflux) | (mag, dmag))
            + flag (see get_flag option)
         """
-        from sep import sum_circle
+        from .tools import get_aperture
         if unit not in ["counts","count", "flux", "mag"]:
             raise ValueError(f"Cannot parse the input unit. counts/flux/mag accepted {unit} given")
 
@@ -213,26 +215,15 @@ class _Quadrant_( _Image_ ):
         elif system != "xy":
             raise ValueError(f"system must be xy, radec or uv ;  {system} given")
 
-        counts, counterr, flag = sum_circle(getattr(self,data).byteswap().newbyteorder(),
-                                                        x0, y0, radius,
-                                                        err=self.get_noise(**noiseprop),
-                                                        mask=self.get_mask(**maskprop),
-                                                        bkgann=bkgann, subpix=subpix)
-        if clean_flagout:
-            counts, counterr = counts[flag==0], counterr[flag==0]
+        if err is None:
+            err=self.get_noise(**noiseprop)
+        if mask is None:
+            mask=self.get_mask(**maskprop)
             
-        if unit in ["count","counts"]:
-            if not get_flag:
-                return counts, counterr
-            return counts, counterr, flag
-        if unit in ["flux"]:
-            if not get_flag:
-                return self.counts_to_flux(counts, counterr)
-            return self.counts_to_flux(counts, counterr), flag
-        if unit in ["mag"]:
-            if not get_flag:
-                return self.counts_to_mag(counts, counterr)
-            return self.counts_to_mag(counts, counterr), flag
+        return get_aperture(self.get_data(**dataprop),
+                                x0, y0, radius=radius,
+                                 err=err, mask=mask, use_dask=use_dask, **kwargs)
+        
 
 # -------------- #
 #                #
