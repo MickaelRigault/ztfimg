@@ -205,9 +205,7 @@ class _Quadrant_( _Image_ ):
            + flag (see get_flag option)
         """
         from .tools import get_aperture
-        if unit not in ["counts","count", "flux", "mag"]:
-            raise ValueError(f"Cannot parse the input unit. counts/flux/mag accepted {unit} given")
-
+        
         if system == "radec":
             x0, y0 = self.radec_to_xy(x0, y0)
         elif system == "uv":
