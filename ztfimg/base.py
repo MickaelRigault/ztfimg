@@ -153,10 +153,10 @@ class _Quadrant_( _Image_ ):
         return data_
 
     def get_aperture(self, x0, y0, radius, bkgann=None, subpix=0, system="xy",
-                         dataprop={},
+                         use_dask=True, dataprop={},
                          mask=None, maskprop={},
-                         err=None, noiseprop={}, use_dask=True,
-                         ):
+                         err=None, noiseprop={}, 
+                         **kwargs):
         """ Get the Apeture photometry corrected from the background annulus if any.
 
         # Based on sep.sum_circle() #
