@@ -423,7 +423,7 @@ class ScienceQuadrant( _Quadrant_, WCSHolder ):
 
         if err is None:
             err=self.get_noise(**noiseprop)
-        if mask is None;
+        if mask is None:
             mask=self.get_mask(**maskprop)
             
         return get_aperture(self.get_data(**dataprop),
