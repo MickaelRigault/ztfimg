@@ -16,6 +16,7 @@ class ImageCollection( object ):
     def from_images(cls, images, use_dask=True, **kwargs):
         """ """
         return cls(images, use_dask=use_dask, **kwargs)
+    
     # =============== #
     #  Methods        #
     # =============== #

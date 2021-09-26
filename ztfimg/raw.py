@@ -25,7 +25,7 @@ class RawQuadrant( _Quadrant_ ):
             raise ValueError(f"qid must be 1,2, 3 or 4 {qid} given")
 
         if use_dask:
-            data      = da.from_delayed(dask.delayed(fits.getdata)(filename, ext=qid),
+            data      = da.from_delayed( dask.delayed( fits.getdata )(filename, ext=qid),
                                             shape=cls.SHAPE, dtype="float")
             overscan  = da.from_delayed(dask.delayed(fits.getdata)(filename, ext=qid+4),
                                             shape=cls.SHAPE_OVERSCAN, dtype="float")
@@ -47,7 +47,6 @@ class RawQuadrant( _Quadrant_ ):
             
         return cls(data, header=header, overscan=overscan, use_dask=use_dask, **kwargs)
 
-
     @classmethod
     def from_filefracday(cls, filefracday, rcid, use_dask=True, persist=True, **kwargs):
         """ """
@@ -63,12 +62,6 @@ class RawQuadrant( _Quadrant_ ):
         
         return cls.from_filename(filename[0], qid=qid, use_dask=use_dask,
                                      persist=persist, **kwargs)
-    
-
-    @classmethod
-    def from_date(cls, date, rcid, imgtype, use_dask=True, persist=True, **kwargs):
-        """ """
-        print("NOT IMPLEMENTED")
     
     @staticmethod
     def read_rawfile_header(filename, qid, grab_imgkeys=True):

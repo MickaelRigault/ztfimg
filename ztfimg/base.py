@@ -152,6 +152,88 @@ class _Quadrant_( _Image_ ):
             
         return data_
 
+    def get_aperture(self, x0, y0, radius, bkgann=None, subpix=0, system="xy",
+                         data="dataclean", maskprop={}, noiseprop={},
+                         unit="counts", clean_flagout=False, get_flag=False):
+        """ Get the Apeture photometry corrected from the background annulus if any.
+
+        # Based on sep.sum_circle() #
+
+        Parameters
+        ----------
+        x0, y0, radius: [array]
+            Center coordinates and radius (radii) of aperture(s).
+            (could be x,y, ra,dec or u,v ; see system)
+
+        bkgann: [None/2D array] -optional-
+            Length 2 tuple giving the inner and outer radius of a “background annulus”.
+            If supplied, the background is estimated by averaging unmasked pixels in this annulus.
+
+        subpix: [int] -optional-
+            Subpixel sampling factor. If 0, exact overlap is calculated. 5 is acceptable.
+
+        system: [string] -optional-
+            In which system are the input x0, y0:
+            - xy (ccd )
+            - radec (in deg, sky) // Available only if wcs known.
+            - uv (focalplane) // Available only if wcs known.
+
+        data: [string] -optional-
+            the aperture will be applied on self.`data`
+
+        unit: [string] -optional-
+            unit of the output | counts, flux and mag are accepted.
+
+        clean_flagout: [bool] -optional-
+            remove entries that are masked or partially masked
+            (remove sum_circle flag!=0)
+            = Careful, this does not affects the returned flags, len(flag) remains len(x0)=len(y0) = 
+            
+        get_flag: [bool]  -optional-
+            shall this also return the sum_circle flags
+
+        maskprop, noiseprop:[dict] -optional-
+            options entering self.get_mask() and self.get_noise() for `mask` and `err`
+            attribute of the sep.sum_circle function.
+            
+
+        Returns
+        -------
+        2D array (see unit: (counts, dcounts) | (flux, dflux) | (mag, dmag))
+           + flag (see get_flag option)
+        """
+        from sep import sum_circle
+        if unit not in ["counts","count", "flux", "mag"]:
+            raise ValueError(f"Cannot parse the input unit. counts/flux/mag accepted {unit} given")
+
+        if system == "radec":
+            x0, y0 = self.radec_to_xy(x0, y0)
+        elif system == "uv":
+            x0, y0 = self.uv_to_xy(x0, y0)
+        elif system != "xy":
+            raise ValueError(f"system must be xy, radec or uv ;  {system} given")
+
+        counts, counterr, flag = sum_circle(getattr(self,data).byteswap().newbyteorder(),
+                                                        x0, y0, radius,
+                                                        err=self.get_noise(**noiseprop),
+                                                        mask=self.get_mask(**maskprop),
+                                                        bkgann=bkgann, subpix=subpix)
+        if clean_flagout:
+            counts, counterr = counts[flag==0], counterr[flag==0]
+            
+        if unit in ["count","counts"]:
+            if not get_flag:
+                return counts, counterr
+            return counts, counterr, flag
+        if unit in ["flux"]:
+            if not get_flag:
+                return self.counts_to_flux(counts, counterr)
+            return self.counts_to_flux(counts, counterr), flag
+        if unit in ["mag"]:
+            if not get_flag:
+                return self.counts_to_mag(counts, counterr)
+            return self.counts_to_mag(counts, counterr), flag
+
 # -------------- #
 #                #
 #     CCD        #

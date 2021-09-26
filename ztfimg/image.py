@@ -577,7 +577,8 @@ class ZTFImage( WCSHolder ):
         DataFrame
         """
         x, y = catdf[xykeys].values.T
-        flux, fluxerr, flag = self.get_aperture(x,y, radius[:,None], unit="counts", get_flag = True, system=system, **kwargs)
+        flux, fluxerr, flag = self.get_aperture(x,y, radius[:,None],
+                                                unit="counts", get_flag = True, system=system, **kwargs)
         dic = {**{f'f_{k}':f for k,f in enumerate(flux)},\
                    **{f'f_{k}_e':f for k,f in enumerate(fluxerr)},
                    **{f'f_{k}_f':f for k,f in enumerate(flag)}, # for each radius there is a flag

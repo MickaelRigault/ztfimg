@@ -103,6 +103,26 @@ def parse_vmin_vmax(data, vmin, vmax):
         
     return vmin, vmax
 
+def get_aperture(data, x0, y0, radius, err=None, mask=None,
+                         bkgdann=None, subpix=0, use_dask=False, **kwargs ):
+    """ 
+    Returns
+    -------
+    (dask)array 
+    (counts, counterr, flag) of size (3, len(radius), len(x0))
+    """
+    if use_dask:
+        return da.from_delayed( dask.delayed(get_aperture)(dclean, x0, y0, radius),
+                                        shape=(3, len(radius), len(x0)), dtype="float"
+                                  )
+    
+    
+    from sep import sum_circle
+    out = sum_circle(data.astype("float32"), x0, y0, radius,
+                         err=err, mask=mask, bkgann=bkgann, subpix=subpix,
+                         **kwargs)
+    return np.asarray(out)
+
 def extract_sources(data, thresh_=2, err=None, mask=None, use_dask=False, **kwargs):
         """ uses sep.extract to extract sources 'a la Sextractor' """
         #
