@@ -219,8 +219,9 @@ class _Quadrant_( _Image_ ):
             mask=self.get_mask(**maskprop)
             
         return get_aperture(self.get_data(**dataprop),
-                                x0, y0, radius=radius,
-                                 err=err, mask=mask, use_dask=use_dask, **kwargs)
+                                x0, y0, radius=radius, 
+                                 err=err, mask=mask, bkgann=bkgann,
+                                use_dask=use_dask, **kwargs)
         
 
 # -------------- #
