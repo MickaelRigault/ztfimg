@@ -353,46 +353,6 @@ class ScienceQuadrant( _Quadrant_, WCSHolder ):
                 self._source_background = self._back.back()
 
         return self._source_background
-
-
-
-
-    
-
-
-    def getcat_aperture(self, catdf, radius, xykeys=["x","y"], join=True, system="xy", **kwargs):
-        """ measures the aperture (using get_aperture) using a catalog dataframe as input
-        Parameters
-        ----------
-        catdf: [DataFrame]
-            dataframe containing, at minimum the x and y centroid positions
-    
-        xykeys: [string, string] -optional-
-            name of the x and y columns in the input dataframe
-        
-        join: [bool] -optional-
-            shall the returned dataframe be a new dataframe joined 
-            to the input one, or simply the aperture dataframe?
-        
-        **kwargs goes to get_aperture
-
-        Returns
-        -------
-        DataFrame
-        """
-        x, y = catdf[xykeys].values.T
-        flux, fluxerr, flag = self.get_aperture(x,y, radius[:,None], unit="counts",
-                                                get_flag = True, system=system, **kwargs)
-        dic = {**{f'f_{k}':f for k,f in enumerate(flux)},\
-                   **{f'f_{k}_e':f for k,f in enumerate(fluxerr)},
-                   **{f'f_{k}_f':f for k,f in enumerate(flag)}, # for each radius there is a flag
-                   }
-
-        fdata = pandas.DataFrame(dic, index=catdf.index) #gaia dataframe
-        if join:
-            return catdf.join(fdata)
-        
-        return fdata    
         
     # -------- #
     # CATALOGS # 
