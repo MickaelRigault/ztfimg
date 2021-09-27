@@ -4,7 +4,6 @@ import dask
 import numpy as np
 from .science import ScienceQuadrant
 
-
 class ImageCollection( object ):
 
     def __init__(self, images, use_dask=True):
@@ -61,7 +60,8 @@ class ImageCollection( object ):
 
         
 class ScienceQuadrantCollection( ImageCollection ):
-        
+
+    QUADRANT_SHAPE = ScienceQuadrant.SHAPE
     @classmethod
     def from_filenames(cls, filenames, use_dask=True, imgkwargs={}, **kwargs):
         """ """
@@ -86,7 +86,11 @@ class ScienceQuadrantCollection( ImageCollection ):
         propdown = {**dict(applymask=applymask, maskvalue=maskvalue,
                            rmbkgd=rmbkgd, whichbkgd=whichbkgd), 
                     **kwargs}
-        return self.call_down("get_data",True, **propdown)
+        datas = self.call_down("get_data",True, **propdown)
+        if self._use_dask:
+            return da.stack([da.from_delayed(f_, shape=self.QUADRANT_SHAPE, dtype="float")
+                                     for f_ in f.get_data(clean=True)])
+        return datas
     
     def get_stamps(self, x0s, y0s, dx, dy=None, data="dataclean", asarray=True,
                   **kwargs):
