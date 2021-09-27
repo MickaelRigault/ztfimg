@@ -241,12 +241,15 @@ class _Quadrant_( _Image_ ):
                }
 
         if type(apdata) == DaskArray:
-            return dd.from_dask_array(da.stack(dic.values()).T, columns=dic.keys())
+            return dd.from_dask_array(da.stack(dic.values(), allow_unknown_chunksizes = True).T,
+                                          columns=dic.keys())
         
         return pandas.DataFrame(dic)
 
     def getcat_aperture(self, catdf, radius, xykeys=["x","y"], join=True, system="xy", **kwargs):
         """ measures the aperture (using get_aperture) using a catalog dataframe as input
+        
+        # Careful, this needs to compute x and y otherwise the size in unknown #
         Parameters
         ----------
         catdf: [DataFrame]
