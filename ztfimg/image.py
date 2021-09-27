@@ -946,7 +946,8 @@ class ZTFImage( WCSHolder ):
 class ScienceImage( ZTFImage ):
 
     def __init__(self, imagefile=None, maskfile=None):
-        """ """            
+        """ """
+        warnings.warn("ztfimg.image.ScienceImage is deprecated: use ztfimg.science.ScienceQuadrant ")
         if imagefile is not None:
             self.load_data(imagefile)
 

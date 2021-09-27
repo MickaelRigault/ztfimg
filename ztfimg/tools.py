@@ -164,8 +164,6 @@ def get_source_mask(sourcedf, shape, r=5, use_dask=False):
     ellipsemask = mask_ellipse(mask, *sourcedf[["x","y","a","b","theta"]].astype("float").values.T, r=r)
     return mask
 
-    
-
 # --------------------------- #
 # - Conversion Tools        - #
 # --------------------------- #
