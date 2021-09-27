@@ -2,6 +2,7 @@ import numpy as np
 import pandas
 import dask
 import dask.array as da
+import dask.dataframe as dd
 
 from dask.array.core import Array as DaskArray
 from dask.delayed import Delayed
@@ -155,7 +156,8 @@ class _Quadrant_( _Image_ ):
     def get_aperture(self, x0, y0, radius, bkgann=None, subpix=0, system="xy",
                          use_dask=True, dataprop={},
                          mask=None, maskprop={},
-                         err=None, noiseprop={}, 
+                         err=None, noiseprop={},
+                         asdataframe=False,
                          **kwargs):
         """ Get the Apeture photometry corrected from the background annulus if any.
 
@@ -198,6 +200,12 @@ class _Quadrant_( _Image_ ):
             options entering self.get_mask() and self.get_noise() for `mask` and `err`
             attribute of the sep.sum_circle function.
             
+        asdataframe: [bool]
+            return format.
+            If As DataFrame, this will be a dataframe with 
+            3xn-radius columns (f_0...f_i, f_0_e..f_i_e, f_0_f...f_i_f)
+            standing for fluxes, errors, flags.
+            
 
         Returns
         -------
@@ -218,11 +226,52 @@ class _Quadrant_( _Image_ ):
         if mask is None:
             mask=self.get_mask(**maskprop)
             
-        return get_aperture(self.get_data(**dataprop),
-                                x0, y0, radius=radius, 
-                                 err=err, mask=mask, bkgann=bkgann,
-                                use_dask=use_dask, **kwargs)
+        apdata = get_aperture(self.get_data(**dataprop),
+                              x0, y0, radius=radius, 
+                              err=err, mask=mask, bkgann=bkgann,
+                              use_dask=use_dask, **kwargs)
+        if not asdataframe:
+            return apdata
+
+        # Generic form works for dask and np arrays
+        dic = {**{f'f_{k}':apdata[0,k] for k in range(nradius)},\
+               **{f'f_{k}_e':apdata[1,k] for k in range(nradius)},
+               **{f'f_{k}_f':apdata[2,k] for k in range(nradius)}, # for each radius there is a flag
+               }
+
+        if type(apdata) == DaskArray:
+            return dd.from_dask_array(da.stack(dic.values()).T, columns=dic.keys())
         
+        return pandas.DataFrame(dic)
+
+    def getcat_aperture(self, catdf, radius, xykeys=["x","y"], join=True, system="xy", **kwargs):
+        """ measures the aperture (using get_aperture) using a catalog dataframe as input
+        Parameters
+        ----------
+        catdf: [DataFrame]
+            dataframe containing, at minimum the x and y centroid positions
+    
+        xykeys: [string, string] -optional-
+            name of the x and y columns in the input dataframe
+        
+        join: [bool] -optional-
+            shall the returned dataframe be a new dataframe joined 
+            to the input one, or simply the aperture dataframe?
+        
+        **kwargs goes to get_aperture
+
+        Returns
+        -------
+        DataFrame
+        """
+        x, y = catdf[xykeys].values.T
+        fdata = self.get_aperture(x,y, radius[:,None],
+                                  system=system, asdataframe=True,
+                                  **kwargs)
+        if join:
+            return catdf.reset_index().join(fdata).set_index("index").compute()
+        
+        return fdata
 
 # -------------- #
 #                #
