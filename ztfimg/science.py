@@ -417,7 +417,8 @@ class ScienceQuadrant( _Quadrant_, WCSHolder ):
         # Single Catalog
         if len(which) == 1:
             if which[0] == "gaia":
-                return self.get_gaia_calibrators(setxy=setxy, drop_namag=drop_namag, drop_outside=drop_outside,
+                return self.get_gaia_calibrators(setxy=setxy, drop_namag=drop_namag,
+                                                     drop_outside=drop_outside,
                                                  pixelbuffer=pixelbuffer,
                                                  isolation=isolation, use_dask=use_dask,
                                                  **kwargs)
@@ -434,11 +435,14 @@ class ScienceQuadrant( _Quadrant_, WCSHolder ):
             if which.tolist() in [["gaia","ps1"], ["ps1","gaia"]]:
                 from .catalog import match_and_merge
                 catps1  = self.get_ps1_calibrators( setxy=setxy,
-                                                    drop_outside=drop_outside, pixelbuffer=pixelbuffer,
+                                                    drop_outside=drop_outside,
+                                                    pixelbuffer=pixelbuffer,
                                                     use_dask=use_dask,
                                                     **kwargs)
-                catgaia = self.get_gaia_calibrators( setxy=setxy, drop_namag=drop_namag,isolation=isolation,
-                                                     drop_outside=drop_outside, pixelbuffer=pixelbuffer,
+                catgaia = self.get_gaia_calibrators( setxy=setxy, drop_namag=drop_namag,
+                                                     isolation=isolation,
+                                                     drop_outside=drop_outside,
+                                                     pixelbuffer=pixelbuffer,
                                                      use_dask=use_dask,
                                                      **kwargs)
                 if use_dask is None:
@@ -503,7 +507,11 @@ class ScienceQuadrant( _Quadrant_, WCSHolder ):
         from .io import GaiaCalibrators
         if use_dask is None:
             use_dask = self._use_dask
-        
+
+        columns = ['Source', 'ps1_id', 'sdssdr13_id', 'ra', 'dec',
+                   'gmag', 'e_gmag', 'gmagcorr', 'rpmag', 'e_rpmag', 'bpmag', 'e_bpmag',
+                   'colormag']
+            
         if use_dask:
             delayed_cat = dask.delayed(self.get_gaia_calibrators)( setxy=setxy, drop_namag=drop_namag,
                                                                     drop_outside=drop_outside,
@@ -511,10 +519,6 @@ class ScienceQuadrant( _Quadrant_, WCSHolder ):
                                                                   isolation=isolation,
                                                                   use_dask=False, # get the df
                                                                   **kwargs)
-            columns = ['Source', 'ps1_id', 'sdssdr13_id', 'ra', 'dec', 'gmag', 'e_gmag', 'gmagcorr',
-                        'rpmag', 'e_rpmag', 'bpmag', 'e_bpmag', 'fg', 'e_fg', 'fgcorr', 'frp',
-                        'e_frp', 'fbp', 'e_fbp', 'plx', 'e_plx', 'pm', 'pmra', 'e_pmra', 'pmde',
-                        'e_pmde', 'colormag']
             spetypes = {"ps1_id":'string',"sdssdr13_id":'string'}
             if setxy:
                 columns += ["x","y","u","v"]
@@ -528,6 +532,7 @@ class ScienceQuadrant( _Quadrant_, WCSHolder ):
         # Not Dasked
         #
         cat = GaiaCalibrators.fetch_data(self.rcid, self.fieldid, radec=self.get_center(system="radec"), **kwargs).reset_index()
+        cat = cat[columns]
         
         if drop_namag:
             cat = cat[~pandas.isna(cat[["gmag","rpmag","bpmag"]]).any(axis=1)]
