@@ -234,6 +234,7 @@ class _Quadrant_( _Image_ ):
             return apdata
 
         # Generic form works for dask and np arrays
+        nradius = len(radius)
         dic = {**{f'f_{k}':apdata[0,k] for k in range(nradius)},\
                **{f'f_{k}_e':apdata[1,k] for k in range(nradius)},
                **{f'f_{k}_f':apdata[2,k] for k in range(nradius)}, # for each radius there is a flag
