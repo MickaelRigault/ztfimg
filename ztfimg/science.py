@@ -163,7 +163,7 @@ class ScienceQuadrant( _Quadrant_, WCSHolder ):
 
         """
         if which == "clean":
-            data_ self.get_dataclean()
+            data_ = self.get_dataclean()
         elif which == "clean_sourcemasked":
             data_ = self.get_dataclean().copy()
             smask = self.get_source_mask()
