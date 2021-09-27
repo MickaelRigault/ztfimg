@@ -3,7 +3,7 @@ import numpy as np
 import dask
 import os
 import pandas
-from .collection import ScienceImageCollection
+from .collection import ScienceQuadrantCollection
 
 
 class AperturePhotometry( object ):

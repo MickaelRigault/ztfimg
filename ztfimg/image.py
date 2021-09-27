@@ -20,7 +20,11 @@ ZTF_FILTERS = {"ztfg":{"wave_eff":4813.97, "fid":1},
 
 
 from .astrometry import WCSHolder
-    
+
+
+
+print("ztfimg.image is DEPRECATED. See ztfimg.science (dasked version of it) ")
+
 class ZTFImage( WCSHolder ):
     """ """
     SHAPE = 3080, 3072
