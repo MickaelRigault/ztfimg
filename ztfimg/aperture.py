@@ -53,7 +53,7 @@ class AperturePhotometry( object ):
         if filenames is not None:
             self.set_filenames(filenames)
 
-        self.images = ScienceImageCollection.from_filenames(self.filenames, use_dask=self._use_dask)
+        self.images = ScienceQuadrantCollection.from_filenames(self.filenames, use_dask=self._use_dask)
         
         
     # -------- #
