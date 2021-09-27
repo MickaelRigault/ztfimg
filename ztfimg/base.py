@@ -154,7 +154,7 @@ class _Quadrant_( _Image_ ):
         return data_
 
     def get_aperture(self, x0, y0, radius, bkgann=None, subpix=0, system="xy",
-                         use_dask=True, dataprop={},
+                         use_dask=None, dataprop={},
                          mask=None, maskprop={},
                          err=None, noiseprop={},
                          asdataframe=False,
@@ -225,7 +225,9 @@ class _Quadrant_( _Image_ ):
             err=self.get_noise(**noiseprop)
         if mask is None:
             mask=self.get_mask(**maskprop)
-            
+
+        if use_dask is None:
+            use_dask = self._use_dask
         apdata = get_aperture(self.get_data(**dataprop),
                               x0, y0, radius=radius, 
                               err=err, mask=mask, bkgann=bkgann,
