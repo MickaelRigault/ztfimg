@@ -172,6 +172,11 @@ class ScienceQuadrant( _Quadrant_, WCSHolder ):
             data_ = self.data.copy()
             smask = self.get_source_mask()
             data_[smask] = np.NaN
+        elif which == "masked_sourcemasked":
+            data_ = self.data.copy()
+            data_[self.get_mask(alltrue)] = np.NaN
+            smask = self.get_source_mask()
+            data_[smask] = np.NaN   
         elif which == "sourcemask":
             data_ = self.get_source_mask()
         elif which is not None:
