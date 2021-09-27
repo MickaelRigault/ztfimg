@@ -149,7 +149,7 @@ class _Quadrant_( _Image_ ):
         
         if rebin is not None:
             data_ = getattr(da if self._use_dask else np, rebin_stat)(
-                rebin_arr(data_, (rebin,rebin), use_dask=True), axis=(-2,-1))
+                rebin_arr(data_, (rebin,rebin), use_dask=self._use_dask), axis=(-2,-1))
             
         return data_
 
