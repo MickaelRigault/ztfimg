@@ -129,7 +129,7 @@ class ScienceQuadrant( _Quadrant_, WCSHolder ):
         """ fetchs the whole focal plan image (64 quadrants making 16 CCDs) and returns a ScienceFocalPlane object """
         return ScienceFocalPlane.from_single_filename(self.filename, use_dask=use_dask, **kwargs)
     
-    def get_data(self, clean=False,
+    def get_data(self, which=None,
                        applymask=True, maskvalue=np.NaN,
                        rmbkgd=True, whichbkgd="median",
                        rebin=None, rebin_stat="nanmean",
@@ -162,8 +162,16 @@ class ScienceQuadrant( _Quadrant_, WCSHolder ):
         2d array (data)
 
         """
-        if clean:
-            data_ = self.get_dataclean()
+        if which == "clean":
+            data_ self.get_dataclean()
+        elif which == "clean_sourcemasked":
+            data_ = self.get_dataclean().copy()
+            smask = self.get_source_mask()
+            data_[smask] = np.NaN
+        elif which == "sourcemask":
+            data_ self.get_source_mask()
+        elif which is not None:
+            raise ValueError("Only which= clean, clean_sourmasked or sourcemask implemented")
         else:
             data_ = self.data.copy()
         
