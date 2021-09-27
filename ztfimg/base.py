@@ -249,7 +249,7 @@ class _Quadrant_( _Image_ ):
     def getcat_aperture(self, catdf, radius, xykeys=["x","y"], join=True, system="xy", **kwargs):
         """ measures the aperture (using get_aperture) using a catalog dataframe as input
         
-        # Careful, this needs to compute x and y otherwise the size in unknown #
+        # Careful, the indexing is droped when joined. #
         Parameters
         ----------
         catdf: [DataFrame]
@@ -273,9 +273,8 @@ class _Quadrant_( _Image_ ):
                                   system=system, asdataframe=True,
                                   **kwargs)
         if join:
-            index = catdf.index
             # the index and drop is because dask.DataFrame do not behave as pandas.DataFrame
-            return catdf.reset_index(drop=True).join(fdata).set_index(index)
+            return catdf.reset_index().join(fdata)
         
         return fdata
 
