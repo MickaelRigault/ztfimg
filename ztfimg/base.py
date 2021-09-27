@@ -273,7 +273,9 @@ class _Quadrant_( _Image_ ):
                                   system=system, asdataframe=True,
                                   **kwargs)
         if join:
-            return catdf.reset_index().join(fdata).set_index("index")
+            index = cat.index
+            # the index and drop is because dask.DataFrame do not behave as pandas.DataFrame
+            return catdf.reset_index(drop=True).join(fdata).set_index(index)
         
         return fdata
 
