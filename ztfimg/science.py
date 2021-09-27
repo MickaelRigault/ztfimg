@@ -169,7 +169,7 @@ class ScienceQuadrant( _Quadrant_, WCSHolder ):
             smask = self.get_source_mask()
             data_[smask] = np.NaN
         elif which == "sourcemask":
-            data_ self.get_source_mask()
+            data_ = self.get_source_mask()
         elif which is not None:
             raise ValueError("Only which= clean, clean_sourmasked or sourcemask implemented")
         else:
