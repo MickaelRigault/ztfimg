@@ -337,7 +337,7 @@ class ScienceQuadrant( _Quadrant_, WCSHolder ):
         raise ValueError(f"which should be nanstd, globalrms or rms ; {which} given")
                 
         
-    def get_source_mask(self, thresh=5):
+    def get_source_mask(self, thresh=5, r=8):
         """ """
         if not hasattr(self, "_source_mask"):
             from .tools import extract_sources, get_source_mask
@@ -345,7 +345,7 @@ class ScienceQuadrant( _Quadrant_, WCSHolder ):
             mask = self.get_mask()
             noise = self.get_noise(which="nanstd")
             sources = extract_sources(data, thresh_=thresh, err=noise, mask=mask, use_dask=self._use_dask)
-            self._source_mask = get_source_mask(sources, self.shape, use_dask=self._use_dask)
+            self._source_mask = get_source_mask(sources, self.shape, use_dask=self._use_dask, r=r)
             
         return self._source_mask
                 
