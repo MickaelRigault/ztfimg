@@ -2,7 +2,7 @@
 
 import dask
 import numpy as np
-from .image import ScienceImage
+from .science import ScienceQuadrant
 
 
 class ImageCollection( object ):
@@ -60,17 +60,17 @@ class ImageCollection( object ):
     
 
         
-class ScienceImageCollection( ImageCollection ):
+class ScienceQuadrantCollection( ImageCollection ):
         
     @classmethod
     def from_filenames(cls, filenames, use_dask=True, imgkwargs={}, **kwargs):
         """ """
         filenames = np.atleast_1d(filenames).tolist()
         if use_dask:
-            images = [dask.delayed(ScienceImage.from_filename)(filename, **imgkwargs)
+            images = [dask.delayed(ScienceQuadrant.from_filename)(filename, use_dask=False, **imgkwargs)
                      for filename in filenames]
         else:
-            images = [ScienceImage.from_filename(filename, **imgkwargs) for filename in filenames]
+            images = [ScienceQuadrant.from_filename(filename, use_dask=False, **imgkwargs) for filename in filenames]
             
         return cls(images, use_dask=use_dask, **kwargs)
 
