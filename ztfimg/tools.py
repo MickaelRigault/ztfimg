@@ -113,7 +113,7 @@ def get_aperture(data, x0, y0, radius, err=None, mask=None,
     """
     if use_dask:
         return da.from_delayed( dask.delayed(get_aperture)(data, x0, y0, radius),
-                                        shape=(3, len(radius), len(x0)), dtype="float"
+                                        shape=(3, radius.size, x0.size), dtype="float"
                                   )
     
     
