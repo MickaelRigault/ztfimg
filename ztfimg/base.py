@@ -273,7 +273,7 @@ class _Quadrant_( _Image_ ):
                                   system=system, asdataframe=True,
                                   **kwargs)
         if join:
-            return catdf.reset_index().join(fdata).set_index("index").compute()
+            return catdf.reset_index().join(fdata).set_index("index")
         
         return fdata
 
