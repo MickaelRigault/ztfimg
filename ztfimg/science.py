@@ -425,11 +425,33 @@ class ScienceQuadrant( _Quadrant_, WCSHolder ):
 
         names = [name for name in tbl.colnames if len(tbl[name].shape) <= 1] 
         return tbl[names].to_pandas().set_index("NUMBER")
+
+
+    def get_catalog(self, calibrator=["gaia","ps1"], extra=["psfcat"], isolation=20, seplimit=0.5,
+                        use_dask=None, **kwargs):
+        """ **kwargs goes to get_calibrators """
+        from .catalog import match_and_merge
+        cal = self.get_calibrators(calibrator, isolation=isolation, seplimit=seplimit,
+                                       use_dask=use_dask, **kwargs)
+        
+        extra = np.atleast_1d(extra).tolist()
+        if "psfcat" in extra:
+            psfcat = self.get_psfcat(use_dask=use_dask)
+
+            if use_dask is None:
+                use_dask = self._use_dask
+                    
+            if use_dask:                        
+                return dd.from_delayed(dask.delayed(match_and_merge)(
+                        cal, psfcat, mergehow="left", suffixes=('', '_psfcat'), seplimit=seplimit)
+            return match_and_merge(cal, psfcat, mergehow="left", suffixes=('', '_psfcat'), seplimit=seplimit)
+            
+        return cal
     
     def get_calibrators(self, which=["gaia","ps1"],
                             setxy=True, drop_outside=True, drop_namag=True,
                             pixelbuffer=10, isolation=None, mergehow="inner", seplimit=0.5,
-                            use_dask=None, persist=False, **kwargs):
+                            use_dask=None, **kwargs):
         """ get a DataFrame containing the requested calibrator catalog(s).
         If several catalog are given, a matching will be made and the dataframe merged (in)
 
@@ -477,12 +499,10 @@ class ScienceQuadrant( _Quadrant_, WCSHolder ):
                 if use_dask is None:
                     use_dask = self._use_dask
                     
-                if use_dask:
-                    if persist:
-                        catgaia = catgaia.persist()
-                        catps1 = catps1.persist()
+                if use_dask:                        
                     return dd.from_delayed(dask.delayed(match_and_merge)(
-                        catgaia, catps1, suffixes=('', '_ps1'), mergehow=mergehow, seplimit=seplimit))
+                        catgaia.persist(), catps1.persist(),
+                        suffixes=('', '_ps1'), mergehow=mergehow, seplimit=seplimit))
                 
                 return match_and_merge( catgaia, catps1,
                                         suffixes=('', '_ps1'), mergehow=mergehow,
