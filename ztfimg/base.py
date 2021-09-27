@@ -249,7 +249,7 @@ class _Quadrant_( _Image_ ):
     def getcat_aperture(self, catdf, radius, xykeys=["x","y"], join=True, system="xy", **kwargs):
         """ measures the aperture (using get_aperture) using a catalog dataframe as input
         
-        # Careful, the indexing is droped when joined. #
+        # Careful, the indexing is reset (becomes index column)  when joined. #
         Parameters
         ----------
         catdf: [DataFrame]
