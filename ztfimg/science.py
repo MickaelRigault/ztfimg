@@ -443,8 +443,9 @@ class ScienceQuadrant( _Quadrant_, WCSHolder ):
                     
             if use_dask:                        
                 return dd.from_delayed(dask.delayed(match_and_merge)(
-                        cal, psfcat, mergehow="left", suffixes=('', '_psfcat'), seplimit=seplimit)
-            return match_and_merge(cal, psfcat, mergehow="left", suffixes=('', '_psfcat'), seplimit=seplimit)
+                        cal, psfcat, mergehow="left", suffixes=('', '_psfcat'), seplimit=seplimit))
+            else:
+                return match_and_merge(cal, psfcat, mergehow="left", suffixes=('', '_psfcat'), seplimit=seplimit)
             
         return cal
     
