@@ -19,12 +19,16 @@ class RawQuadrant( _Quadrant_ ):
         
     @classmethod
     def from_filename(cls, filename, qid, grab_imgkeys=True, use_dask=True,
-                          persist=True, **kwargs):
+                          persist=True, download=True, **kwargs):
         """ """
         if qid not in [1,2,3,4]:
             raise ValueError(f"qid must be 1,2, 3 or 4 {qid} given")
-
+        
+        from ztfquery import io
+        
         if use_dask:
+            filename  = dask.delayed(io.get_file)(filename, show_progress=False,
+                                                  maxnprocess=1, download=download)
             data      = da.from_delayed( dask.delayed( fits.getdata )(filename, ext=qid),
                                             shape=cls.SHAPE, dtype="float")
             overscan  = da.from_delayed(dask.delayed(fits.getdata)(filename, ext=qid+4),
@@ -32,6 +36,8 @@ class RawQuadrant( _Quadrant_ ):
             header    = dask.delayed(fits.getheader)(filename, qid=qid)
             
         else:
+            filename  = io.get_file(filename, show_progress=False, maxnprocess=1,
+                                    download=download)
             data      = fits.getdata(filename, ext=qid)
             overscan  = fits.getdata(filename, ext=qid+4)
             header    = fits.getheader(filename, qid=qid)
@@ -330,7 +336,8 @@ class RawCCD( _CCD_ ):
             which = np.asarray(np.atleast_1d(which), dtype="int")
         
         for qid in which:
-            qradrant = RawQuadrant.from_filename(filename, qid, use_dask=self._use_dask, persist=persist)
+            qradrant = RawQuadrant.from_filename(filename, qid, use_dask=self._use_dask,
+                                                     persist=persist)
             self.set_quadrant(qradrant,  qid=qid)
             
     # -------- #
