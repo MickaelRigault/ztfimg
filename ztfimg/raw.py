@@ -331,7 +331,7 @@ class RawCCD( _CCD_ ):
             filename = io.get_file(filename, show_progress=False, maxnprocess=1)
             header = fits.open(filename)[0].header
             
-        self.set_header()
+        self.set_header(header)
         self.load_quadrants(filename, **kwargs)
         
     def load_quadrants(self, filename, which="*", persist=True):
