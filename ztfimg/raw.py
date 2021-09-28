@@ -324,8 +324,8 @@ class RawCCD( _CCD_ ):
     # -------- #
     def load_file(self, filename, **kwargs):
         """ """
-        raw = fits.open(filename)
-        self.set_header(raw[0].header)
+        filename = dask.delayed(io.get_file)(filename, show_progress=False, maxnprocess=1)
+        self.set_header(dask.delayed(fits.open)(filename)[0].header)
         self.load_quadrants(filename, **kwargs)
         
     def load_quadrants(self, filename, which="*", persist=True):
