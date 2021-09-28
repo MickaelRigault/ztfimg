@@ -5,7 +5,7 @@ import dask.array as da
 import dask.dataframe as dd
 
 from dask.array.core import Array as DaskArray
-from dask.delayed import Delayed
+from dask.delayed import Delayed, DelayedAttr
 
 from .tools import rebin_arr, parse_vmin_vmax
 
@@ -80,7 +80,7 @@ class _Image_( object ):
     # -------- #   
     def _compute_header(self):
         """ """
-        if self._use_dask and type(self._header) == Delayed:
+        if self._use_dask and type(self._header) in [Delayed, DelayedAttr]:
             self._header = self._header.compute()
                 
     # =============== #
