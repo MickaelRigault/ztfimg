@@ -4,9 +4,10 @@ import pandas
 import warnings
 import dask
 import dask.array as da
+
+from ztfquery import io
+        
 from .tools import fit_polynome, rebin_arr, parse_vmin_vmax
-
-
 from .base import _Quadrant_, _CCD_, _FocalPlane_
     
 class RawQuadrant( _Quadrant_ ):
@@ -23,8 +24,6 @@ class RawQuadrant( _Quadrant_ ):
         """ """
         if qid not in [1,2,3,4]:
             raise ValueError(f"qid must be 1,2, 3 or 4 {qid} given")
-        
-        from ztfquery import io
         
         if use_dask:
             filename  = dask.delayed(io.get_file)(filename, show_progress=False,
