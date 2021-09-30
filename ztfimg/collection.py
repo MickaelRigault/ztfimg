@@ -57,8 +57,6 @@ class ImageCollection( object ):
             return None
         return len(self.images)
     
-
-        
 class ScienceQuadrantCollection( ImageCollection ):
 
     QUADRANT_SHAPE = ScienceQuadrant.SHAPE

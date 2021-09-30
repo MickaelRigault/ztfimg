@@ -1,3 +1,4 @@
+import os
 from astropy.io import fits
 import numpy as np
 import pandas
@@ -9,7 +10,15 @@ from ztfquery import io
         
 from .tools import fit_polynome, rebin_arr, parse_vmin_vmax
 from .base import _Quadrant_, _CCD_, _FocalPlane_
-    
+from .io import PACKAGE_PATH
+
+NONLINEARITY_FILE = os.join(PACKAGE_PATH, "data/ccd_amp_coeff_v2.txt")
+NONLINEARITY_TABLE = pandas.read_csv(filepath, comment='#', header=None, sep='\s+', usecols=[0, 1, 2, 3, 4],
+                                      names=["ccdid", "ampname", "qid", "a", "b"])
+NONLINEARITY_TABLE["rcid"] = _FocalPlane_.ccdid_qid_to_rcid(nltable["ccdid"],nltable["qid"])
+
+
+
 class RawQuadrant( _Quadrant_ ):
 
     SHAPE_OVERSCAN = 3080, 30
@@ -40,8 +49,8 @@ class RawQuadrant( _Quadrant_ ):
             data      = fits.getdata(filename, ext=qid)
             overscan  = fits.getdata(filename, ext=qid+4)
             header    = fits.getheader(filename, qid=qid)
-
         
+
         if qid in [2, 3]:
             overscan = overscan[:,::-1]
 
@@ -50,7 +59,9 @@ class RawQuadrant( _Quadrant_ ):
             overscan = overscan.persist()
             header = header.persist()
             
-        return cls(data, header=header, overscan=overscan, use_dask=use_dask, **kwargs)
+        this = cls(data, header=header, overscan=overscan, use_dask=use_dask, **kwargs)
+        this._qid = qid
+        return this
 
     @classmethod
     def from_filefracday(cls, filefracday, rcid, use_dask=True, persist=True, **kwargs):
@@ -268,7 +279,7 @@ class RawQuadrant( _Quadrant_ ):
     @property
     def qid(self):
         """ """
-        return self.get_headerkey("AMP_ID")+1
+        return self._qid if hasattr(self, "_qid") else (self.get_headerkey("AMP_ID")+1)
     
     @property
     def rcid(self):
