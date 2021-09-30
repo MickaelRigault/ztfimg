@@ -10,19 +10,10 @@ from ztfquery import io
         
 from .tools import fit_polynome, rebin_arr, parse_vmin_vmax
 from .base import _Quadrant_, _CCD_, _FocalPlane_
-from .io import PACKAGE_PATH
+from .io import get_nonlinearity_table
 
-NONLINEARITY_FILE = os.path.join(PACKAGE_PATH, "data/ccd_amp_coeff_v2.txt")
+
 NONLINEARITY_TABLE= get_nonlinearity_table()
-
-def get_nonlinearity_table():
-    """ """
-    nl_table = pandas.read_csv(NONLINEARITY_FILE, comment='#', header=None, sep='\s+', usecols=[0, 1, 2, 3, 4],
-                                      names=["ccdid", "ampname", "qid", "a", "b"])
-    nl_table["qid"] += 1 # qid in the file is actually AMP_ID that starts at 0, while qid starts at 1.
-    nl_table["rcid"] = _FocalPlane_.ccdid_qid_to_rcid(nl_table["ccdid"], nl_table["qid"])
-    return nl_table.set_index("rcid").sort_index()
-
 
 class RawQuadrant( _Quadrant_ ):
 
