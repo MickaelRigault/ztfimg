@@ -45,7 +45,6 @@ class RawQuadrant( _Quadrant_ ):
             data      = fits.getdata(filename, ext=qid)
             overscan  = fits.getdata(filename, ext=qid+4)
             header    = fits.getheader(filename, qid=qid)
-        
 
         if qid in [2, 3]:
             overscan = overscan[:,::-1]
@@ -145,8 +144,9 @@ class RawQuadrant( _Quadrant_ ):
         if corr_gain:
             data_ *=self.gain
 
-        #if corr_nl:
-            #data_ *=
+        if corr_nl:
+            a, b = self.get_nonlinearity_corr()
+            data_ /= (a*data_**2 + b*data_ + 1)
 
         if rebin is not None:
             data_ = getattr(da if self._use_dask else np, rebin_stat)( rebin_arr(data_, (rebin,rebin), use_dask=True), axis=(-2,-1))
@@ -155,6 +155,7 @@ class RawQuadrant( _Quadrant_ ):
 
     def get_nonlinearity_corr(self):
         """ """
+        return NONLINEARITY_TABLE.loc[self.rcid][["a","b"]].astype("float").values
         
     def get_overscan(self, which="data", userange=[10,20], stackstat="nanmedian",
                          modeldegree=5, specaxis=1):
