@@ -13,9 +13,9 @@ from .base import _Quadrant_, _CCD_, _FocalPlane_
 from .io import PACKAGE_PATH
 
 NONLINEARITY_FILE = os.path.join(PACKAGE_PATH, "data/ccd_amp_coeff_v2.txt")
-NONLINEARITY_TABLE = pandas.read_csv(filepath, comment='#', header=None, sep='\s+', usecols=[0, 1, 2, 3, 4],
+NONLINEARITY_TABLE = pandas.read_csv(NONLINEARITY_FILE, comment='#', header=None, sep='\s+', usecols=[0, 1, 2, 3, 4],
                                       names=["ccdid", "ampname", "qid", "a", "b"])
-NONLINEARITY_TABLE["rcid"] = _FocalPlane_.ccdid_qid_to_rcid(nltable["ccdid"],nltable["qid"])
+NONLINEARITY_TABLE["rcid"] = _FocalPlane_.ccdid_qid_to_rcid(NONLINEARITY_TABLE["ccdid"], NONLINEARITY_TABLE["qid"])
 
 
 
