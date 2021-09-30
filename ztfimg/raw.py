@@ -13,10 +13,15 @@ from .base import _Quadrant_, _CCD_, _FocalPlane_
 from .io import PACKAGE_PATH
 
 NONLINEARITY_FILE = os.path.join(PACKAGE_PATH, "data/ccd_amp_coeff_v2.txt")
-NONLINEARITY_TABLE = pandas.read_csv(NONLINEARITY_FILE, comment='#', header=None, sep='\s+', usecols=[0, 1, 2, 3, 4],
-                                      names=["ccdid", "ampname", "qid", "a", "b"])
-NONLINEARITY_TABLE["rcid"] = _FocalPlane_.ccdid_qid_to_rcid(NONLINEARITY_TABLE["ccdid"], NONLINEARITY_TABLE["qid"])
+NONLINEARITY_TABLE= get_nonlinearity_table()
 
+def get_nonlinearity_table():
+    """ """
+    nl_table = pandas.read_csv(NONLINEARITY_FILE, comment='#', header=None, sep='\s+', usecols=[0, 1, 2, 3, 4],
+                                      names=["ccdid", "ampname", "qid", "a", "b"])
+    nl_table["qid"] += 1 # qid in the file is actually AMP_ID that starts at 0, while qid starts at 1.
+    nl_table["rcid"] = _FocalPlane_.ccdid_qid_to_rcid(nl_table["ccdid"], nl_table["qid"])
+    return nl_table.set_index("rcid").sort_index()
 
 
 class RawQuadrant( _Quadrant_ ):
@@ -156,6 +161,9 @@ class RawQuadrant( _Quadrant_ ):
             data_ = getattr(da if self._use_dask else np, rebin_stat)( rebin_arr(data_, (rebin,rebin), use_dask=True), axis=(-2,-1))
             
         return data_
+
+    def get_nonlinearity_corr(self):
+        """ """
         
     def get_overscan(self, which="data", userange=[10,20], stackstat="nanmedian",
                          modeldegree=5, specaxis=1):
