@@ -22,11 +22,9 @@ class ImageCollection( object ):
     # ------- #
     # SETTER  #
     # ------- #
-    def set_images(self, images, persist=False):
+    def set_images(self, images):
         """ """
         self._images = np.atleast_1d(images).tolist()
-        if self._use_dask and persist:
-            self.persist_images()
         
     # -------- #
     # INTERNAL #
@@ -45,7 +43,6 @@ class ImageCollection( object ):
     # ---------- #
     #  INTERNAL  #
     # ---------- #
-
     
     # =============== #
     #  Properties     #
