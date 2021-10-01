@@ -138,6 +138,19 @@ class ScienceQuadrant( _Quadrant_, WCSHolder ):
 
         Parameters
         ---------
+        which: 
+
+
+        rebin:
+            None
+
+        rebin_stat:
+            "nanmean"
+
+        
+        // If not which is None only //
+
+
         clean: [bool] -optional-
             shortcut to get_dataclean()
             // rest is ignored //
@@ -163,9 +176,9 @@ class ScienceQuadrant( _Quadrant_, WCSHolder ):
 
         """
         if which == "data":
-            return self.data.copy()
+            data_ = self.data.copy()
         
-        if which in ["clean", "dataclean"]:
+        elif which in ["clean", "dataclean"]:
             data_ = self.get_dataclean()
             
         elif which == "clean_sourcemasked":

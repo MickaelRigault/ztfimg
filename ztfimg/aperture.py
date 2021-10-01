@@ -59,7 +59,7 @@ class AperturePhotometry( object ):
     # -------- #
     # GETTER   #
     # -------- #
-    def get_aperture(self, x0s, y0s, radius, bkgann=None, system="xy", data="dataclean",
+    def get_aperture(self, x0s, y0s, radius, bkgann=None, system="xy", whichdata="dataclean",
                          **kwargs):
         """ 
         x0, y0: [2d-array, 2d-array]
@@ -81,18 +81,22 @@ class AperturePhotometry( object ):
             - uv (focalplane)
 
         **kwargs goes to each individual image's get_aperture """
-        return self.images.get_aperture(x0s, y0s, radius, bkgann=bkgann, system=system, data=data,
+        return self.images.get_aperture(x0s, y0s, radius, bkgann=bkgann, system=system,
+                                            whichdata=whichdata,
                                             **kwargs)
     
     def build_apcatalog(self, radius, calibrators=["gaia","ps1"], extracat=["psfcat"], 
-                        isolation=20, xykeys=["x","y"], seplimit=0.5, calkwargs={}, **kwargs):
+                        isolation=20, xykeys=["x","y"], seplimit=0.5, calkwargs={},
+                        whichdata="dataclean", dataprop={}, **kwargs):
         """ 
         calkwargs goes to get_catalog()
         kwargs goes to getcat_aperture()
         """
+        dataprop = {**dict(which=whichdata), **dataprop}
         cats = self.images.get_catalog(calibrators=calibrators, extracat=extracat,
                                        isolation=isolation, seplimit=seplimit, **calkwargs)
-        apcat = self.images.map_down("getcat_aperture", cats, radius, xykeys=xykeys, **kwargs)
+        apcat = self.images.map_down("getcat_aperture", cats, radius, xykeys=xykeys,
+                                         dataprop=dataprop, **kwargs)
         if self._use_dask:
             return dask.delayed(pandas.concat)(apcat, keys=self.basenames)
         

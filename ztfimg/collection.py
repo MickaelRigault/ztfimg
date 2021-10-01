@@ -1,6 +1,7 @@
 
 
 import dask
+import dask.array as da
 import numpy as np
 from .science import ScienceQuadrant
 
@@ -77,10 +78,12 @@ class ScienceQuadrantCollection( ImageCollection ):
         """ """
         filenames = np.atleast_1d(filenames).tolist()
         if use_dask:
-            images = [dask.delayed(ScienceQuadrant.from_filename)(filename, use_dask=False, **imgkwargs)
+            images = [dask.delayed(ScienceQuadrant.from_filename)(filename, use_dask=False,
+                                                                      **imgkwargs)
                      for filename in filenames]
         else:
-            images = [ScienceQuadrant.from_filename(filename, use_dask=False, **imgkwargs) for filename in filenames]
+            images = [ScienceQuadrant.from_filename(filename, use_dask=False, **imgkwargs)
+                          for filename in filenames]
             
         return cls(images, use_dask=use_dask, **kwargs)
 
@@ -91,10 +94,12 @@ class ScienceQuadrantCollection( ImageCollection ):
     # GETTER  #
     # ------- #
     def get_data(self, applymask=True, maskvalue=np.NaN,
-                       rmbkgd=True, whichbkgd="default", **kwargs):
+                       rmbkgd=True, whichbkgd="default",
+                       which=None, **kwargs):
         """ """
         propdown = {**dict(applymask=applymask, maskvalue=maskvalue,
-                           rmbkgd=rmbkgd, whichbkgd=whichbkgd), 
+                           rmbkgd=rmbkgd, whichbkgd=whichbkgd,
+                           which=which), 
                     **kwargs}
         datas = self.call_down("get_data",True, **propdown)
         if self._use_dask:
@@ -174,9 +179,11 @@ class ScienceQuadrantCollection( ImageCollection ):
         return [img.get_aperture(x0_, y0_, radius, **propdown)
                     for img, x0_, y0_ in zip(self.images, x0s, y0s)]
     
-    def get_catalog(self, calibrator=["gaia","ps1"], extra=["psfcat"], isolation=20, seplimit=0.5, **kwargs):
+    def get_catalog(self, calibrator=["gaia","ps1"], extra=["psfcat"],
+                        isolation=20, seplimit=0.5, **kwargs):
         """ """
-        propdown = {**dict( calibrator=calibrator, extra=extra, isolation=isolation, seplimit=seplimit),
+        propdown = {**dict( calibrator=calibrator, extra=extra,
+                            isolation=isolation, seplimit=seplimit),
                     **kwargs}
         return self.call_down("get_catalog", True, **propdown)
     
