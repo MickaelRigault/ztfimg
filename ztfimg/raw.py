@@ -149,12 +149,23 @@ class RawQuadrant( _Quadrant_ ):
             data_ /= (a*data_**2 + b*data_ + 1)
 
         if rebin is not None:
-            data_ = getattr(da if self._use_dask else np, rebin_stat)( rebin_arr(data_, (rebin,rebin), use_dask=True), axis=(-2,-1))
+            data_ = getattr(da if self._use_dask else np, rebin_stat)(
+                rebin_arr(data_, (rebin,rebin), use_dask=True), axis=(-2,-1) )
             
         return data_
 
     def get_nonlinearity_corr(self):
-        """ """
+        """ looks in the raw.NONLINEARITY_TABLE the the entry corresponding to the quadrant's rcid
+        and returns the a and b parameters. 
+        
+        raw data should be corrected as such:
+        ```
+        data_corr = data/(a*data**2 + b*data +1)
+        ```
+        Return
+        ------
+        data
+        """
         return NONLINEARITY_TABLE.loc[self.rcid][["a","b"]].astype("float").values
         
     def get_overscan(self, which="data", userange=[10,20], stackstat="nanmedian",
