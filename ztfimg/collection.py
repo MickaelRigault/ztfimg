@@ -30,7 +30,7 @@ class ImageCollection( object ):
         
     def persist_images(self, client):
         """ """
-        self._himagefiles = client.persist(self._get_files_(as_dask="delayed"))
+        self._images = client.persist(self._get_files_(as_dask="delayed"))
         
     # -------- #
     # INTERNAL #
