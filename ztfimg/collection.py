@@ -28,10 +28,6 @@ class ImageCollection( object ):
         if self._use_dask and persist:
             self.persist_images()
         
-    def persist_images(self, client):
-        """ """
-        self._images = client.persist(self._get_files_(as_dask="delayed"))
-        
     # -------- #
     # INTERNAL #
     # -------- #
@@ -49,20 +45,7 @@ class ImageCollection( object ):
     # ---------- #
     #  INTERNAL  #
     # ---------- #
-    def _get_files_(self, client=None, as_dask="delayed", **kwargs):
-        """ """
-        from ztfquery import io
-            
-        if self._use_dask:
-            if client is None and self._use_dask:
-                as_dask="delayed"
-            return io.bulk_get_file(self.images, client=client, as_dask=as_dask, **kwargs)
-        
-        if client is not None:
-            kwargs["show_progress"] = False
-            kwargs["maxnprocess"] = 1
-            
-        return io.get_file(self.images, client=client, **kwargs)
+
     
     # =============== #
     #  Properties     #
@@ -81,15 +64,6 @@ class ImageCollection( object ):
             return None
         return len(self.images)
 
-    @property
-    def _imagefiles(self):
-        """ """
-        if not hasattr(self,"_himagefiles") or self._himagefiles is None:
-            if self._use_dask:
-                self._himagefiles = client.persist(self._get_files_())
-            else:
-                self._himagefiles = self._get_files_()
-        return self._himagefiles
     
 class ScienceQuadrantCollection( ImageCollection ):
 
