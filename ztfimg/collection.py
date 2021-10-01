@@ -6,15 +6,15 @@ from .science import ScienceQuadrant
 
 class ImageCollection( object ):
 
-    def __init__(self, images, use_dask=True, persist=False, **kwargs):
+    def __init__(self, images, use_dask=True, **kwargs):
         """ """
         self._use_dask = use_dask
-        self.set_images(images, persist=persist, **kwargs)
+        self.set_images(images, **kwargs)
         
     @classmethod
-    def from_images(cls, images, use_dask=True, persist=False, **kwargs):
+    def from_images(cls, images, use_dask=True, **kwargs):
         """ """
-        return cls(images, use_dask=use_dask, persist=persist, **kwargs)
+        return cls(images, use_dask=use_dask, **kwargs)
     
     # =============== #
     #  Methods        #
