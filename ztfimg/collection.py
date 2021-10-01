@@ -41,6 +41,13 @@ class ImageCollection( object ):
         return [getattr(img,what) for img in self.images]
 
     # ---------- #
+    #  DASK      #
+    # ---------- #
+    def gather_images(self, client):
+        """ gather the self._images (works for delayed only) """
+        self._images = client.gather(self._images)
+        
+    # ---------- #
     #  INTERNAL  #
     # ---------- #
     
@@ -132,7 +139,8 @@ class ScienceQuadrantCollection( ImageCollection ):
         return [img.get_stamps(x0_, y0_, dx, dy=None, data=data, asarray=asarray, **kwargs)
                     for img, x0_, y0_ in zip(self.images, x0s, y0s)]
 
-    def get_aperture(self, x0s, y0s, radius, bkgann=None, system="xy", data="dataclean",
+    def get_aperture(self, x0s, y0s, radius, bkgann=None, system="xy",
+                         whichdata="dataclean", dataprop={},
                          **kwargs):
         """ 
         x0, y0: [2d-array, 2d-array]
@@ -153,8 +161,14 @@ class ScienceQuadrantCollection( ImageCollection ):
             - radec (in deg, sky)
             - uv (focalplane)
 
+        whichdata: 
+            version of the image data to use for the aperture:
+            - data (as stored in science images)
+            - clean/dataclean (best version| masked and source background removed)
+            (
+
         **kwargs goes to each individual image's get_aperture """
-        propdown = {**dict( bkgann=bkgann, system=system, data=data),
+        propdown = {**dict( bkgann=bkgann, system=system, dataprop={**dict(which=whichdata), **dataprop}),
                     **kwargs}
         return [img.get_aperture(x0_, y0_, radius, **propdown)
                     for img, x0_, y0_ in zip(self.images, x0s, y0s)]

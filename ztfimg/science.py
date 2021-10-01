@@ -162,23 +162,31 @@ class ScienceQuadrant( _Quadrant_, WCSHolder ):
         2d array (data)
 
         """
-        if which == "clean":
+        if which == "data":
+            return self.data.copy()
+        
+        if which in ["clean", "dataclean"]:
             data_ = self.get_dataclean()
+            
         elif which == "clean_sourcemasked":
             data_ = self.get_dataclean().copy()
             smask = self.get_source_mask()
             data_[smask] = np.NaN
+            
         elif which == "data_sourcemasked":
             data_ = self.data.copy()
             smask = self.get_source_mask()
             data_[smask] = np.NaN
+            
         elif which == "masked_sourcemasked":
             data_ = self.data.copy()
             data_[self.get_mask(alltrue=True)] = np.NaN
             smask = self.get_source_mask()
-            data_[smask] = np.NaN   
+            data_[smask] = np.NaN
+            
         elif which == "sourcemask":
             data_ = self.get_source_mask()
+            
         elif which is not None:
             raise ValueError("Only which= clean, clean_sourmasked or sourcemask implemented")
         else:
