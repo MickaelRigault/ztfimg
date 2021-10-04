@@ -504,3 +504,18 @@ class RawFlatCCDCollection( RawCCDCollection ):
                                               dateformat=None, persist=False, imgtype="flat", 
                                               **kwargs)    
     
+    # ============ #
+    #  Methods     #
+    # ============ #
+    def split_by_led(self):
+        """ splits the images by ILUM_LED number (from header) 
+        and returns a dictionary containing {ledid: self.__class__}
+        
+        Returns
+        -------
+        dict
+        """
+        data = self.header_df.compute().T
+        leds = data.groupby("ILUM_LED").groups
+        return {ledid:self.__class__.from_images( list(np.asarray(self.images)[index]) )
+                for ledid, index in leds.items()}
