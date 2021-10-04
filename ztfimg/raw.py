@@ -443,6 +443,7 @@ class RawCCDCollection( CCDCollection ):
     @staticmethod
     def bulk_getfile_daterange(start, end, ccdid, imgtype=None, dateformat=None, persist=False):
         """ """
+        from astropy.time import Time
         from ztfquery import query
         if format != "jd":
             start, end = Time([start, end], format=dateformat).jd
