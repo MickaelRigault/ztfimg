@@ -459,13 +459,15 @@ class RawCCDCollection( CCDCollection ):
     #  INITIALISE  #
     # ------------ #
     @classmethod
-    def from_filenames(cls, filenames, use_dask=True, imgkwargs={}, **kwargs):
+    def from_filenames(cls, filenames, use_dask=True, imgkwargs={}, persist=True, **kwargs):
         """ """
         filenames = np.atleast_1d(filenames).tolist()
         if use_dask:
             images = [dask.delayed(RawCCD.from_filename)(filename, use_dask=False,
-                                                                **imgkwargs).persist()
+                                                                **imgkwargs)
                      for filename in filenames]
+            if persist:
+                images = [i.persist() for i in images]
         else:
             images = [RawCCD.from_filename(filename, use_dask=False, **imgkwargs)
                           for filename in filenames]
