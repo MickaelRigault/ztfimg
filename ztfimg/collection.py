@@ -2,9 +2,38 @@
 
 import dask
 import dask.array as da
+import dask.dataframe as dd
+import pandas
+
 import numpy as np
 from .science import ScienceQuadrant
 from .base import _Quadrant_, _CCD_
+
+
+# -------------- #
+#
+# -------------- #
+def build_headerdf(files, persist=False):
+    """ """
+    delayed_files = io.bulk_get_file(files)
+    
+    headers = [dask.delayed(fits.getheader)(f_) for f_ in delayed_files]
+    return _headers_to_headerdf_(headers, persist=persist)
+
+def _headers_to_headerdf_(headers, persist=False):
+    """ """
+    headersdf = [dask.delayed(pandas.DataFrame)(h_.items(), 
+                                                 columns=("keys", "values")).set_index("keys")
+               for h_ in headers]
+    
+    meta = pandas.DataFrame([], columns=("keys", "values")).set_index("keys")
+    das = [dd.from_delayed(header, meta=meta) for header in headersdf]
+    daskdf = dd.concat(das, axis=1, ignore_unknown_divisions=True)
+    daskdf.columns = range(len(headers))
+    return daskdf.persist() if persist else daskdf
+
+
+
 class ImageCollection( object ):
 
     QUADRANT_SHAPE = _Quadrant_.SHAPE
@@ -25,6 +54,30 @@ class ImageCollection( object ):
     # ------- #
     # GETTER  #
     # ------- #
+    def get_filenames(self, computed=False):
+        """ """
+        filenames = self.call_down("filename", False)
+        if self._use_dask and computed:
+            # Tricks to avoid compute and gather
+            return dask.delayed(list)(filenames).compute()
+        
+        return filenames
+
+    def get_headerdf(self, persist=True, rebuild=False):
+        """ """
+        if rebuild or not hasattr(self, "_headerdf"):
+            return _headers_to_headerdf_(self.call_down("header", False), persist=True)
+        
+        return self.headerdf
+
+    def get_data(self, **kwargs):
+        """ """
+        datas = self.call_down("get_data",True, **kwargs)
+        if self._use_dask:
+            return da.stack([da.from_delayed(f_, shape=self.SHAPE, dtype="float")
+                                     for f_ in datas])
+        return datas
+
     def get_data_rebustmean(self, chunkreduction=8, 
                             sigma=3, sigma_lower=None, sigma_upper=None, maxiters=5,
                             cenfunc='median', stdfunc='std',
@@ -81,6 +134,13 @@ class ImageCollection( object ):
     #  Properties     #
     # =============== #
     @property
+    def headerdf(self):
+        """ """
+        if not hasattr(self, "_headerdf") or self._headerdf is None:
+            self._headerdf = self.get_headerdf(rebuild=True)
+            
+        return self._headerdf
+    @property
     def images(self):
         """ """
         if not hasattr(self,"_images"):
@@ -94,21 +154,19 @@ class ImageCollection( object ):
             return None
         return len(self.images)
 
-class QuadrantCollection( ImageCollection ):
-    # =============== #
-    #  Methods        #
-    # =============== #
-    # ------- #
-    # GETTER  #
-    # ------- #
-    def get_data(self, **kwargs):
-        """ """
-        datas = self.call_down("get_data",True, **kwargs)
-        if self._use_dask:
-            return da.stack([da.from_delayed(f_, shape=self.QUADRANT_SHAPE, dtype="float")
-                                     for f_ in datas])
-        return datas
 
+    
+class QuadrantCollection( ImageCollection ):
+    SHAPE = _Quadrant_.SHAPE
+
+
+class CCDCollection( ImageCollection ):
+    QUADRANT_SHAPE = _Quadrant_.SHAPE
+    SHAPE = _CCD_.SHAPE
+
+
+
+    
 class ScienceQuadrantCollection( QuadrantCollection ):
 
 
@@ -209,31 +267,9 @@ class ScienceQuadrantCollection( QuadrantCollection ):
     # =============== #
 
 
-    
-class RawCCDCollection( ImageCollection ):
 
-    QUADRANT_SHAPE = _Quadrant_.SHAPE
-    SHAPE = _CCD_.SHAPE
-
-    @classmethod
-    def from_filenames(cls, filenames, use_dask=True, imgkwargs={}, **kwargs):
-        """ """
-        filenames = np.atleast_1d(filenames).tolist()
-        if use_dask:
-            images = [dask.delayed(RawCCD.from_filename)(filename, use_dask=False,
-                                                                **imgkwargs)
-                     for filename in filenames]
-        else:
-            images = [RawCCD.from_filename(filename, use_dask=False, **imgkwargs)
-                          for filename in filenames]
-            
-        return cls(images, use_dask=use_dask, **kwargs)
-
-
-    
-    def get_data(self, corr_overscan=False, corr_nl=False, **kwargs):
-        """ """
-        return super().get_data(corr_overscan=False, corr_nl=False, **kwargs)
-
-
-    
+# ======================= #
+#
+#
+#
+# ======================= #
