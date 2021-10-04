@@ -497,8 +497,8 @@ class RawCCDCollection( CCDCollection ):
     
 class RawFlatCCDCollection( RawCCDCollection ):
     
-    @staticmethod
-    def bulk_getfile_daterange(start, end, ccdid, dateformat=None, persist=False, **kwargs):
+    @classmethod
+    def bulk_getfile_daterange(cls, start, end, ccdid, dateformat=None, persist=False, **kwargs):
         """ """
         return super().bulk_getfile_daterange(start, end, ccdid, 
                                               dateformat=None, persist=False, imgtype="flat", 
@@ -515,7 +515,7 @@ class RawFlatCCDCollection( RawCCDCollection ):
         -------
         dict
         """
-        data = self.header_df.compute().T
+        data = self.headerdf.compute().T
         leds = data.groupby("ILUM_LED").groups
         return {ledid:self.__class__.from_images( list(np.asarray(self.images)[index]) )
                 for ledid, index in leds.items()}
