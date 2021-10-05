@@ -23,7 +23,7 @@ def build_headerdf(files, persist=False):
 def _headers_to_headerdf_(headers, persist=False):
     """ """
     headersdf = [dask.delayed(pandas.DataFrame)(h_.items(), 
-                                                 columns=("keys", "values")).set_index("keys")
+                                                 columns=("keys", "values")).set_index("keys").sort_index()
                for h_ in headers]
     
     meta = pandas.DataFrame([], columns=("keys", "values")).set_index("keys")
