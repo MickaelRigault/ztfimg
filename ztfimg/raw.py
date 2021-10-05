@@ -441,17 +441,24 @@ class RawFocalPlane( _FocalPlane_ ):
 class RawCCDCollection( CCDCollection ):
     
     @staticmethod
-    def bulk_getfile_daterange(start, end, ccdid, imgtype=None, dateformat=None, persist=False):
+    def bulk_getfile_daterange(start, end, ccdid, imgtype=None, filtercode=None, dateformat=None, persist=False):
         """ """
         from astropy.time import Time
         from ztfquery import query
         if format != "jd":
             start, end = Time([start, end], format=dateformat).jd
-        
+
+
         sql_query = f"ccdid = {ccdid} and obsjd between {start} and {end}"
+        # IMGTYPE        
         if imgtype is not None:
-            sql_query = sql_query+ f" and imgtype='{imgtype}'"
+            sql_query += f" and imgtype='{imgtype}'"
             
+        # CCDID            
+        if filtercode is not None:
+            filtercode = tuple(np.atleast_1d(filtercode))
+            sql_query += f" and filtercode IN {filtercode}"
+
         zquery = query.ZTFQuery.from_metaquery(kind="raw",   sql_query=sql_query)
         return io.bulk_get_file(zquery.get_data(exist=False), as_dask="persist" if persist else "delayed")
     
@@ -481,10 +488,9 @@ class RawCCDCollection( CCDCollection ):
         return cls.from_daterange(start, start+1, dateformat="jd", ccdid=ccdid, **kwargs)
         
     @classmethod
-    def from_daterange(cls, start, end, ccdid, dateformat=None, persist=True, queryprop={}, **kwargs):
+    def from_daterange(cls, start, end, ccdid, filtercode=None, dateformat=None, persist=True, queryprop={}, **kwargs):
         """ """
-        
-        files = cls.bulk_getfile_daterange(start, end, ccdid, dateformat=dateformat, 
+        files = cls.bulk_getfile_daterange(start, end, ccdid, filtercode=filtercode, dateformat=dateformat, 
                                            persist=persist, **queryprop)
         return cls.from_filenames(files, use_dask=True, persist=persist, **kwargs)
     
@@ -501,9 +507,11 @@ class RawCCDCollection( CCDCollection ):
 class RawFlatCCDCollection( RawCCDCollection ):
     
     @classmethod
-    def bulk_getfile_daterange(cls, start, end, ccdid, dateformat=None, persist=False, **kwargs):
+    def bulk_getfile_daterange(cls, start, end, ccdid, filtercode=["zr","zg","zi"],
+                                   dateformat=None, persist=False,
+                                   **kwargs):
         """ """
-        return super().bulk_getfile_daterange(start, end, ccdid, 
+        return super().bulk_getfile_daterange(start, end, ccdid, filtercode=filtercode,
                                               dateformat=None, persist=False, imgtype="flat", 
                                               **kwargs)    
     
