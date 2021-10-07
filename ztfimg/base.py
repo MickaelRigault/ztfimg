@@ -274,7 +274,7 @@ class _Quadrant_( _Image_ ):
         x, y = catdf[xykeys].values.T
         fdata = self.get_aperture(x,y, radius[:,None],
                                   system=system, asdataframe=True,
-                                  dataprop=dataprop**kwargs)
+                                  dataprop=dataprop, **kwargs)
         if join:
             # the index and drop is because dask.DataFrame do not behave as pandas.DataFrame
             return catdf.reset_index().join(fdata)
