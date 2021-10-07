@@ -465,11 +465,11 @@ class ScienceQuadrant( _Quadrant_, WCSHolder ):
         return tbl[names].to_pandas().set_index("NUMBER")
 
 
-    def get_catalog(self, calibrator=["gaia","ps1"], extra=["psfcat"], isolation=20, seplimit=0.5,
+    def get_catalog(self, calibrators=["gaia","ps1"], extra=["psfcat"], isolation=20, seplimit=0.5,
                         use_dask=None, **kwargs):
         """ **kwargs goes to get_calibrators """
         from .catalog import match_and_merge
-        cal = self.get_calibrators(calibrator, isolation=isolation, seplimit=seplimit,
+        cal = self.get_calibrators(which=calibrators, isolation=isolation, seplimit=seplimit,
                                        use_dask=use_dask, **kwargs)
         
         extra = np.atleast_1d(extra).tolist()

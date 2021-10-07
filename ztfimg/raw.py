@@ -9,7 +9,7 @@ import dask.array as da
 from ztfquery import io
         
 from .tools import fit_polynome, rebin_arr, parse_vmin_vmax
-from .base import _Quadrant_, _CCD_, _FocalPlane_
+from .base import _Quadrant_, _CCD_, _FocalPlane_, Delayed
 from .io import get_nonlinearity_table
 from .collection import CCDCollection
 
@@ -24,9 +24,29 @@ class RawQuadrant( _Quadrant_ ):
         self.setup(data=data, header=header, overscan=overscan)
         
     @classmethod
-    def from_filename(cls, filename, qid, grab_imgkeys=True, use_dask=True,
-                          persist=True, download=True, **kwargs):
+    def from_filename(cls, filename, qid, use_dask=True,
+                          persist=True, download=True, format=None, **kwargs):
         """ """
+        # - guessing format        
+        if format is None:
+            if type(filename) == Delayed:
+                raise ValueError("cannot guess the input format from delayed filenames. Please provide the format.")
+            
+            if filename.endswith(".fits") or filename.endswith(".fits.gz"):
+                format = "fits"
+            else:
+                format = filename.split('.')
+                
+        # - Fits format
+        if format in ["fits",".fits"]:
+            return cls.read_fits(filename, qid, use_dask=use_dask, persist=persist, download=download, **kwargs)
+        
+        raise NotImplementedError("Only fits format implemented.")
+            
+
+    @classmethod
+    def read_fits(cls, fitsfile, qid, use_dask=True, persist=True, download=True, **kwargs):
+        """ reads the fits file and load the object """
         if qid not in [1,2,3,4]:
             raise ValueError(f"qid must be 1,2, 3 or 4 {qid} given")
         
@@ -345,7 +365,6 @@ class RawCCD( _CCD_ ):
     # -------- #
     def load_file(self, filename, **kwargs):
         """ """
-        
         if self._use_dask:
             filename = dask.delayed(io.get_file)(filename, show_progress=False, maxnprocess=1)
             header = dask.delayed(fits.open)(filename)[0].header
@@ -354,9 +373,9 @@ class RawCCD( _CCD_ ):
             header = fits.open(filename)[0].header
             
         self.set_header(header)
-        self.load_quadrants(filename, **kwargs)
+        self.load_quadrants(filename, format="fits", **kwargs)
         
-    def load_quadrants(self, filename, which="*", persist=True):
+    def load_quadrants(self, filename, which="*", persist=True, **kwargs):
         """ """
         if which is None or type(which)==str and which in ["*","all"] :
             which = [1,2,3,4]
@@ -365,7 +384,7 @@ class RawCCD( _CCD_ ):
         
         for qid in which:
             qradrant = RawQuadrant.from_filename(filename, qid, use_dask=self._use_dask,
-                                                     persist=persist)
+                                                     persist=persist, **kwargs)
             self.set_quadrant(qradrant,  qid=qid)
             
     # -------- #
@@ -380,9 +399,6 @@ class RawCCD( _CCD_ ):
     #  PLOTTER  #
     # --------- # 
         
-        
-
-
     # =============== #
     #  Properties     #
     # =============== #
@@ -398,7 +414,7 @@ class RawCCD( _CCD_ ):
     
     
 class RawFocalPlane( _FocalPlane_ ):
-    # INFORMATION
+    # INFORMATION || Numbers to be fine tuned from actual observations
     # 15 µm/arcsec  (ie 1 arcsec/pixel) and using 
     # 7.2973 mm = 487 pixel gap along rows (ie between columns) 
     # and 671 pixels along columns.
@@ -406,8 +422,7 @@ class RawFocalPlane( _FocalPlane_ ):
     def from_filenames(cls, ccd_filenames, use_dask=True, **kwargs):
         """ """
         this = cls(use_dask=use_dask)
-        for file_ in ccd_filenames:
-            ccd_ = RawCCD.from_filename(file_, use_dask=use_dask, **kwargs)
+        for file_ in ccd_filenames:            ccd_ = RawCCD.from_filename(file_, use_dask=use_dask, **kwargs)
             this.set_ccd(ccd_, ccdid=ccd_.ccdid)
             
         return this

@@ -369,7 +369,10 @@ class _CCD_( _Image_ ):
         else:
             fig = ax.figure
         
-        data  = self.get_data(rebin=rebin, rebin_ccd=rebin_ccd, **dataprop).compute()
+        data  = self.get_data(rebin=rebin, rebin_ccd=rebin_ccd, **dataprop)
+        if type(date) in [DaskArray, Delayed]:
+            data = data.compute()
+            
         vmin, vmax = parse_vmin_vmax(data, vmin, vmax)
 
         prop = {**dict(origin="lower", cmap="cividis", vmin=vmin, vmax=vmax),
