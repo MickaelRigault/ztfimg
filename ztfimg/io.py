@@ -32,7 +32,7 @@ def get_catalog_from_ccin2p3(ra, dec, radius, which):
         
     """
     from .tools import get_htm_intersect
-    from astrop.table import Table
+    from astropy.table import Table
     IN2P3_LOCATION = "/sps/lsst/datasets/refcats/htm/v1/"
     IN2P3_CATNAME = {"ps1":"ps1_pv3_3pi_20170110",
                      "gaia_dr2":"gaia_dr2_20190808",
