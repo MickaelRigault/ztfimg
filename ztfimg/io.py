@@ -12,6 +12,43 @@ NONLINEARITY_FILE = os.path.join(PACKAGE_PATH, "data/ccd_amp_coeff_v2.txt")
 
 # ========================= #
 #                           #
+#  IN2P3 CATALOGS           #
+#                           #
+# ========================= #
+def get_ps1_catalog(ra, dec, radius, source="ccin2p3"):
+    """ """
+    if source in ["in2p3","ccin2p3","cc"]:
+        return get_catalog_from_ccin2p3(ra, dec, radius, "ps1")
+    
+    raise NotImplementedError("Only query to CC-IN2P3 implemented")
+
+def get_catalog_from_ccin2p3(ra, dec, radius, which):
+    """ 
+    which: [string]
+        Name of the catalog. Implemented:
+        - ps1
+        - gaia_dr2
+        - sdss
+        
+    """
+    from .tools import get_htm_intersect
+    from astrop.table import Table
+    IN2P3_LOCATION = "/sps/lsst/datasets/refcats/htm/v1/"
+    IN2P3_CATNAME = {"ps1":"ps1_pv3_3pi_20170110",
+                     "gaia_dr2":"gaia_dr2_20190808",
+                     "sdss":"sdss-dr9-fink-v5b"}
+    
+    if which not in IN2P3_CATNAME:
+        raise NotImplementedError(f" Only {list(IN2P3_CATNAME.keys())} CC-IN2P3 catalogs implemented ; {which} given")
+    
+    hmt_id = get_htm_intersect(ra, dec, radius, depth=7)
+    dirpath = os.path.join(IN2P3_LOCATION, IN2P3_CATNAME[which])
+    return [Table.read(os.path.join(dirpath, f"{htm_id_}.fits"), format="fits").to_pandas()
+                for htm_id_ in hmt_id]
+    
+
+# ========================= #
+#                           #
 #  PS1 Calibrator Stars     #
 #                           #
 # ========================= #
@@ -42,7 +79,6 @@ def get_nonlinearity_table():
     nl_table["qid"] += 1 # qid in the file is actually AMP_ID that starts at 0, while qid starts at 1.
     nl_table["rcid"] = _FocalPlane_.ccdid_qid_to_rcid(nl_table["ccdid"], nl_table["qid"])
     return nl_table.set_index("rcid").sort_index()
-
 
 class _CatCalibrator_( object ):
 

@@ -60,7 +60,6 @@ def parse_vmin_vmax(data, vmin, vmax):
         
     return vmin, vmax
 
-
 def rebin_arr(arr, bins, use_dask=False):
     ccd_bins = arr.ravel().reshape( int(arr.shape[0]/bins[0]), 
                                     bins[0],
@@ -163,6 +162,38 @@ def get_source_mask(sourcedf, shape, r=5, use_dask=False):
     mask = np.zeros(shape).astype("bool")
     ellipsemask = mask_ellipse(mask, *sourcedf[["x","y","a","b","theta"]].astype("float").values.T, r=r)
     return mask
+
+
+
+# ----------------------------- #
+#  Hierarchical Triangular Mesh #
+# ----------------------------- #
+def get_htm_intersect(ra, dec, radius, depth=7, **kwargs):
+    """ Module to get htm overlap (ids)  
+    = Based on HMpTy (pip install HMpTy) =
+
+    Parameters
+    ----------
+    ra, dec: [floatt]
+        central point coordinates in decimal degrees or sexagesimal
+    
+    radius: [float]
+        radius of circle in degrees
+
+    depth: [int] -optional-
+        depth of the htm
+        
+    **kwags goes to HMpTy.HTM.intersect 
+         inclusive:
+             include IDs of triangles that intersect the circle as well as 
+             those completely inclosed by the circle. Default True
+
+    Returns
+    -------
+    list of ID (htm ids overlapping with the input circle.)
+    """
+    from HMpTy import HTM
+    return HTM(depth=depth).intersect(ra, dec, radius, **kwargs)
 
 # --------------------------- #
 # - Conversion Tools        - #
