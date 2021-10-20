@@ -485,8 +485,8 @@ class ScienceQuadrant( _Quadrant_, WCSHolder ):
             meta = pandas.DataFrame(columns=columns, dtype="float")
             return dd.from_delayed(dask.delayed(self.get_ps1_catalog)(use_dask=False,
                                                                       setxy=setxy, drop_outside=drop_outside,
-                                                                      pixelbuffer=pixelbuffer, rmag_limit=rmag_limit)
-                                    meta=meta)
+                                                                      pixelbuffer=pixelbuffer, rmag_limit=rmag_limit),
+                                       meta=meta)
 
         
         from .io import get_ps1_catalog
