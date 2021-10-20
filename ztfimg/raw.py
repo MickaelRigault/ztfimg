@@ -422,7 +422,8 @@ class RawFocalPlane( _FocalPlane_ ):
     def from_filenames(cls, ccd_filenames, use_dask=True, **kwargs):
         """ """
         this = cls(use_dask=use_dask)
-        for file_ in ccd_filenames:            ccd_ = RawCCD.from_filename(file_, use_dask=use_dask, **kwargs)
+        for file_ in ccd_filenames:
+            ccd_ = RawCCD.from_filename(file_, use_dask=use_dask, **kwargs)
             this.set_ccd(ccd_, ccdid=ccd_.ccdid)
             
         return this
