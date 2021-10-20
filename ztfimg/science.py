@@ -523,9 +523,9 @@ class ScienceQuadrant( _Quadrant_, WCSHolder ):
             
             if use_dask:                        
                 cats = dd.from_delayed(dask.delayed(match_and_merge)(
-                        cats, extra_, mergehow="left", suffixes=('', f'_{extra_}'), seplimit=seplimit))
+                        cats, ecat_, mergehow="left", suffixes=('', f'_{extra_}'), seplimit=seplimit))
             else:
-                cats = match_and_merge(cats, extra_, mergehow="left", suffixes=('', f'_{extra_}'), seplimit=seplimit)
+                cats = match_and_merge(cats, ecat_, mergehow="left", suffixes=('', f'_{extra_}'), seplimit=seplimit)
 
         return cats
 
