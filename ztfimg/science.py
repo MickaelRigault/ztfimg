@@ -4,7 +4,7 @@ import numpy as np
 import dask
 import dask.array as da
 import dask.dataframe as dd
-
+import warnings
 from astropy.nddata import bitmask
 
 from .base import _Quadrant_, _CCD_, _FocalPlane_
@@ -466,8 +466,29 @@ class ScienceQuadrant( _Quadrant_, WCSHolder ):
         return tbl[names].to_pandas().set_index("NUMBER")
     
     # - ZTFCATS
-    def get_ps1_catalog(self, setxy=True, drop_outside=True, pixelbuffer=10, rmag_limit=22.5):
+    def get_ps1_catalog(self, setxy=True, drop_outside=True, pixelbuffer=10, rmag_limit=22.5,
+                            use_dask=None):
         """ """
+         if use_dask is None:
+            use_dask = self._use_dask
+
+        if use_dask:
+            columns = [ 'id', 'coord_ra', 'coord_dec', 'parent', 'g_flux', 'r_flux', 'i_flux',
+                           'z_flux', 'y_flux', 'i_fluxErr', 'y_fluxErr', 'r_fluxErr', 'z_fluxErr',
+                           'g_fluxErr', 'coord_ra_err', 'coord_dec_err', 'epoch', 'pm_ra',
+                           'pm_dec', 'pm_ra_err', 'pm_dec_err', 'ra', 'dec', 'g_mag', 'r_mag',
+                           'i_mag', 'z_mag', 'y_mag', 'i_magErr', 'y_magErr', 'r_magErr',
+                           'z_magErr', 'g_magErr']
+            if setxy:
+                columns +=['x', 'y', 'u', 'v']
+                
+            meta = pandas.DataFrame(columns=columns, dtype="float")
+            return dd.from_delayed(dask.delayed(self.get_ps1_catalog)(use_dask=False,
+                                                                      setxy=setxy, drop_outside=drop_outside,
+                                                                      pixelbuffer=pixelbuffer, rmag_limit=rmag_limit)
+                                    meta=meta)
+
+        
         from .io import get_ps1_catalog
         cat = get_ps1_catalog(*self.get_center(system="radec"), 1, source="ccin2p3")
         if setxy and ("ra" in cat.columns and "x" not in cat.columns):
@@ -483,23 +504,30 @@ class ScienceQuadrant( _Quadrant_, WCSHolder ):
                         use_dask=None, **kwargs):
         """ **kwargs goes to get_calibrators """
         from .catalog import match_and_merge
-        cal = self.get_calibrators(which=calibrators, isolation=isolation, seplimit=seplimit,
+        cats = self.get_calibrators(which=calibrators, isolation=isolation, seplimit=seplimit,
                                        use_dask=use_dask, **kwargs)
         
-        extra = np.atleast_1d(extra).tolist()
-        if "psfcat" in extra:
-            psfcat = self.get_psfcat(use_dask=use_dask)
+        # Now let's add extra catalogs (if any)
+        if use_dask is None:
+            use_dask = self._use_dask
 
-            if use_dask is None:
-                use_dask = self._use_dask
-                    
-            if use_dask:                        
-                return dd.from_delayed(dask.delayed(match_and_merge)(
-                        cal, psfcat, mergehow="left", suffixes=('', '_psfcat'), seplimit=seplimit))
+        extra = np.atleast_1d(extra).tolist()
+        for extra_ in extra:
+            if extra_ == "psfcat":
+                ecat_ = self.get_psfcat(use_dask=use_dask)
+            elif extra_ == "ps1":
+                ecat_ = self.get_ps1_catalog(use_dask=use_dask)
             else:
-                return match_and_merge(cal, psfcat, mergehow="left", suffixes=('', '_psfcat'), seplimit=seplimit)
+                warnings.warn(f"{extra_} extra catalog is not implemented.")
+                continue
             
-        return cal
+            if use_dask:                        
+                cats = dd.from_delayed(dask.delayed(match_and_merge)(
+                        cats, extra_, mergehow="left", suffixes=('', f'_{extra_}'), seplimit=seplimit))
+            else:
+                cats = match_and_merge(cats, extra_, mergehow="left", suffixes=('', f'_{extra_}'), seplimit=seplimit)
+
+        return cats
 
     # - CALIBRATORS    
     def get_calibrators(self, which=["gaia","ps1"],
