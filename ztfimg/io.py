@@ -22,7 +22,7 @@ def get_ps1_catalog(ra, dec, radius, source="ccin2p3"):
     
     raise NotImplementedError("Only query to CC-IN2P3 implemented")
 
-def get_catalog_from_ccin2p3(ra, dec, radius, which):
+def get_catalog_from_ccin2p3(ra, dec, radius, which, add_radec=True):
     """ 
     ra, dec: [floatt]
         central point coordinates in decimal degrees or sexagesimal
@@ -36,6 +36,11 @@ def get_catalog_from_ccin2p3(ra, dec, radius, which):
         - gaia_dr2
         - sdss
     
+    add_radec: [bool]
+        IN2P3 catalog have ra,dec coordinates stored in radian
+        as coord_ra/dec. 
+        Shall this add the ra, dec keys for coords in degree ?
+
     Returns
     -------
     DataFrame
@@ -52,9 +57,12 @@ def get_catalog_from_ccin2p3(ra, dec, radius, which):
     
     hmt_id = get_htm_intersect(ra, dec, radius, depth=7)
     dirpath = os.path.join(IN2P3_LOCATION, IN2P3_CATNAME[which])
-    return pandas.concat([Table.read(os.path.join(dirpath, f"{htm_id_}.fits"), format="fits").to_pandas()
+    cat = pandas.concat([Table.read(os.path.join(dirpath, f"{htm_id_}.fits"), format="fits").to_pandas()
                             for htm_id_ in hmt_id])
-    
+    if add_radec:
+        cat[["ra","dec"]] = cat[["coord_ra","coord_dec"]]*180/np.pi
+        
+    return cat
 
 # ========================= #
 #                           #
