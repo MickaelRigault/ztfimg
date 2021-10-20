@@ -198,6 +198,19 @@ def get_htm_intersect(ra, dec, radius, depth=7, **kwargs):
 # --------------------------- #
 # - Conversion Tools        - #
 # --------------------------- #
+def njy_to_mag(njy_, njyerr_=None):
+    """ get AB magnitudes corresponding to the input nJy fluxes.
+    Returns
+    -------
+    mags (or mags, dmags if njyerr_ is not None)
+    """
+    mags = -2.5*np.log10(njy_*10**(-9)/3631)
+    if njyerr_ is None:
+        return mags
+    dmags = +2.5/np.log(10) * njyerr_ / njy_
+    return mags, dmags
+        
+
 def counts_to_flux(counts, dcounts, magzp, wavelength):
     """ converts counts into flux (erg/s/cm2/A) """
     flux = counts * 10**(-(2.406+magzp) / 2.5 ) / (wavelength**2)

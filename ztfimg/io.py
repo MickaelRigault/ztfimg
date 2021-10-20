@@ -22,9 +22,9 @@ def get_ps1_catalog(ra, dec, radius, source="ccin2p3"):
     
     raise NotImplementedError("Only query to CC-IN2P3 implemented")
 
-def get_catalog_from_ccin2p3(ra, dec, radius, which, add_radec=True):
+def get_catalog_from_ccin2p3(ra, dec, radius, which, enrich=True):
     """ 
-    ra, dec: [floatt]
+    ra, dec: [float]
         central point coordinates in decimal degrees or sexagesimal
     
     radius: [float]
@@ -36,16 +36,17 @@ def get_catalog_from_ccin2p3(ra, dec, radius, which, add_radec=True):
         - gaia_dr2
         - sdss
     
-    add_radec: [bool]
+    enrich: [bool]
         IN2P3 catalog have ra,dec coordinates stored in radian
-        as coord_ra/dec. 
-        Shall this add the ra, dec keys for coords in degree ?
+        as coord_ra/dec and flux in nJy
+        Shall this add the ra, dec keys coords (in deg) in degree and the magnitude ?
+
 
     Returns
     -------
     DataFrame
     """
-    from .tools import get_htm_intersect
+    from .tools import get_htm_intersect, njy_to_mag
     from astropy.table import Table
     IN2P3_LOCATION = "/sps/lsst/datasets/refcats/htm/v1/"
     IN2P3_CATNAME = {"ps1":"ps1_pv3_3pi_20170110",
@@ -59,8 +60,15 @@ def get_catalog_from_ccin2p3(ra, dec, radius, which, add_radec=True):
     dirpath = os.path.join(IN2P3_LOCATION, IN2P3_CATNAME[which])
     cat = pandas.concat([Table.read(os.path.join(dirpath, f"{htm_id_}.fits"), format="fits").to_pandas()
                             for htm_id_ in hmt_id])
-    if add_radec:
+    if enrich:
+        # - ra, dec in degrees
         cat[["ra","dec"]] = cat[["coord_ra","coord_dec"]]*180/np.pi
+        # - mags
+        fluxcol = [col for col in  cat.columns if col.endswith("_flux")]
+        fluxcolerr = [col for col in  cat.columns if col.endswith("_fluxErr")]
+        magcol = [col.replace("_flux","_mag") for col in fluxcolerr]
+        magcolerr = [col.replace("_flux","_mag") for col in fluxcolerr]
+        cat[magcol], cat[magcolerr] = njy_to_mag(cat[fluxcol].values,cat[fluxcolerr].values)
         
     return cat
 
