@@ -469,7 +469,7 @@ class ScienceQuadrant( _Quadrant_, WCSHolder ):
     def get_ps1_catalog(self, setxy=True, drop_outside=True, pixelbuffer=10, rmag_limit=22.5,
                             use_dask=None):
         """ """
-         if use_dask is None:
+        if use_dask is None:
             use_dask = self._use_dask
 
         if use_dask:
