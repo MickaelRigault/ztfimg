@@ -66,7 +66,7 @@ def get_catalog_from_ccin2p3(ra, dec, radius, which, enrich=True):
         # - mags
         fluxcol = [col for col in  cat.columns if col.endswith("_flux")]
         fluxcolerr = [col for col in  cat.columns if col.endswith("_fluxErr")]
-        magcol = [col.replace("_flux","_mag") for col in fluxcolerr]
+        magcol = [col.replace("_flux","_mag") for col in fluxcol]
         magcolerr = [col.replace("_flux","_mag") for col in fluxcolerr]
         cat[magcol], cat[magcolerr] = njy_to_mag(cat[fluxcol].values,cat[fluxcolerr].values)
         
