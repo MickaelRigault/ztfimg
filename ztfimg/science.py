@@ -466,16 +466,20 @@ class ScienceQuadrant( _Quadrant_, WCSHolder ):
         return tbl[names].to_pandas().set_index("NUMBER")
     
     # - ZTFCATS
-    def get_ps1_catalog(self, setxy=True, drop_outside=True, pixelbuffer=10):
+    def get_ps1_catalog(self, setxy=True, drop_outside=True, pixelbuffer=10, rmag_limit=22.5):
         """ """
         from .io import get_ps1_catalog
         cat = get_ps1_catalog(*self.get_center(system="radec"), 1, source="ccin2p3")
         if setxy and ("ra" in cat.columns and "x" not in cat.columns):
             cat = self._setxy_to_cat_(cat, drop_outside=drop_outside, pixelbuffer=pixelbuffer)
+
+        if rmag_limit is not None:
+            cat = cat[cat["r_mag"]<rmag_limit]
+            
         return cat
         
     # - General 
-    def get_catalog(self, calibrators=["gaia","ps1"], extra=["psfcat"], isolation=20, seplimit=0.5,
+    def get_catalog(self, calibrators=["gaia","ps1"], extra=["psfcat", "ps1"], isolation=20, seplimit=0.5,
                         use_dask=None, **kwargs):
         """ **kwargs goes to get_calibrators """
         from .catalog import match_and_merge
