@@ -468,6 +468,7 @@ class ScienceQuadrant( _Quadrant_, WCSHolder ):
     # - ZTFCATS
     def get_ps1_catalog(self, setxy=True, drop_outside=True, pixelbuffer=10):
         """ """
+        from .io import get_ps1_catalog
         cat = get_ps1_catalog(*self.get_center(system="radec"), 1, source="ccin2p3")
         if setxy and ("ra" in cat.columns and "x" not in cat.columns):
             cat = self._setxy_to_cat_(cat, drop_outside=drop_outside, pixelbuffer=pixelbuffer)
