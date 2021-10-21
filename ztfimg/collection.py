@@ -233,7 +233,7 @@ class ScienceQuadrantCollection( QuadrantCollection ):
         return [img.get_aperture(x0_, y0_, radius, **propdown)
                     for img, x0_, y0_ in zip(self.images, x0s, y0s)]
     
-    def get_catalog(self, calibrators=["gaia","ps1"], extra=["psfcat"],
+    def get_catalog(self, calibrators="gaia", extra=["ps1","psfcat"],
                         isolation=20, seplimit=0.5, **kwargs):
         """ """
         propdown = {**dict( calibrators=calibrators, extra=extra,
@@ -241,7 +241,7 @@ class ScienceQuadrantCollection( QuadrantCollection ):
                     **kwargs}
         return self.call_down("get_catalog", True, **propdown)
     
-    def get_calibrators(self, which=["gaia","ps1"],
+    def get_calibrators(self, which="gaia",
                             setxy=True, drop_outside=True, drop_namag=True,
                             pixelbuffer=10, isolation=None, mergehow="inner", **kwargs):
         """ """
@@ -252,7 +252,7 @@ class ScienceQuadrantCollection( QuadrantCollection ):
         
         return self.call_down("get_calibrators", True, **propdown)
     
-    def get_calibrator_aperture(self, radius, which=["gaia","ps1"], xykeys=["x","y"],
+    def get_calibrator_aperture(self, radius, which="gaia", xykeys=["x","y"],
                                     calkwargs={}, system="xy", whichdata="dataclean",
                                     **kwargs):
         """ for each image: calls get_calibrators() and then getcat_aperture()

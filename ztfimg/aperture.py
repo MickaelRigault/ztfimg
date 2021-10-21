@@ -85,7 +85,7 @@ class AperturePhotometry( object ):
                                             whichdata=whichdata,
                                             **kwargs)
     
-    def build_apcatalog(self, radius, calibrators=["gaia","ps1"], extracat=["psfcat"], 
+    def build_apcatalog(self, radius, calibrators="gaia", extra=["ps1","psfcat"], 
                         isolation=20, xykeys=["x","y"], seplimit=0.5, calkwargs={},
                         whichdata="dataclean", dataprop={}, **kwargs):
         """ 
@@ -93,7 +93,7 @@ class AperturePhotometry( object ):
         kwargs goes to getcat_aperture()
         """
         dataprop = {**dict(which=whichdata), **dataprop}
-        cats = self.images.get_catalog(calibrators=calibrators, extracat=extracat,
+        cats = self.images.get_catalog(calibrators=calibrators, extra=extra,
                                        isolation=isolation, seplimit=seplimit, **calkwargs)
         apcat = self.images.map_down("getcat_aperture", cats, radius, xykeys=xykeys,
                                          dataprop=dataprop, **kwargs)

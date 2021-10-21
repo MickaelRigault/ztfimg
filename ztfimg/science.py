@@ -500,11 +500,16 @@ class ScienceQuadrant( _Quadrant_, WCSHolder ):
         return cat
         
     # - General 
-    def get_catalog(self, calibrators=["gaia","ps1"],
+    def get_catalog(self, calibrators="gaia",
                           extra=["psfcat", "ps1"],
                           isolation=20, seplimit=0.5,
                           use_dask=None, **kwargs):
-        """ **kwargs goes to get_calibrators """
+        """ 
+
+        calibrators could be "gaia" and or "ps1"
+        extra could be ["psfcat", "ps1"],
+        
+        **kwargs goes to get_calibrators """
         from .catalog import match_and_merge
         cats = self.get_calibrators(which=calibrators, isolation=isolation, seplimit=seplimit,
                                        use_dask=use_dask, **kwargs)
