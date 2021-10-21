@@ -88,9 +88,13 @@ def get_coordmatching_indexes(left, right, radeckeyl=["ra","dec"], radeckeyr=["r
     skyl = coordinates.SkyCoord(left[radeckeyl].values, unit="deg")
     skyr = coordinates.SkyCoord(right[radeckeyr].values, unit="deg")
     # Matching by distance
-    idr, idl, sep2d, sep3d = skyl.search_around_sky(skyr, seplimit*units.arcsec)
+    idx, d2d, d3d = skyl.match_to_catalog_sky(skyr)
+    # remove targets too far
+    sep_constraint = d2d < seplimit*units.arcsec
+    indexl = left.iloc[sep_constraint].index
+    indexr = right.iloc[idx[sep_constraint]].index    
     # get indexes
-    return left.index[idl], right.index[idr]
+    return indexl, indexr
 
 
 

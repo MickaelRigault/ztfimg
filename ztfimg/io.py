@@ -59,7 +59,7 @@ def get_catalog_from_ccin2p3(ra, dec, radius, which, enrich=True):
     hmt_id = get_htm_intersect(ra, dec, radius, depth=7)
     dirpath = os.path.join(IN2P3_LOCATION, IN2P3_CATNAME[which])
     cat = pandas.concat([Table.read(os.path.join(dirpath, f"{htm_id_}.fits"), format="fits").to_pandas()
-                            for htm_id_ in hmt_id])
+                            for htm_id_ in hmt_id]).reset_index(drop=True)
     if enrich:
         # - ra, dec in degrees
         cat[["ra","dec"]] = cat[["coord_ra","coord_dec"]]*180/np.pi
