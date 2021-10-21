@@ -117,7 +117,7 @@ def get_aperture(data, x0, y0, radius, err=None, mask=None,
     
     
     from sep import sum_circle
-    out = sum_circle(data.astype("float32"), x0, y0, radius,
+    out = sum_circle(data.astype("float32"), np.atleast_1d(x0), np.atleast_1d(y0), radius,
                          err=err, mask=mask, bkgann=bkgann, subpix=subpix,
                          **kwargs)
     return np.asarray(out)

@@ -222,9 +222,10 @@ class _Quadrant_( _Image_ ):
             raise ValueError(f"system must be xy, radec or uv ;  {system} given")
 
         if err is None:
-            err=self.get_noise(**noiseprop)
+            err = self.get_noise(**noiseprop)
+            
         if mask is None:
-            mask=self.get_mask(**maskprop)
+            mask = self.get_mask(**maskprop)
 
         if use_dask is None:
             use_dask = self._use_dask

@@ -21,12 +21,12 @@ class AperturePhotometry( object ):
         if type(datafile) is str:
             datafile = pandas.read_hdf(datafile) # reads it.
             
-        return cls(datafile[filekey], use_dask=True)
+        return cls(datafile[filekey], use_dask=use_dask)
 
     @classmethod
     def from_filenames(cls, filenames, use_dask=True, **kwargs):
         """ """
-        return cls(filenames, use_dask=True, **kwargs)
+        return cls(filenames, use_dask=use_dask, **kwargs)
     
     # =============== #
     #  Methods        #
@@ -54,7 +54,6 @@ class AperturePhotometry( object ):
             self.set_filenames(filenames)
 
         self.images = ScienceQuadrantCollection.from_filenames(self.filenames, use_dask=self._use_dask)
-        
         
     # -------- #
     # GETTER   #
