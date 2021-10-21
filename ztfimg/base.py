@@ -153,10 +153,9 @@ class _Quadrant_( _Image_ ):
             
         return data_
 
-    def get_aperture(self, x0, y0, radius, bkgann=None, subpix=0, system="xy",
+    def get_aperture(self, x0, y0, radius,
+                         bkgann=None, subpix=0, 
                          use_dask=None, dataprop={},
-                         mask=None, maskprop={},
-                         err=None, noiseprop={},
                          asdataframe=False,
                          **kwargs):
         """ Get the Apeture photometry corrected from the background annulus if any.
@@ -213,22 +212,10 @@ class _Quadrant_( _Image_ ):
            + flag (see get_flag option)
         """
         from .tools import get_aperture
-        
-        if system == "radec":
-            x0, y0 = self.radec_to_xy(x0, y0)
-        elif system == "uv":
-            x0, y0 = self.uv_to_xy(x0, y0)
-        elif system != "xy":
-            raise ValueError(f"system must be xy, radec or uv ;  {system} given")
-
-        if err is None:
-            err = self.get_noise(**noiseprop)
-            
-        if mask is None:
-            mask = self.get_mask(**maskprop)
 
         if use_dask is None:
             use_dask = self._use_dask
+            
         apdata = get_aperture(self.get_data(**dataprop),
                               x0, y0, radius=radius, 
                               err=err, mask=mask, bkgann=bkgann,

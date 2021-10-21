@@ -366,7 +366,6 @@ class ScienceQuadrant( _Quadrant_, WCSHolder ):
         
         raise ValueError(f"which should be nanstd, globalrms or rms ; {which} given")
                 
-        
     def get_source_mask(self, thresh=5, r=8):
         """ """
         if not hasattr(self, "_source_mask"):
@@ -391,7 +390,36 @@ class ScienceQuadrant( _Quadrant_, WCSHolder ):
                 self._source_background = self._back.back()
 
         return self._source_background
-        
+
+
+    def get_aperture(self, x0, y0, radius, bkgann=None, subpix=0,
+                         system="xy",
+                         which="dataclean",
+                         use_dask=None, dataprop={},
+                         mask=None, maskprop={},
+                         err=None, noiseprop={},
+                         asdataframe=False,
+                         **kwargs):
+        """ """
+
+        if system == "radec":
+            x0, y0 = self.radec_to_xy(x0, y0)
+        elif system == "uv":
+            x0, y0 = self.uv_to_xy(x0, y0)
+        elif system != "xy":
+            raise ValueError(f"system must be xy, radec or uv ;  {system} given")
+
+        if err is None:
+            err = self.get_noise(**noiseprop)
+            
+        if mask is None:
+            mask = self.get_mask(**maskprop)
+
+        # calling back base.get_aperture()            
+        return super().get_aperture(x0, y0, radius,
+                                    bkgann=bkgann, subpix=subpix, 
+                                    use_dask=use_dask, dataprop=dataprop,
+                                    asdataframe=asdataframe)
     # -------- #
     # CATALOGS # 
     # -------- #
