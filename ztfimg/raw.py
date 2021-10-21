@@ -32,7 +32,7 @@ class RawQuadrant( _Quadrant_ ):
             if type(filename) == Delayed:
                 raise ValueError("cannot guess the input format from delayed filenames. Please provide the format.")
             
-            if filename.endswith(".fits") or filename.endswith(".fits.gz"):
+            if filename.endswith(".fits") or filename.endswith(".fits.gz") or filename.endswith(".fits.fz"):
                 format = "fits"
             else:
                 format = filename.split('.')
