@@ -156,6 +156,7 @@ class _Quadrant_( _Image_ ):
     def get_aperture(self, x0, y0, radius,
                          bkgann=None, subpix=0, 
                          use_dask=None, dataprop={},
+                         err=None, mask=None,
                          asdataframe=False,
                          **kwargs):
         """ Get the Apeture photometry corrected from the background annulus if any.
