@@ -525,9 +525,9 @@ class ScienceQuadrant( _Quadrant_, WCSHolder ):
             
             if use_dask:                        
                 cats = dd.from_delayed(dask.delayed(match_and_merge)(
-                        cats, ecat_, mergehow="left", suffixes=('', f'_{extra_}'), seplimit=seplimit))
+                        cats, ecat_, mergehow="left", suffixes=('', f'_{extra_}'), seplimit=seplimit, reset_index=True))
             else:
-                cats = match_and_merge(cats, ecat_, mergehow="left", suffixes=('', f'_{extra_}'), seplimit=seplimit)
+                cats = match_and_merge(cats, ecat_, mergehow="left", suffixes=('', f'_{extra_}'), seplimit=seplimit, reset_index=True)
 
         return cats
 
@@ -586,11 +586,11 @@ class ScienceQuadrant( _Quadrant_, WCSHolder ):
                 if use_dask:                        
                     return dd.from_delayed(dask.delayed(match_and_merge)(
                         catgaia.persist(), catps1.persist(),
-                        suffixes=('', '_ps1'), mergehow=mergehow, seplimit=seplimit))
+                        suffixes=('', '_ps1'), mergehow=mergehow, seplimit=seplimit, reset_index=True))
                 
                 return match_and_merge( catgaia, catps1,
                                         suffixes=('', '_ps1'), mergehow=mergehow,
-                                        seplimit=seplimit)
+                                        seplimit=seplimit, reset_index=True)
             else:
                 raise ValueError(f"Only ps1 and gaia calibrators catalog have been implemented, {which} given.")
             
