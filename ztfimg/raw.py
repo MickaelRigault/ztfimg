@@ -45,7 +45,7 @@ class RawQuadrant( _Quadrant_ ):
             
 
     @classmethod
-    def read_fits(cls, fitsfile, qid, use_dask=True, persist=True, download=True, **kwargs):
+    def read_fits(cls, filename, qid, use_dask=True, persist=True, download=True, **kwargs):
         """ reads the fits file and load the object """
         if qid not in [1,2,3,4]:
             raise ValueError(f"qid must be 1,2, 3 or 4 {qid} given")
