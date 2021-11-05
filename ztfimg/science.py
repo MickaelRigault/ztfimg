@@ -416,10 +416,10 @@ class ScienceQuadrant( _Quadrant_, WCSHolder ):
             mask = self.get_mask(**maskprop)
 
         # calling back base.get_aperture()            
-        return super().get_aperture(x0, y0, radius,
+        return super().get_aperture(x0, y0, radius,err=err,
                                     bkgann=bkgann, subpix=subpix, 
                                     use_dask=use_dask, dataprop=dataprop,
-                                    asdataframe=asdataframe)
+                                    asdataframe=asdataframe, **kwargs)
     # -------- #
     # CATALOGS # 
     # -------- #
