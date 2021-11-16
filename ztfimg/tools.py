@@ -8,7 +8,7 @@ import dask.dataframe as dd
 
 def ccdid_qid_to_rcid(ccdid, qid):
     """ """
-    4*(ccdid - 1) + qid - 1
+    return 4*(ccdid - 1) + qid - 1
 
 def rcid_to_ccdid_qid(rcid):
     """ computes the rcid """
