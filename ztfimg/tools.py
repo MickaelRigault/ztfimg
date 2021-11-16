@@ -5,6 +5,19 @@ import dask
 import dask.array as da
 import dask.dataframe as dd
 
+
+def ccdid_qid_to_rcid(ccdid, qid):
+    """ """
+    4*(ccdid - 1) + qid - 1
+
+def rcid_to_ccdid_qid(rcid):
+    """ computes the rcid """
+    qid = (rcid%4)+1
+    ccdid  = int((rcid-(qid - 1))/4 +1)
+    return ccdid,qid
+
+
+
 def fit_polynome(x, y, degree, variance=None):
     """ """
     from scipy.optimize import fmin

@@ -7,7 +7,7 @@ import dask.dataframe as dd
 from dask.array.core import Array as DaskArray
 from dask.delayed import Delayed, DelayedAttr
 
-from .tools import rebin_arr, parse_vmin_vmax
+from .tools import rebin_arr, parse_vmin_vmax, ccdid_qid_to_rcid, rcid_to_ccdid_qid
 
 class _Image_( object ):
     SHAPE = None
@@ -581,14 +581,12 @@ class _FocalPlane_( _Image_):
     @staticmethod
     def ccdid_qid_to_rcid(ccdid, qid):
         """ computes the rcid """
-        return 4*(ccdid - 1) + qid - 1
+        return ccdid_qid_to_rcid(ccdid, qid)
     
     @staticmethod
     def rcid_to_ccdid_qid(rcid):
         """ computes the rcid """
-        qid = (rcid%4)+1
-        ccdid  = int((rcid-(qid - 1))/4 +1)
-        return ccdid,qid
+        return rcid_to_ccdid_qid(rcid)
     
     # =============== #
     #  Properties     #
