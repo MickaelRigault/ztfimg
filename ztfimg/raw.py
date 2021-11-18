@@ -424,6 +424,7 @@ class RawFocalPlane( _FocalPlane_ ):
     # 15 µm/arcsec  (ie 1 arcsec/pixel) and using 
     # 7.2973 mm = 487 pixel gap along rows (ie between columns) 
     # and 671 pixels along columns.
+    
     @classmethod
     def from_filenames(cls, ccd_filenames, use_dask=True, **kwargs):
         """ """
@@ -431,7 +432,8 @@ class RawFocalPlane( _FocalPlane_ ):
         for file_ in ccd_filenames:
             ccd_ = RawCCD.from_filename(file_, use_dask=use_dask, **kwargs)
             this.set_ccd(ccd_, ccdid=ccd_.ccdid)
-            
+
+        this._filenames = ccd_filenames
         return this
 
     @classmethod
@@ -501,7 +503,9 @@ class RawCCDCollection( CCDCollection ):
             images = [RawCCD.from_filename(filename, use_dask=False, **imgkwargs)
                           for filename in filenames]
         
-        return cls(images, use_dask=use_dask, **kwargs)
+        this = cls(images, use_dask=use_dask, **kwargs)
+        this._filenames = filenames
+        return this
     
     @classmethod
     def from_date(cls, date, ccdid, dateformat=None, **kwargs):

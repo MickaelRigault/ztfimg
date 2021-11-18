@@ -173,7 +173,8 @@ class ImageCollection( object ):
     def filenames(self):
         """ """
         if not hasattr(self,"_filenames") or self._filenames is None:
-            self._filenames= dask.delayed(list)(self.call_down("filename", False)).compute()
+            self._filenames = dask.delayed(list)(self.call_down("filename", False)).compute()
+            
         return self._filenames
     
     @property
@@ -211,7 +212,9 @@ class ScienceQuadrantCollection( QuadrantCollection ):
             images = [ScienceQuadrant.from_filename(filename, use_dask=False, **imgkwargs)
                           for filename in filenames]
             
-        return cls(images, use_dask=use_dask, **kwargs)
+        this= cls(images, use_dask=use_dask, **kwargs)
+        this._filenames = filenames
+        return this
 
     # =============== #
     #  Methods        #
