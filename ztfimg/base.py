@@ -146,15 +146,18 @@ class _Quadrant_( _Image_ ):
         2d array
         """
         npda = da if self._use_dask else np
+        
         if type(data) == str:
             if data == "data":
                 data_ = self.data.copy()
-            elif data == "qid":
-                data_ = npda.ones( self.shape )* self.qid
+            elif hasattr(self, data):
+                data_ = npda.ones( self.shape )* getattr(self,data)
             else:
-                raise ValueError(f"value as string can only be 'data' or 'qid' ; {qid} given")
+                raise ValueError(f"value as string can only be 'data' or a knownb attribute (like 'qid', 'ccdid', or 'rcid') ; {qid} given")
+            
         elif type(data) in [int, float]:
             data_ = npda.ones( self.shape )* data
+            
         else:
             data_ = data.copy()
         
