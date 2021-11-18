@@ -98,11 +98,11 @@ def parse_input(rcids, fields, radecs):
 
 def get_nonlinearity_table():
     """ """
-    from .base import _FocalPlane_
+    from .tools import ccdid_qid_to_rcid
     nl_table = pandas.read_csv(NONLINEARITY_FILE, comment='#', header=None, sep='\s+', usecols=[0, 1, 2, 3, 4],
                                       names=["ccdid", "ampname", "qid", "a", "b"])
     nl_table["qid"] += 1 # qid in the file is actually AMP_ID that starts at 0, while qid starts at 1.
-    nl_table["rcid"] = _FocalPlane_.ccdid_qid_to_rcid(nl_table["ccdid"], nl_table["qid"])
+    nl_table["rcid"] = ccdid_qid_to_rcid(nl_table["ccdid"].astype("int"), nl_table["qid"].astype("int"))
     return nl_table.set_index("rcid").sort_index()
 
 class _CatCalibrator_( object ):
