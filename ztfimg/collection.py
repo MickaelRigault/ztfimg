@@ -78,6 +78,9 @@ class ImageCollection( object ):
                                      for f_ in datas])
         return datas
 
+    def get_data_mean(self, apply_sigmaclip=True, ):
+        """ """
+        
     def get_data_rebustmean(self, chunkreduction=8, 
                             sigma=3, sigma_lower=None, sigma_upper=None, maxiters=5,
                             cenfunc='median', stdfunc='std',
@@ -88,7 +91,9 @@ class ImageCollection( object ):
 
         """
         from astropy.stats import sigma_clip
+
         datas = self.get_data(**kwargs)
+        
         chunk_merging_axis0 = np.asarray(np.asarray(datas.shape)/(1, 
                                                                   chunkreduction, 
                                                                   chunkreduction), dtype="int")

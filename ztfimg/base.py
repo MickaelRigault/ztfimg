@@ -135,7 +135,7 @@ class _Image_( object ):
 class _Quadrant_( _Image_ ):
     SHAPE = 3080, 3072
 
-    def get_data(self, rebin=None, rebin_stat="nanmean"):
+    def get_data(self, rebin=None, rebin_stat="nanmean", data="data"):
         """ 
         
         Parameters
@@ -145,10 +145,39 @@ class _Quadrant_( _Image_ ):
         -------
         2d array
         """
-        data_ = self.data.copy()
+        npda = da if self._use_dask else np
+        if type(data) == str:
+            if data == "data":
+                data_ = self.data.copy()
+            elif data == "qid":
+                data_ = npda.ones( self.shape )* self.qid
+            else:
+                raise ValueError(f"value as string can only be 'data' or 'qid' ; {qid} given")
+        elif type(data) in [int, float]:
+            data_ = npda.ones( self.shape )* data
+        else:
+            data_ = data.copy()
         
         if rebin is not None:
-            data_ = getattr(da if self._use_dask else np, rebin_stat)(
+            data_ = getattr(npda, rebin_stat)(
+                rebin_arr(data_, (rebin,rebin), use_dask=self._use_dask), axis=(-2,-1))
+            
+        return data_
+
+    def _get_qdata(self, rebin=None, rebin_stat="nanmean", value="qid"):
+        """ method that mimic get_data but data simply have the
+        {value} value (i.e. ones*value). 
+        This is useful to test the FocalPlane positions. """
+
+        if type(value) == 'str':
+            if value == "qid":
+                value = self.qid
+            else:
+                
+        
+        data_ = 
+        if rebin is not None:
+            data_ = getattr(npda, rebin_stat)(
                 rebin_arr(data_, (rebin,rebin), use_dask=self._use_dask), axis=(-2,-1))
             
         return data_
@@ -321,7 +350,8 @@ class _CCD_( _Image_ ):
         df.columns = qid_range
         return df
         
-    def get_data(self, rebin=None, npstat="mean", rebin_ccd=None, persist=False, **kwargs):
+    def get_data(self, rebin=None, npstat="mean", rebin_ccd=None, persist=False,
+                     **kwargs):
         """ ccd data 
         
         rebin, rebin_ccd: [None, int]
