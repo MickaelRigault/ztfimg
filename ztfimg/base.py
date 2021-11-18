@@ -167,24 +167,6 @@ class _Quadrant_( _Image_ ):
             
         return data_
 
-    def _get_qdata(self, rebin=None, rebin_stat="nanmean", value="qid"):
-        """ method that mimic get_data but data simply have the
-        {value} value (i.e. ones*value). 
-        This is useful to test the FocalPlane positions. """
-
-        if type(value) == 'str':
-            if value == "qid":
-                value = self.qid
-            else:
-                
-        
-        data_ = 
-        if rebin is not None:
-            data_ = getattr(npda, rebin_stat)(
-                rebin_arr(data_, (rebin,rebin), use_dask=self._use_dask), axis=(-2,-1))
-            
-        return data_
-
     def get_aperture(self, x0, y0, radius,
                          bkgann=None, subpix=0, 
                          use_dask=None, dataprop={},
