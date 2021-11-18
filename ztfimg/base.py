@@ -135,7 +135,7 @@ class _Image_( object ):
 class _Quadrant_( _Image_ ):
     SHAPE = 3080, 3072
 
-    def get_data(self, rebin=None, rebin_stat="nanmean", data="data"):
+    def get_data(self, rebin=None, rebin_stat="nanmean", data="data", reorder=True):
         """ 
         
         Parameters
@@ -164,6 +164,9 @@ class _Quadrant_( _Image_ ):
         if rebin is not None:
             data_ = getattr(npda, rebin_stat)(
                 rebin_arr(data_, (rebin,rebin), use_dask=self._use_dask), axis=(-2,-1))
+
+        if reorder:
+            data_ = data_.T
             
         return data_
 
@@ -472,16 +475,19 @@ class _FocalPlane_( _Image_):
         return df
 
     @staticmethod
-    def get_datagap(which, rebin=None, fillna=np.NaN):
+    def get_datagap(which, rebin=None, fillna=np.NaN, reordered=True):
         """ 
         horizontal (or row) = between rows
         """
+        ccd_shape = _CCD_.SHAPE # 3080*2, 3072*2
         if which in ["horizontal", "row", "rows"]:
+            axis = 1 if not reordered else 0
             hpixels = 672
-            vpixels = 3072*2
+            vpixels = ccd_shape[axis]*2
         else:
+            axis = 0 if not reordered else 1
             hpixels = 3080*2
-            vpixels = 488
+            vpixels = ccd_shape[axis]
 
         if rebin is not None:
             hpixels /= rebin
