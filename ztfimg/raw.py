@@ -68,7 +68,7 @@ class RawQuadrant( _Quadrant_ ):
 
         if qid in [2, 3]:
             overscan = overscan[:,::-1]
-            data = data[:,::-1]
+            #data = data[:,::-1]
 
         if persist and use_dask:
             data = data.persist()
