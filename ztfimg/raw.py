@@ -176,7 +176,7 @@ class RawQuadrant( _Quadrant_ ):
                 rebin_arr(data_, (rebin,rebin), use_dask=True), axis=(-2,-1) )
 
         if reorder:
-            data_ = data_.T
+            data_ = data_[::-1,::-1]
             
         return data_
 
