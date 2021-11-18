@@ -483,11 +483,11 @@ class _FocalPlane_( _Image_):
         if which in ["horizontal", "row", "rows"]:
             axis = 1 if not reordered else 0
             hpixels = 672
-            vpixels = ccd_shape[axis]*2
+            vpixels = ccd_shape[axis]
         else:
             axis = 0 if not reordered else 1
-            hpixels = 3080*2
-            vpixels = ccd_shape[axis]
+            hpixels = ccd_shape[axis]
+            vpixels = 488
 
         if rebin is not None:
             hpixels /= rebin
