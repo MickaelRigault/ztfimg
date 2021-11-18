@@ -349,8 +349,8 @@ class _CCD_( _Image_ ):
         # numpy or dask.array ?
         npda = da if self._use_dask else np 
         
-        ccd_up   = npda.concatenate([d[3],d[2]], axis=1)
-        ccd_down = npda.concatenate([d[0],d[1]], axis=1)
+        ccd_up   = npda.concatenate([d[1],d[0]], axis=1)
+        ccd_down = npda.concatenate([d[2],d[3]], axis=1)
         ccd = npda.concatenate([ccd_down,ccd_up], axis=0)
         if rebin_ccd is not None:
             ccd = getattr(npda,npstat)( rebin_arr(ccd, (rebin_ccd, rebin_ccd), use_dask=self._use_dask),
