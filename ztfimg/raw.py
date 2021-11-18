@@ -45,7 +45,8 @@ class RawQuadrant( _Quadrant_ ):
             
 
     @classmethod
-    def read_fits(cls, filename, qid, use_dask=True, persist=True, download=True, **kwargs):
+    def read_fits(cls, filename, qid, use_dask=True, persist=True,
+                      download=True, reorder=True, **kwargs):
         """ reads the fits file and load the object """
         if qid not in [1,2,3,4]:
             raise ValueError(f"qid must be 1,2, 3 or 4 {qid} given")
@@ -69,7 +70,7 @@ class RawQuadrant( _Quadrant_ ):
         if qid in [2, 3]:
             overscan = overscan[:,::-1]
             #data = data[:,::-1]
-
+        
         if persist and use_dask:
             data = data.persist()
             overscan = overscan.persist()
@@ -137,8 +138,8 @@ class RawQuadrant( _Quadrant_ ):
     # GETTER   #
     # -------- #
     def get_data(self, corr_overscan=False, corr_gain=False, corr_nl=False, rebin=None,
-                     overscanprop={},
-                     rebin_stat="nanmean", data="data", **kwargs):
+                     overscanprop={}, rebin_stat="nanmean",
+                     data="data", reorder=True, **kwargs):
         """ 
         
         Parameters
@@ -172,6 +173,9 @@ class RawQuadrant( _Quadrant_ ):
         if rebin is not None:
             data_ = getattr(da if self._use_dask else np, rebin_stat)(
                 rebin_arr(data_, (rebin,rebin), use_dask=True), axis=(-2,-1) )
+
+        if reorder:
+            data_ = data_.T
             
         return data_
 
