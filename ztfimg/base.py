@@ -374,7 +374,7 @@ class _CCD_( _Image_ ):
             fig = ax.figure
         
         data  = self.get_data(rebin=rebin, rebin_ccd=rebin_ccd, **dataprop)
-        if type(date) in [DaskArray, Delayed]:
+        if type(data) in [DaskArray, Delayed]:
             data = data.compute()
             
         vmin, vmax = parse_vmin_vmax(data, vmin, vmax)
