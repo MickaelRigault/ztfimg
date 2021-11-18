@@ -67,8 +67,8 @@ class RawQuadrant( _Quadrant_ ):
             header    = fits.getheader(filename, qid=qid)
 
         if qid in [2, 3]:
-            pass
-            #overscan = overscan[:,::-1]
+            overscan = overscan[:,::-1]
+            data = data[:,::-1]
 
         if persist and use_dask:
             data = data.persist()
