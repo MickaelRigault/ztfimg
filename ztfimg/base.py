@@ -475,18 +475,16 @@ class _FocalPlane_( _Image_):
         return df
 
     @staticmethod
-    def get_datagap(which, rebin=None, fillna=np.NaN, reordered=True):
+    def get_datagap(which, rebin=None, fillna=np.NaN):
         """ 
         horizontal (or row) = between rows
         """
-        ccd_shape = _CCD_.SHAPE # 3080*2, 3072*2
+        # recall: _CCD_.SHAPE 3080*2, 3072*2
         if which in ["horizontal", "row", "rows"]:
-            axis = 1 if not reordered else 0
             hpixels = 672
-            vpixels = ccd_shape[axis]
+            vpixels = _CCD_.SHAPE[1]
         else:
-            axis = 0 if not reordered else 1
-            hpixels = ccd_shape[axis]
+            hpixels = _CCD_.SHAPE[0]
             vpixels = 488
 
         if rebin is not None:
