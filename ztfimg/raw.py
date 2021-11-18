@@ -137,7 +137,7 @@ class RawQuadrant( _Quadrant_ ):
     # -------- #
     def get_data(self, corr_overscan=False, corr_gain=False, corr_nl=False, rebin=None,
                      overscanprop={},
-                     rebin_stat="nanmean"):
+                     rebin_stat="nanmean", data="data", **kwargs):
         """ 
         
         Parameters
@@ -155,7 +155,7 @@ class RawQuadrant( _Quadrant_ ):
         -------
         2d array
         """
-        data_ = self.data.copy()
+        data_ = super().get_data(rebin=False, data=data, **kwargs)
         
         if corr_overscan:
             osmodel = self.get_overscan(**{**dict(which="model"),**overscanprop})
