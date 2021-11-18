@@ -4,6 +4,7 @@ import dask
 import dask.array as da
 import dask.dataframe as dd
 import pandas
+import warnings
 
 import numpy as np
 from .science import ScienceQuadrant
@@ -78,38 +79,54 @@ class ImageCollection( object ):
                                      for f_ in datas])
         return datas
 
-    def get_data_mean(self, apply_sigmaclip=True, ):
-        """ """
-        
+    def get_data_mean(self, chunkreduction=8,
+                          clipping=False,
+                          sigma=3, sigma_lower=None, sigma_upper=None, maxiters=5,
+                          cenfunc='median', stdfunc='std', axis=0, **kwargs):
+        """ 
+        clipping: [bool] -optional-
+            shall sigma clipping along the axis=0 be applied ?
+
+            
+                          
+        """
+        datas = self.get_data(**kwargs)
+        if axis==0:
+            chunk_merging_axis0 = np.asarray(np.asarray(datas.shape)/(1, 
+                                                                  chunkreduction, 
+                                                                  chunkreduction), dtype="int")
+            datas = datas.rechunk( list(chunk_merging_axis0) )
+        elif chunkreduction is not None:
+            warnings.warn(f"chunkreduction only implemented for axis=0 (axis={axis} given)")
+            
+        if clipping:
+            from astropy.stats import sigma_clip
+            datas = datas.map_blocks(sigma_clip, axis=axis, 
+                                 sigma=sigma, sigma_lower=sigma_lower, sigma_upper=sigma_upper, 
+                                 maxiters=maxiters, cenfunc=cenfunc, stdfunc=stdfunc)
+        return da.mean(datas, axis=axis)
+
+    
     def get_data_rebustmean(self, chunkreduction=8, 
                             sigma=3, sigma_lower=None, sigma_upper=None, maxiters=5,
                             cenfunc='median', stdfunc='std',
                             **kwargs):
-        """ robust mean along the 0th axis (images) 
+        """ robust mean along the 0th axis (images). This call get_data_mean(clipping=True)
 
         **kwargs goes to get_data()
 
         """
-        from astropy.stats import sigma_clip
-
-        datas = self.get_data(**kwargs)
-        
-        chunk_merging_axis0 = np.asarray(np.asarray(datas.shape)/(1, 
-                                                                  chunkreduction, 
-                                                                  chunkreduction), dtype="int")
-        datas = datas.rechunk( list(chunk_merging_axis0) )
-        datas = datas.map_blocks(sigma_clip, axis=0, 
-                                 sigma=sigma, sigma_lower=sigma_lower, sigma_upper=sigma_upper, 
-                                 maxiters=maxiters, cenfunc=cenfunc, stdfunc=stdfunc)
-        return da.mean(datas, axis=0)
-    
+        return self.get_data_mean(clipping=True,
+                                      chunkreduction=chunkreduction, 
+                                      sigma=sigma, sigma_lower=sigma_lower, sigma_upper=sigma_upper, maxiters=maxiters,
+                                      cenfunc=cenfunc, stdfunc=stdfunc, **kwargs)
     # ------- #
     # SETTER  #
     # ------- #
     def set_images(self, images):
         """ """
         self._images = np.atleast_1d(images).tolist()
-        
+        self._filenames = None
     # -------- #
     # INTERNAL #
     # -------- #
@@ -151,6 +168,13 @@ class ImageCollection( object ):
         if not hasattr(self,"_images"):
             return None
         return self._images
+
+    @property
+    def filenames(self):
+        """ """
+        if not hasattr(self,"_filenames") or self._filenames is None:
+            self._filenames= dask.delayed(list)(self.call_down("filename", False)).compute()
+        return self._filenames
     
     @property
     def nimages(self):
