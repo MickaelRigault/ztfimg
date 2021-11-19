@@ -31,6 +31,41 @@ class _Image_( object ):
     # -------- #
     #  GETTER  #
     # -------- #
+    def get_data(self, rebin=None, rebin_stat="nanmean", data="data", reorder=True):
+        """ 
+        
+        Parameters
+        ----------
+
+        Returns
+        -------
+        2d array
+        """
+        npda = da if self._use_dask else np
+        
+        if type(data) == str:
+            if data == "data":
+                data_ = self.data.copy()
+            elif hasattr(self, data):
+                data_ = npda.ones( self.shape )* getattr(self,data)
+            else:
+                raise ValueError(f"value as string can only be 'data' or a known attribute ; {qid} given")
+            
+        elif type(data) in [int, float]:
+            data_ = npda.ones( self.shape )* data
+            
+        else:
+            data_ = data.copy()
+        
+        if rebin is not None:
+            data_ = getattr(npda, rebin_stat)(
+                rebin_arr(data_, (rebin,rebin), use_dask=self._use_dask), axis=(-2,-1))
+
+        if reorder:
+            data_ = data_.T
+            
+        return data_
+
     def get_header(self):
         """ returns the header (self.header), see self.header
         """
@@ -134,41 +169,6 @@ class _Image_( object ):
 
 class _Quadrant_( _Image_ ):
     SHAPE = 3080, 3072
-
-    def get_data(self, rebin=None, rebin_stat="nanmean", data="data", reorder=True):
-        """ 
-        
-        Parameters
-        ----------
-
-        Returns
-        -------
-        2d array
-        """
-        npda = da if self._use_dask else np
-        
-        if type(data) == str:
-            if data == "data":
-                data_ = self.data.copy()
-            elif hasattr(self, data):
-                data_ = npda.ones( self.shape )* getattr(self,data)
-            else:
-                raise ValueError(f"value as string can only be 'data' or a knownb attribute (like 'qid', 'ccdid', or 'rcid') ; {qid} given")
-            
-        elif type(data) in [int, float]:
-            data_ = npda.ones( self.shape )* data
-            
-        else:
-            data_ = data.copy()
-        
-        if rebin is not None:
-            data_ = getattr(npda, rebin_stat)(
-                rebin_arr(data_, (rebin,rebin), use_dask=self._use_dask), axis=(-2,-1))
-
-        if reorder:
-            data_ = data_.T
-            
-        return data_
 
     def get_aperture(self, x0, y0, radius,
                          bkgann=None, subpix=0, 
