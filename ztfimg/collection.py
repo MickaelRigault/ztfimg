@@ -136,7 +136,8 @@ class ImageCollection( object ):
             from astropy.stats import sigma_clip
             datas = datas.map_blocks(sigma_clip, axis=axis, 
                                  sigma=sigma, sigma_lower=sigma_lower, sigma_upper=sigma_upper, 
-                                 maxiters=maxiters, cenfunc=cenfunc, stdfunc=stdfunc)
+                                 maxiters=maxiters, cenfunc=cenfunc,
+                                 stdfunc=stdfunc, masked=False)
         return da.mean(datas, axis=axis)
 
     
