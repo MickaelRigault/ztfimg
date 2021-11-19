@@ -16,8 +16,7 @@ from .base import _Quadrant_, _CCD_
 # -------------- #
 def build_headerdf(files, persist=False):
     """ """
-    delayed_files = io.bulk_get_file(files)
-    
+    delayed_files = io.bulk_get_file(files)   
     headers = [dask.delayed(fits.getheader)(f_) for f_ in delayed_files]
     return _headers_to_headerdf_(headers, persist=persist)
 
@@ -64,6 +63,40 @@ class ImageCollection( object ):
         
         return filenames
 
+    def get_singleheader(self, index, as_serie=True):
+        """ call the fits.getheader function from the
+        filenames[index]. 
+        
+        Parameters
+        ----------
+        index: [int] 
+            index of the filename to pick (self.filenames[index]
+
+        as_serie: [bool] -optional-
+            shall the returned header be a pandas/dask Serie ?
+            If not, it will be a normal fits.Header()
+            Remark that under dask environment, fits.header() may have
+            serialization issues.
+
+        Returns
+        -------
+        Serie (pandas or dask) or header 
+        (see as_serie)
+        """
+        from astropy.io import fits
+        if self._use_dask:
+            header_  = dask.delayed(fits.getheader)(self.filenames[index])
+        else:
+            header_  = fits.getheader(self.filenames[index])
+        if not as_serie:
+            return header_
+        
+        if self._use_dask:
+            dh = dask.delayed(dict)(header_.items())
+            return dd.from_delayed(dask.delayed(pandas.Series)(dh))
+        
+        return pandas.Series( dict(header_) )
+            
     def get_headerdf(self, persist=True, rebuild=False):
         """ """
         if rebuild or not hasattr(self, "_headerdf"):
