@@ -117,6 +117,11 @@ class _Image_( object ):
         """ """
         if self._use_dask and type(self._header) in [Delayed, DelayedAttr]:
             self._header = self._header.compute()
+            
+    def _compute_data(self):
+        """ """
+        if self._use_dask and "dask." in str(type(self._data)):
+            self._data = self._data.compute()
                 
     # =============== #
     #  Properties     #

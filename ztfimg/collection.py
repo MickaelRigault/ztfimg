@@ -112,11 +112,16 @@ class ImageCollection( object ):
                                      for f_ in datas])
         return datas
 
-    def get_data_mean(self, chunkreduction=8,
+    def get_data_mean(self, chunkreduction=2,
                           clipping=False,
                           sigma=3, sigma_lower=None, sigma_upper=None, maxiters=5,
                           cenfunc='median', stdfunc='std', axis=0, **kwargs):
         """ 
+
+        chunkreduction: [int or None]
+            rechunk and split of the image. 2 or 4 is best.
+            If None, no rechunk
+        
         clipping: [bool] -optional-
             shall sigma clipping along the axis=0 be applied ?
 
@@ -124,7 +129,7 @@ class ImageCollection( object ):
                           
         """
         datas = self.get_data(**kwargs)
-        if axis==0:
+        if axis==0 and chunkreduction is not None:
             chunk_merging_axis0 = np.asarray(np.asarray(datas.shape)/(1, 
                                                                   chunkreduction, 
                                                                   chunkreduction), dtype="int")
