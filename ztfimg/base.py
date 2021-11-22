@@ -31,7 +31,7 @@ class _Image_( object ):
     # -------- #
     #  GETTER  #
     # -------- #
-    def get_data(self, rebin=None, rebin_stat="nanmean", data="data", reorder=True):
+    def get_data(self, rebin=None, rebin_stat="nanmean", data="data"):
         """ 
         
         Parameters
@@ -60,9 +60,6 @@ class _Image_( object ):
         if rebin is not None:
             data_ = getattr(npda, rebin_stat)(
                 rebin_arr(data_, (rebin,rebin), use_dask=self._use_dask), axis=(-2,-1))
-
-        if reorder:
-            data_ = data_[::-1,::-1]
             
         return data_
 
