@@ -151,7 +151,14 @@ class _Image_( object ):
         """ """
         return self.SHAPE
     
-    # // header 
+    # // header
+    @property
+    def filename(self):
+        """ """
+        if not hasattr(self,"_filename"):
+            return None
+        return self._filename
+    
     @property
     def filtername(self):
         """ """
@@ -371,7 +378,7 @@ class _CCD_( _Image_ ):
     #   PLOTTER   #
     # ----------- #
     def show(self, ax=None, vmin="1", vmax="99", colorbar=False, cax=None, 
-             rebin=None, rebin_ccd=None, dataprop={}, savefile=None,
+             rebin=None, dataprop={}, savefile=None,
                  dpi=150, **kwargs):
         """ """
         import matplotlib.pyplot as mpl
