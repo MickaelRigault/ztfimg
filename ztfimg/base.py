@@ -388,7 +388,7 @@ class _CCD_( _Image_ ):
         else:
             fig = ax.figure
         
-        data  = self.get_data(rebin=rebin, rebin_ccd=rebin_ccd, **dataprop)
+        data  = self.get_data(rebin=rebin, **dataprop)
         if type(data) in [DaskArray, Delayed]:
             data = data.compute()
             
@@ -505,10 +505,10 @@ class _FocalPlane_( _Image_):
             
         return hpixels, vpixels
 
-    def get_data(self, rebin=None, rebin_ccd=None, incl_gap=True, persist=False, **kwargs):
+    def get_data(self, rebin=None, incl_gap=True, persist=False, **kwargs):
         """  """
         # Merge quadrants of the 16 CCDs
-        prop = {**dict(rebin=rebin, rebin_ccd=rebin_ccd), **kwargs}
+        prop = {**dict(rebin=rebin), **kwargs}
 
         npda = da if self._use_dask else np
 
@@ -578,7 +578,7 @@ class _FocalPlane_( _Image_):
 
 
     def show(self, ax=None, vmin="1", vmax="99", colorbar=False, cax=None, 
-             rebin=None, rebin_ccd=None, incl_gap=True, dataprop={},
+             rebin=None, incl_gap=True, dataprop={},
              savefile=None, dpi=150,
              **kwargs):
         """ """
@@ -589,7 +589,7 @@ class _FocalPlane_( _Image_):
         else:
             fig = ax.figure
         
-        data  = self.get_data(rebin=rebin, rebin_ccd=rebin_ccd, incl_gap=incl_gap, **dataprop).compute()
+        data  = self.get_data(rebin=rebin, incl_gap=incl_gap, **dataprop).compute()
         
         vmin, vmax = parse_vmin_vmax(data, vmin, vmax)
 
