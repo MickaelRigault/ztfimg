@@ -80,7 +80,7 @@ class _Image_( object ):
     # -------- #   
     def show(self, ax=None, colorbar=True, cax=None, apply=None, 
                   vmin="1", vmax="99", dataprop={}, savefile=None,
-                  dpi=150, **kwargs):
+                  dpi=150, rebin=None, **kwargs):
         """ """
         import matplotlib.pyplot as mpl
         
@@ -90,7 +90,7 @@ class _Image_( object ):
         else:
             fig = ax.figure
 
-        data = self.get_data(**dataprop)
+        data = self.get_data(rebin=rebin, **dataprop)
         if apply is not None:
             data = getattr(np,apply)(data)
             
