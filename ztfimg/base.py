@@ -62,7 +62,7 @@ class _Image_( object ):
                 rebin_arr(data_, (rebin,rebin), use_dask=self._use_dask), axis=(-2,-1))
 
         if reorder:
-            data_ = data_.T
+            data_ = data_[::-1,::-1]
             
         return data_
 
