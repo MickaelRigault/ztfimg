@@ -91,6 +91,9 @@ class _Image_( object ):
             fig = ax.figure
 
         data = self.get_data(rebin=rebin, **dataprop)
+        if type(data) in [DaskArray, Delayed]:
+            data = data.compute()
+
         if apply is not None:
             data = getattr(np,apply)(data)
             
@@ -587,7 +590,9 @@ class _FocalPlane_( _Image_):
             fig = ax.figure
         
         data  = self.get_data(rebin=rebin, incl_gap=incl_gap, **dataprop).compute()
-        
+        if type(data) in [DaskArray, Delayed]:
+            data = data.compute()
+
         vmin, vmax = parse_vmin_vmax(data, vmin, vmax)
 
         prop = {**dict(origin="lower", cmap="cividis", vmin=vmin, vmax=vmax),
