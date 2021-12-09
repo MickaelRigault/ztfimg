@@ -86,7 +86,7 @@ class AperturePhotometry( object ):
                                             **kwargs)
 
     def getcat_aperture(self, catalogs, radius, xykeys=["x","y"], system="xy",
-                            whichdata="dataclean", **kwargs):
+                            whichdata="dataclean", dataprop={}, **kwargs):
         """ """
         dataprop = {**dict(which=whichdata), **dataprop}        
         apcat = self.images.map_down("getcat_aperture", catalogs, radius, xykeys=xykeys,
