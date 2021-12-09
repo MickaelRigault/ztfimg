@@ -105,7 +105,8 @@ class AperturePhotometry( object ):
         """
         cats = self.images.get_catalog(calibrators=calibrators, extra=extra,
                                        isolation=isolation, seplimit=seplimit, **calkwargs)
-        return self.getcat_aperture(cats, xykeys=["x","y"], whichdata=whichdata, dataprop=dataprop,
+        return self.getcat_aperture(cats, radius=radius,
+                                    xykeys=["x","y"], whichdata=whichdata, dataprop=dataprop,
                                    **kwargs)
     
     # =============== #
