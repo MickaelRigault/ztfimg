@@ -90,8 +90,7 @@ class AperturePhotometry( object ):
         """ """
         dataprop = {**dict(which=whichdata), **dataprop}        
         apcat = self.images.map_down("getcat_aperture", catalogs, radius, xykeys=xykeys,
-                                         dataprop=dataprop, whichdata=whichdata,
-                                         **kwargs)
+                                         dataprop=dataprop, **kwargs)
         if self._use_dask:
             return dask.delayed(pandas.concat)(apcat, keys=self.basenames)
         
