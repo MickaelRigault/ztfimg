@@ -290,7 +290,7 @@ class _Quadrant_( _Image_ ):
         DataFrame
         """
         x, y = catdf[xykeys].values.T
-        fdata = self.get_aperture(x,y, radius[:,None],
+        fdata = self.get_aperture(x,y, np.atleast_1d(radius)[:,None],
                                   system=system, asdataframe=True,
                                   dataprop=dataprop, **kwargs)
         if join:

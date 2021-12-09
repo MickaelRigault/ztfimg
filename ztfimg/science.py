@@ -400,7 +400,55 @@ class ScienceQuadrant( _Quadrant_, WCSHolder ):
                          err=None, noiseprop={},
                          asdataframe=False,
                          **kwargs):
-        """ """
+        """ 
+
+        x0, y0, radius: [array]
+            Center coordinates and radius (radii) of aperture(s).
+            (could be x,y, ra,dec or u,v ; see system)
+
+        bkgann: [None/2D array] -optional-
+            Length 2 tuple giving the inner and outer radius of a “background annulus”.
+            If supplied, the background is estimated by averaging unmasked pixels in this annulus.
+
+        subpix: [int] -optional-
+            Subpixel sampling factor. If 0, exact overlap is calculated. 5 is acceptable.
+
+        system: [string] -optional-
+            In which system are the input x0, y0:
+            - xy (ccd )
+            - radec (in deg, sky)
+            - uv (focalplane)
+
+        data: [string] -optional-
+            the aperture will be applied on self.`data`
+
+        unit: [string] -optional-
+            unit of the output | counts, flux and mag are accepted.
+
+        clean_flagout: [bool] -optional-
+            remove entries that are masked or partially masked
+            (remove sum_circle flag!=0)
+            = Careful, this does not affects the returned flags, len(flag) remains len(x0)=len(y0) = 
+            
+        get_flag: [bool]  -optional-
+            shall this also return the sum_circle flags
+
+        maskprop, noiseprop:[dict] -optional-
+            options entering self.get_mask() and self.get_noise() for `mask` and `err`
+            attribute of the sep.sum_circle function.
+            
+        asdataframe: [bool]
+            return format.
+            If As DataFrame, this will be a dataframe with 
+            3xn-radius columns (f_0...f_i, f_0_e..f_i_e, f_0_f...f_i_f)
+            standing for fluxes, errors, flags.
+            
+
+        Returns
+        -------
+        2D array (see unit: (counts, dcounts) | (flux, dflux) | (mag, dmag))
+           + flag (see get_flag option)
+        """
 
         if system == "radec":
             x0, y0 = self.radec_to_xy(x0, y0)
@@ -418,7 +466,7 @@ class ScienceQuadrant( _Quadrant_, WCSHolder ):
         # calling back base.get_aperture()            
         return super().get_aperture(x0, y0, radius,err=err,
                                     bkgann=bkgann, subpix=subpix, 
-                                    use_dask=use_dask, dataprop=dataprop,
+                                    use_dask=use_dask, dataprop={ **{"which":which}, **dataprop},
                                     asdataframe=asdataframe, **kwargs)
     # -------- #
     # CATALOGS # 

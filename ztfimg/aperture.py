@@ -58,7 +58,8 @@ class AperturePhotometry( object ):
     # -------- #
     # GETTER   #
     # -------- #
-    def get_aperture(self, x0s, y0s, radius, bkgann=None, system="xy", whichdata="dataclean",
+    def get_aperture(self, x0s, y0s, radius, bkgann=None, system="xy",
+                         whichdata="dataclean",
                          **kwargs):
         """ 
         x0, y0: [2d-array, 2d-array]
@@ -83,6 +84,18 @@ class AperturePhotometry( object ):
         return self.images.get_aperture(x0s, y0s, radius, bkgann=bkgann, system=system,
                                             whichdata=whichdata,
                                             **kwargs)
+
+    def getcat_aperture(self, catalogs, radius, xykeys=["x","y"], system="xy",
+                            whichdata="dataclean", **kwargs):
+        """ """
+        dataprop = {**dict(which=whichdata), **dataprop}        
+        apcat = self.images.map_down("getcat_aperture", catalogs, radius, xykeys=xykeys,
+                                         dataprop=dataprop, whichdata=whichdata,
+                                         **kwargs)
+        if self._use_dask:
+            return dask.delayed(pandas.concat)(apcat, keys=self.basenames)
+        
+        return pandas.concat(apcat, keys=self.basenames)
     
     def build_apcatalog(self, radius, calibrators="gaia", extra=["ps1","psfcat"], 
                         isolation=20, xykeys=["x","y"], seplimit=0.5, calkwargs={},
@@ -91,15 +104,10 @@ class AperturePhotometry( object ):
         calkwargs goes to get_catalog()
         kwargs goes to getcat_aperture()
         """
-        dataprop = {**dict(which=whichdata), **dataprop}
         cats = self.images.get_catalog(calibrators=calibrators, extra=extra,
                                        isolation=isolation, seplimit=seplimit, **calkwargs)
-        apcat = self.images.map_down("getcat_aperture", cats, radius, xykeys=xykeys,
-                                         dataprop=dataprop, **kwargs)
-        if self._use_dask:
-            return dask.delayed(pandas.concat)(apcat, keys=self.basenames)
-        
-        return pandas.concat(apcat, keys=self.basenames)
+        return self.getcat_aperture(cats, xykeys=["x","y"], whichdata=whichdata, dataprop=dataprop,
+                                   **kwargs)
     
     # =============== #
     #  Properties     #
