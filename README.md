@@ -21,7 +21,7 @@ pyton setup.py install
 # Tutorials
 
 Please have look too the existing tutorials
-- [Aperture Photometry]("tutorials/tutorial__AperturePhotometry.ipynb") | single and multiple images, with or without Dask.
+- [Aperture Photometry](tutorials/tutorial__AperturePhotometry.ipynb) | single and multiple images, with or without Dask.
 
 
 ***
