@@ -28,8 +28,8 @@ mask = "ztf_20200204197199_000812_zr_c04_o_q3_mskimg.fits"
 ```
 then:
 ```python
-from ztfimg import image
-z = image.ScienceImage(sciimg, mask)
+from ztfimg import science
+z = science.ScienceImage(sciimg, mask)
 z.show('dataclean')
 ```
 
@@ -42,8 +42,8 @@ z.show('dataclean')
 If you don't know the exact path of the ztf file (or if you never downloaded it), use the `from_filename()` class method to instanciate the image. It will look for the file and download it if necessary. See `ztfquery` for details on how this works. The sciimg only is necessary, it will look itself for the corresponding mskimg. However, you can still force the use of another mskimg (though you should not).
 
 ```python
-from ztfimg import image
-z = image.ScienceImage.from_filename(sciimg)
+from ztfimg import science
+z = science.ScienceImage.from_filename(sciimg)
 z.show('dataclean')
 ```
 
