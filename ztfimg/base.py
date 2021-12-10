@@ -36,6 +36,17 @@ class _Image_( object ):
         
         Parameters
         ----------
+        rebin: [int / None] -optional-
+            Shall the data be rebinned by square of size `rebin` ?
+            None means no rebinning
+
+        rebin_stat: [string] -optional-
+            numpy (dask.array) method used for rebinning the data.
+
+        data: [string] -optional-
+            Internal option to modify the data. 
+            This could be any attribure value of format (int/float) 
+            Leave to 'data' if you are not sure. 
 
         Returns
         -------
@@ -47,7 +58,7 @@ class _Image_( object ):
             if data == "data":
                 data_ = self.data.copy()
             elif hasattr(self, data):
-                data_ = npda.ones( self.shape )* getattr(self,data)
+                data_ = npda.ones( self.shape ) * getattr(self,data)
             else:
                 raise ValueError(f"value as string can only be 'data' or a known attribute ; {qid} given")
             

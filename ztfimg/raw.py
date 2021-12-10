@@ -137,38 +137,46 @@ class RawQuadrant( _Quadrant_ ):
     # -------- #
     # GETTER   #
     # -------- #
-    def get_data(self, corr_overscan=False, corr_gain=False, corr_nl=False, rebin=None,
-                     overscanprop={}, rebin_stat="nanmean",
-                     data="data", reorder=True, **kwargs):
+    def get_data(self, corr_overscan=False, corr_nl=False,
+                     rebin=None, rebin_stat="nanmean", reorder=True,
+                     overscanprop={},
+                     **kwargs):
         """ 
         
         Parameters
         ----------
-        which: [string] 
-            could be:
-            - 'raw': as stored
-            - 'data': raw - {overscan model}
+        corr_overscan, corr_nl: [bool] -optional-
+            Should the data be corrected for non-linearity and
+            overscan (if both are true, nl is applied first).
+
+        rebin: [int / None] -optional-
+            Shall the data be rebinned by square of size `rebin` ?
+            None means no rebinning
+
+        rebin_stat: [string] -optional-
+            numpy (dask.array) method used for rebinning the data.
+        
+        reorder: [bool] -optional-
+            Should the data be re-order to match the actual north-up.
+            (leave to True if not sure)
             
         overscanprop: [dict] -optional-
             kwargs going to get_overscan()
-            (userange=[4,27], stackstat="nanmedian", modeldegree=5)
+            - > e.g. userange=[10,20], stackstat="nanmedian", modeldegree=5,
             
         Returns
         -------
         2d array
         """
-        data_ = super().get_data(rebin=None, data=data, **kwargs)
+        data_ = super().get_data(rebin=None,  **kwargs)
         
-        if corr_overscan:
-            osmodel = self.get_overscan(**{**dict(which="model"),**overscanprop})
-            data_ -= osmodel[:,None]
-            
-        if corr_gain:
-            data_ *=self.gain
-
         if corr_nl:
             a, b = self.get_nonlinearity_corr()
             data_ /= (a*data_**2 + b*data_ + 1)
+        
+        if corr_overscan:
+            osmodel = self.get_overscan(**{**dict(which="model"),**overscanprop})
+            data_ -= osmodel[:,None]            
 
         if rebin is not None:
             data_ = getattr(da if self._use_dask else np, rebin_stat)(
@@ -193,7 +201,8 @@ class RawQuadrant( _Quadrant_ ):
         """
         return NONLINEARITY_TABLE.loc[self.rcid][["a","b"]].astype("float").values
         
-    def get_overscan(self, which="data", userange=[10,20], stackstat="nanmedian",
+    def get_overscan(self, which="data",
+                         userange=[10,20], stackstat="nanmedian",
                          modeldegree=5, specaxis=1):
         """ 
         
