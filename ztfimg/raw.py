@@ -168,7 +168,8 @@ class RawQuadrant( _Quadrant_ ):
         -------
         2d array
         """
-        data_ = super().get_data(rebin=None,  **kwargs)
+        # rebin is made later on.
+        data_ = super().get_data(rebin=None, **kwargs)
         
         if corr_nl:
             a, b = self.get_nonlinearity_corr()
