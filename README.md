@@ -17,6 +17,12 @@ pyton setup.py install
 - This package uses `sep` for source extraction, background estimation and aperture photometry. [sep](https://sep.readthedocs.io/en/v1.0.x/api/sep.extract.html) is a python version of sextractor.  
 - This packages uses ztfquery for accessing ztf image product. [ztfquery](https://github.com/MickaelRigault/ztfquery)
 
+***
+# Tutorials
+
+Please have look too the existing tutorials
+- [Aperture Photometry](tutorials/tutorial__AperturePhotometry.ipynb) | single and multiple images, with or without Dask.
+
 
 ***
 # quick start
