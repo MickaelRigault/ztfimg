@@ -22,7 +22,7 @@ pyton setup.py install
 
 Please have look to the existing tutorials
 - [Aperture Photometry](tutorials/tutorial__AperturePhotometry.ipynb) | single and multiple images, with or without Dask.
-- [Raw Image Manipulation](tutorial_RawImages_and_Merges.ipynb) | Raw Quadrant, CCD, Focal plane, with and without Dask & CCDCollection (and robust mean)
+- [Raw Image Manipulation](tutorials/tutorial_RawImages_and_Merges.ipynb) | Raw Quadrant, CCD, Focal plane, with and without Dask & CCDCollection (and robust mean)
 
 ***
 # quick start
