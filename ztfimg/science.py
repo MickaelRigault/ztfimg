@@ -8,7 +8,7 @@ import warnings
 from astropy.nddata import bitmask
 
 from .base import _Quadrant_, _CCD_, _FocalPlane_
-from .tools import rebin_arr, parse_vmin_vmax
+from .tools import rebin_arr, parse_vmin_vmax, rcid_to_ccdid_qid, ccdid_qid_to_rcid
 from .astrometry import WCSHolder
 
 class ScienceQuadrant( _Quadrant_, WCSHolder ):
@@ -890,6 +890,14 @@ class ScienceCCD( _CCD_ ):
         return cls(scimg, qids, use_dask=use_dask)
     
 
+    @classmethod
+    def from_filenames(cls, filenames, qids=[1,2,3,4], use_dask=True,
+                           persist=True, qudrantprop={}, **kwargs):
+        """ """
+        scimg = [ScienceQuadrant.from_filename(file_, use_dask=use_dask, persist=persist, **qudrantprop)
+                     for file_ in filenames]
+        return cls(scimg, qids, use_dask=use_dask, **kwargs)
+    
     # =============== #
     #  Properties     #
     # =============== #
@@ -916,6 +924,35 @@ class ScienceCCD( _CCD_ ):
     
 class ScienceFocalPlane( _FocalPlane_ ):
     """ """
+
+    @classmethod
+    def from_filenames(cls, filenames, rcids=None, use_dask=True,
+                           persist=True, **kwargs):
+        """ 
+        rcids: [list or None]
+            if None: rcids = np.arange(0,64)
+
+        """
+        if rcids is None:
+            rcids = np.arange(0,64)
+
+
+        data = pandas.DataFrame({"path":filenames, "rcid":rcids})
+        #Get the qid and ccdid associated to the rcid
+        data = data.merge(pandas.DataFrame(data["rcid"].apply(rcid_to_ccdid_qid).tolist(),
+                                            columns=["ccdid","qid"]),
+                              left_index=True, right_index=True)
+        # Get the ccdid list sorted by qid 1->4
+        ccdidlist = data.sort_values("qid").groupby("ccdid")["path"].apply(list)
+        
+        
+
+            
+        ccds = [ScienceCCD.from_filenames(qfiles, qids=[1,2,3,4], use_dask=use_dask, persist=persist, **kwargs)
+                     for qfiles in ccdidlist.values]
+        return cls(ccds, np.asarray(ccdidlist.index, dtype="int"),
+                       use_dask=use_dask)
+
     
     @classmethod
     def from_single_filename(cls, filename, use_dask=True, persist=True, **kwargs):
