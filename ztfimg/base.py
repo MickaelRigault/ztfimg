@@ -229,7 +229,7 @@ class _Quadrant_( _Image_ ):
             header = fits.getheader(filename)
 
         # self
-        this = cls(data=data, mask=mask, header=header, use_dask=use_dask, meta=meta)
+        this = cls(data=data, header=header, use_dask=use_dask)
         this._filename = filename
         return this
 
