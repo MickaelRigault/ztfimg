@@ -193,7 +193,7 @@ class _Image_( object ):
 class _Quadrant_( _Image_ ):
     SHAPE = 3080, 3072
 
-    def __init__(self, data=None, header=None, use_dask=True, meta=None):
+    def __init__(self, data=None, header=None, use_dask=True):
         """ """
         _ = super().__init__(use_dask=use_dask)
         if data is not None:
@@ -201,8 +201,6 @@ class _Quadrant_( _Image_ ):
             
         if header is not None:
             self.set_header(header)
-            
-        self._meta = meta
 
     
     @classmethod
@@ -231,7 +229,6 @@ class _Quadrant_( _Image_ ):
             header = fits.getheader(filename)
 
         # self
-        meta = io.parse_filename(filename)
         this = cls(data=data, mask=mask, header=header, use_dask=use_dask, meta=meta)
         this._filename = filename
         return this

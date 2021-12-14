@@ -20,10 +20,12 @@ class ScienceQuadrant( _Quadrant_, WCSHolder ):
             
     def __init__(self, data=None, mask=None, header=None, use_dask=True, meta=None):
         """ """
-        _ = super().__init__(data=None, header=None, meta=meta, use_dask=use_dask)
+        _ = super().__init__(data=data, header=header, use_dask=use_dask)
         
         if mask is not None:
             self.set_mask(mask)
+
+        self._meta = meta
     
     @classmethod
     def from_filename(cls, filename, filenamemask=None, download=True,
