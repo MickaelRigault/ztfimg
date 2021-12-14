@@ -20,17 +20,10 @@ class ScienceQuadrant( _Quadrant_, WCSHolder ):
             
     def __init__(self, data=None, mask=None, header=None, use_dask=True, meta=None):
         """ """
-        _ = super().__init__(use_dask=use_dask)
-        if data is not None:
-            self.set_data(data)
-            
+        _ = super().__init__(data=None, header=None, meta=meta, use_dask=use_dask)
+        
         if mask is not None:
             self.set_mask(mask)
-            
-        if header is not None:
-            self.set_header(header)
-            
-        self._meta = meta
     
     @classmethod
     def from_filename(cls, filename, filenamemask=None, download=True,
@@ -801,7 +794,6 @@ class ScienceQuadrant( _Quadrant_, WCSHolder ):
             cat = cat[cat["x"].between(+pixelbuffer, ymax-pixelbuffer) & \
                       cat["y"].between(+pixelbuffer, xmax-pixelbuffer)]
         return cat
-
     
     # =============== #
     #  Properties     #
@@ -878,25 +870,7 @@ class ScienceQuadrant( _Quadrant_, WCSHolder ):
         
 class ScienceCCD( _CCD_ ):
     SHAPE = 3080*2, 3072*2
-
-    @classmethod
-    def from_single_filename(cls, filename, use_dask=True, persist=True, **kwargs):
-        """ """
-        import re
-        qids = range(1,5)
-        scimg = [ScienceQuadrant.from_filename(re.sub(r"_o_q[1-5]*",f"_o_q{i}", filename),
-                                                   use_dask=use_dask, persist=persist)
-                     for i in qids]
-        return cls(scimg, qids, use_dask=use_dask)
-    
-
-    @classmethod
-    def from_filenames(cls, filenames, qids=[1,2,3,4], use_dask=True,
-                           persist=True, qudrantprop={}, **kwargs):
-        """ """
-        scimg = [ScienceQuadrant.from_filename(file_, use_dask=use_dask, persist=persist, **qudrantprop)
-                     for file_ in filenames]
-        return cls(scimg, qids, use_dask=use_dask, **kwargs)
+    _QUADRANTCLASS = ScienceQuadrant
     
     # =============== #
     #  Properties     #
@@ -924,45 +898,8 @@ class ScienceCCD( _CCD_ ):
     
 class ScienceFocalPlane( _FocalPlane_ ):
     """ """
-
-    @classmethod
-    def from_filenames(cls, filenames, rcids=None, use_dask=True,
-                           persist=True, **kwargs):
-        """ 
-        rcids: [list or None]
-            if None: rcids = np.arange(0,64)
-
-        """
-        if rcids is None:
-            rcids = np.arange(0,64)
-
-
-        data = pandas.DataFrame({"path":filenames, "rcid":rcids})
-        #Get the qid and ccdid associated to the rcid
-        data = data.merge(pandas.DataFrame(data["rcid"].apply(rcid_to_ccdid_qid).tolist(),
-                                            columns=["ccdid","qid"]),
-                              left_index=True, right_index=True)
-        # Get the ccdid list sorted by qid 1->4
-        ccdidlist = data.sort_values("qid").groupby("ccdid")["path"].apply(list)
-        
-        
-
-            
-        ccds = [ScienceCCD.from_filenames(qfiles, qids=[1,2,3,4], use_dask=use_dask, persist=persist, **kwargs)
-                     for qfiles in ccdidlist.values]
-        return cls(ccds, np.asarray(ccdidlist.index, dtype="int"),
-                       use_dask=use_dask)
-
+    _CCDCLASS = ScienceCCD
     
-    @classmethod
-    def from_single_filename(cls, filename, use_dask=True, persist=True, **kwargs):
-        """ """
-        import re        
-        ccdids = range(1,17)
-        ccds = [ScienceCCD.from_single_filename(re.sub("_c(\d\d)_*",f"_c{i:02d}_",filename),
-                                                    use_dask=use_dask, persist=persist, **kwargs)
-                     for i in ccdids]
-        return cls(ccds, ccdids, use_dask=use_dask)
 
     def get_files(self, client, suffix=["sciimg.fits","mskimg.fits"], as_dask="futures"):
         """ """

@@ -193,6 +193,54 @@ class _Image_( object ):
 class _Quadrant_( _Image_ ):
     SHAPE = 3080, 3072
 
+    def __init__(self, data=None, header=None, use_dask=True, meta=None):
+        """ """
+        _ = super().__init__(use_dask=use_dask)
+        if data is not None:
+            self.set_data(data)
+            
+        if header is not None:
+            self.set_header(header)
+            
+        self._meta = meta
+
+    
+    @classmethod
+    def from_filename(cls, filename, use_dask=True, persist=True, **kwargs):
+        """ 
+        Parameters
+        ----------
+        download: [bool] -optional-
+             Downloads the maskfile if necessary.
+
+        **kwargs goes to ztfquery.io.get_file()
+        """
+        from astropy.io import fits
+        
+        if use_dask:
+            # - Data            
+            data   = da.from_delayed( dask.delayed(fits.getdata)(filename),
+                                            shape=cls.SHAPE, dtype="float")
+            header = dask.delayed(fits.getheader)(filename)
+            if persist:
+                data = data.persist()
+                header = header.persist()
+                
+        else:
+            data   = fits.getdata(filename)
+            header = fits.getheader(filename)
+
+        # self
+        meta = io.parse_filename(filename)
+        this = cls(data=data, mask=mask, header=header, use_dask=use_dask, meta=meta)
+        this._filename = filename
+        return this
+
+
+    
+        
+        
+
     def get_aperture(self, x0, y0, radius,
                          bkgann=None, subpix=0, 
                          use_dask=None, dataprop={},
@@ -318,6 +366,7 @@ class _Quadrant_( _Image_ ):
 class _CCD_( _Image_ ):
     # Basically a Quadrant collection
     SHAPE = 3080*2, 3072*2
+    _QUADRANTCLASS = _Quadrant_
 
     def __init__(self, quadrants=None, qids=None, use_dask=True, **kwargs):
         """ """
@@ -330,7 +379,31 @@ class _CCD_( _Image_ ):
             
             [self.set_quadrant(quad_, qid=qid, **kwargs)
                  for quad_, qid in zip(quadrants, qids)]
+            
+    # =============== #
+    #  I/O            #
+    # =============== #
+    @classmethod
+    def from_single_filename(cls, filename, use_dask=True, persist=True, **kwargs):
+        """ """
+        import re
+        qids = range(1,5)
+        scimg = [cls._QUADRANTCLASS.from_filename(re.sub(r"_o_q[1-5]*",f"_o_q{i}", filename),
+                                                   use_dask=use_dask, persist=persist)
+                     for i in qids]
+        return cls(scimg, qids, use_dask=use_dask)
+    
 
+    @classmethod
+    def from_filenames(cls, filenames, qids=[1,2,3,4], use_dask=True,
+                           persist=True, qudrantprop={}, **kwargs):
+        """ """
+        scimg = [cls._QUADRANTCLASS.from_filename(file_, use_dask=use_dask, persist=persist, **qudrantprop)
+                     for file_ in filenames]
+        return cls(scimg, qids, use_dask=use_dask, **kwargs)
+    
+
+            
     def load_data(self, **kwargs):
         """  **kwargs goes to self.get_data() """
         self._data = self.get_data(**kwargs)
@@ -453,9 +526,9 @@ class _CCD_( _Image_ ):
 #  Focal Plane   #
 #                #
 # -------------- #
-
 class _FocalPlane_( _Image_):
-
+    _CCDCLASS = _CCD_
+    
     # Basically a CCD collection
     def __init__(self, ccds=None, ccdids=None, use_dask=True, **kwargs):
         """ """
@@ -470,6 +543,51 @@ class _FocalPlane_( _Image_):
             [self.set_ccd(ccd_, ccdid=ccdid_, **kwargs)
                  for ccd_, ccdid_ in zip(ccds, ccdids)]
 
+    # =============== #
+    #  I/O            #
+    # =============== #
+    @classmethod
+    def from_filenames(cls, filenames, rcids=None, use_dask=True,
+                           persist=True, **kwargs):
+        """ 
+        rcids: [list or None]
+            if None: rcids = np.arange(0,64)
+
+        """
+        if rcids is None:
+            rcids = np.arange(0,64)
+
+
+        data = pandas.DataFrame({"path":filenames, "rcid":rcids})
+        #Get the qid and ccdid associated to the rcid
+        data = data.merge(pandas.DataFrame(data["rcid"].apply(rcid_to_ccdid_qid).tolist(),
+                                            columns=["ccdid","qid"]),
+                              left_index=True, right_index=True)
+        # Get the ccdid list sorted by qid 1->4
+        ccdidlist = data.sort_values("qid").groupby("ccdid")["path"].apply(list)
+        
+        
+
+            
+        ccds = [cls._CCDCLASS.from_filenames(qfiles, qids=[1,2,3,4], use_dask=use_dask, persist=persist, **kwargs)
+                     for qfiles in ccdidlist.values]
+        return cls(ccds, np.asarray(ccdidlist.index, dtype="int"),
+                       use_dask=use_dask)
+
+    
+    @classmethod
+    def from_single_filename(cls, filename, use_dask=True, persist=True, **kwargs):
+        """ """
+        import re        
+        ccdids = range(1,17)
+        ccds = [self._CCDCLASS.from_single_filename(re.sub("_c(\d\d)_*",f"_c{i:02d}_",filename),
+                                                    use_dask=use_dask, persist=persist, **kwargs)
+                     for i in ccdids]
+        return cls(ccds, ccdids, use_dask=use_dask)
+    
+    # =============== #
+    #   Methods       #
+    # =============== #
     def set_ccd(self, rawccd, ccdid=None):
         """ """
         if ccdid is None:
