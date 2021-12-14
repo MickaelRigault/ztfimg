@@ -8,7 +8,7 @@ import warnings
 
 import numpy as np
 from .science import ScienceQuadrant
-from .base import _Quadrant_, _CCD_
+from .base import Quadrant, CCD
 
 
 # -------------- #
@@ -36,7 +36,7 @@ def _headers_to_headerdf_(headers, persist=False):
 
 class ImageCollection( object ):
 
-    QUADRANT_SHAPE = _Quadrant_.SHAPE
+    QUADRANT_SHAPE = Quadrant.SHAPE
     
     def __init__(self, images, use_dask=True, **kwargs):
         """ """
@@ -226,12 +226,12 @@ class ImageCollection( object ):
 
     
 class QuadrantCollection( ImageCollection ):
-    SHAPE = _Quadrant_.SHAPE
+    SHAPE = Quadrant.SHAPE
 
 
 class CCDCollection( ImageCollection ):
-    QUADRANT_SHAPE = _Quadrant_.SHAPE
-    SHAPE = _CCD_.SHAPE
+    QUADRANT_SHAPE = Quadrant.SHAPE
+    SHAPE = CCD.SHAPE
 
 
 

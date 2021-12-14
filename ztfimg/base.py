@@ -190,7 +190,7 @@ class _Image_( object ):
 #                #
 # -------------- #
 
-class _Quadrant_( _Image_ ):
+class Quadrant( _Image_ ):
     SHAPE = 3080, 3072
 
     def __init__(self, data=None, header=None, use_dask=True):
@@ -360,10 +360,10 @@ class _Quadrant_( _Image_ ):
 #     CCD        #
 #                #
 # -------------- #
-class _CCD_( _Image_ ):
+class CCD( _Image_ ):
     # Basically a Quadrant collection
     SHAPE = 3080*2, 3072*2
-    _QUADRANTCLASS = _Quadrant_
+    _QUADRANTCLASS = Quadrant
 
     def __init__(self, quadrants=None, qids=None, use_dask=True, **kwargs):
         """ """
@@ -523,8 +523,8 @@ class _CCD_( _Image_ ):
 #  Focal Plane   #
 #                #
 # -------------- #
-class _FocalPlane_( _Image_):
-    _CCDCLASS = _CCD_
+class FocalPlane( _Image_):
+    _CCDCLASS = CCD
     
     # Basically a CCD collection
     def __init__(self, ccds=None, ccdids=None, use_dask=True, **kwargs):
@@ -617,12 +617,12 @@ class _FocalPlane_( _Image_):
         """ 
         horizontal (or row) = between rows
         """
-        # recall: _CCD_.SHAPE 3080*2, 3072*2
+        # recall: CCD.SHAPE 3080*2, 3072*2
         if which in ["horizontal", "row", "rows"]:
             hpixels = 672
-            vpixels = _CCD_.SHAPE[1]
+            vpixels = CCD.SHAPE[1]
         else:
-            hpixels = _CCD_.SHAPE[0]
+            hpixels = CCD.SHAPE[0]
             vpixels = 488
 
         if rebin is not None:

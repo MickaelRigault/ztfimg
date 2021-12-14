@@ -9,13 +9,13 @@ import dask.array as da
 from ztfquery import io
         
 from .tools import fit_polynome, rebin_arr, parse_vmin_vmax
-from .base import _Quadrant_, _CCD_, _FocalPlane_, Delayed
+from .base import Quadrant, CCD, FocalPlane, Delayed
 from .io import get_nonlinearity_table
 from .collection import CCDCollection
 
 NONLINEARITY_TABLE= get_nonlinearity_table()
 
-class RawQuadrant( _Quadrant_ ):
+class RawQuadrant( Quadrant ):
 
     SHAPE_OVERSCAN = 3080, 30
     def __init__(self, data=None, header=None, overscan=None, use_dask=True):
@@ -348,8 +348,9 @@ class RawQuadrant( _Quadrant_ ):
         return self.get_headerkey("READNOI", None)
         
         
-class RawCCD( _CCD_ ):
-
+class RawCCD( CCD ):
+    _QUADRANTCLASS = RawQuadrant
+    
     def __init__(self, filename=None, use_dask=True, **kwargs):
         """ """
         _ = super().__init__(use_dask=use_dask)
@@ -428,18 +429,19 @@ class RawCCD( _CCD_ ):
         return self.get_headerkey("FILENAME", None)
     
     
-class RawFocalPlane( _FocalPlane_ ):
+class RawFocalPlane( FocalPlane ):
     # INFORMATION || Numbers to be fine tuned from actual observations
     # 15 µm/arcsec  (ie 1 arcsec/pixel) and using 
     # 7.2973 mm = 487 pixel gap along rows (ie between columns) 
     # and 671 pixels along columns.
+    _CCDCLASS = RawCCD
     
     @classmethod
     def from_filenames(cls, ccd_filenames, use_dask=True, **kwargs):
         """ """
         this = cls(use_dask=use_dask)
         for file_ in ccd_filenames:
-            ccd_ = RawCCD.from_filename(file_, use_dask=use_dask, **kwargs)
+            ccd_ = cls._CCDCLASS.from_filename(file_, use_dask=use_dask, **kwargs)
             this.set_ccd(ccd_, ccdid=ccd_.ccdid)
 
         this._filenames = ccd_filenames
