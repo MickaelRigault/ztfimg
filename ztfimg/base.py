@@ -577,7 +577,7 @@ class FocalPlane( _Image_):
         """ """
         import re        
         ccdids = range(1,17)
-        ccds = [self._CCDCLASS.from_single_filename(re.sub("_c(\d\d)_*",f"_c{i:02d}_",filename),
+        ccds = [cls._CCDCLASS.from_single_filename(re.sub("_c(\d\d)_*",f"_c{i:02d}_",filename),
                                                     use_dask=use_dask, persist=persist, **kwargs)
                      for i in ccdids]
         return cls(ccds, ccdids, use_dask=use_dask)

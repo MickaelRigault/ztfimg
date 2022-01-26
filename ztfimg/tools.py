@@ -40,38 +40,6 @@ def fit_polynome(x, y, degree, variance=None):
     param = fmin(get_chi2, guess, disp=0)
     return get_model(param)
 
-def parse_vmin_vmax(data, vmin, vmax):
-    """ Parse the input vmin vmax given the data.\n    
-    If float or int given, this does nothing \n
-    If string given, this computes the corresponding percentile of the data.\n
-    e.g. parse_vmin_vmax(data, 40, '90')\n
-    -> the input vmin is not a string, so it is returned as such\n
-    -> the input vmax is a string, so the returned vmax corresponds to the 
-       90-th percent value of data.
-
-    Parameters
-    ----------
-    data: array     
-        data (float array)
-
-    vmin,vmax: string or float/int
-        If string, the corresponding percentile is computed\n
-        Otherwise, nothing happends.
-
-    Returns
-    -------
-    float, float
-    """
-    if vmax is None: vmax="99"
-    if vmin is None: vmin = "1"
-                
-    if type(vmax) == str:
-        vmax=np.nanpercentile(data, float(vmax))
-        
-    if type(vmin) == str:
-        vmin=np.nanpercentile(data, float(vmin))
-        
-    return vmin, vmax
 
 def rebin_arr(arr, bins, use_dask=False):
     ccd_bins = arr.ravel().reshape( int(arr.shape[0]/bins[0]), 
