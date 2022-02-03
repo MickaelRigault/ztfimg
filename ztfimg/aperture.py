@@ -102,7 +102,8 @@ class AperturePhotometry( object ):
     
     def build_apcatalog(self, radius, calibrators="gaia", extra=["ps1","psfcat"], 
                         isolation=20, xykeys=["x","y"], seplimit=0.5, calkwargs={},
-                        whichdata="dataclean", dataprop={}, **kwargs):
+                        whichdata="dataclean", dataprop={},
+                        contact=True, **kwargs):
         """ 
         calkwargs goes to get_catalog()
         kwargs goes to getcat_aperture()
@@ -110,7 +111,9 @@ class AperturePhotometry( object ):
         cats = self.images.get_catalog(calibrators=calibrators, extra=extra,
                                        isolation=isolation, seplimit=seplimit, **calkwargs)
         return self.getcat_aperture(cats, radius=radius,
-                                    xykeys=["x","y"], whichdata=whichdata, dataprop=dataprop,
+                                    xykeys=["x","y"],
+                                    whichdata=whichdata, dataprop=dataprop,
+                                    contact=contact
                                    **kwargs)
     
     # =============== #
