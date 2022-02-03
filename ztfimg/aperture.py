@@ -86,11 +86,15 @@ class AperturePhotometry( object ):
                                             **kwargs)
 
     def getcat_aperture(self, catalogs, radius, xykeys=["x","y"], system="xy",
-                            whichdata="dataclean", dataprop={}, **kwargs):
+                            whichdata="dataclean", dataprop={},
+                            contact=True, **kwargs):
         """ """
         dataprop = {**dict(which=whichdata), **dataprop}        
         apcat = self.images.map_down("getcat_aperture", catalogs, radius, xykeys=xykeys,
                                          dataprop=dataprop, **kwargs)
+        if not contact:
+            return apcat
+        
         if self._use_dask:
             return dask.delayed(pandas.concat)(apcat, keys=self.basenames)
         
