@@ -87,12 +87,12 @@ class AperturePhotometry( object ):
 
     def getcat_aperture(self, catalogs, radius, xykeys=["x","y"], system="xy",
                             whichdata="dataclean", dataprop={},
-                            contact=True, **kwargs):
+                            contat=True, **kwargs):
         """ """
         dataprop = {**dict(which=whichdata), **dataprop}        
         apcat = self.images.map_down("getcat_aperture", catalogs, radius, xykeys=xykeys,
                                          dataprop=dataprop, **kwargs)
-        if not contact:
+        if not contat:
             return apcat
         
         if self._use_dask:
@@ -103,7 +103,7 @@ class AperturePhotometry( object ):
     def build_apcatalog(self, radius, calibrators="gaia", extra=["ps1","psfcat"], 
                         isolation=20, xykeys=["x","y"], seplimit=0.5, calkwargs={},
                         whichdata="dataclean", dataprop={},
-                        contact=True, **kwargs):
+                        contat=True, **kwargs):
         """ 
         calkwargs goes to get_catalog()
         kwargs goes to getcat_aperture()
@@ -113,7 +113,7 @@ class AperturePhotometry( object ):
         return self.getcat_aperture(cats, radius=radius,
                                     xykeys=["x","y"],
                                     whichdata=whichdata, dataprop=dataprop,
-                                    contact=contact
+                                    contat=contat
                                    **kwargs)
     
     # =============== #
