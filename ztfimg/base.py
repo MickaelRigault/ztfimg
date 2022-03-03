@@ -233,11 +233,6 @@ class Quadrant( _Image_ ):
         this._filename = filename
         return this
 
-
-    
-        
-        
-
     def get_aperture(self, x0, y0, radius,
                          bkgann=None, subpix=0, 
                          use_dask=None, dataprop={},
@@ -364,7 +359,8 @@ class CCD( _Image_ ):
     # Basically a Quadrant collection
     SHAPE = 3080*2, 3072*2
     _QUADRANTCLASS = Quadrant
-
+    _POS_INVERTED = False
+    
     def __init__(self, quadrants=None, qids=None, use_dask=True, **kwargs):
         """ """
         _ = super().__init__(use_dask=use_dask)
@@ -444,9 +440,14 @@ class CCD( _Image_ ):
 
         # numpy or dask.array ?
         npda = da if self._use_dask else np 
-        
-        ccd_up   = npda.concatenate([d[1],d[0]], axis=1)
-        ccd_down = npda.concatenate([d[2],d[3]], axis=1)
+
+        if not self._POS_INVERTED:
+            ccd_up   = npda.concatenate([d[1],d[0]], axis=1)
+            ccd_down = npda.concatenate([d[2],d[3]], axis=1)
+        else:
+            ccd_up   = npda.concatenate([d[3],d[2]], axis=1)
+            ccd_down = npda.concatenate([d[0],d[1]], axis=1)
+
         ccd = npda.concatenate([ccd_down,ccd_up], axis=0)
         if rebin_ccd is not None:
             ccd = getattr(npda,npstat)( rebin_arr(ccd, (rebin_ccd, rebin_ccd), use_dask=self._use_dask),
