@@ -874,7 +874,33 @@ class ScienceQuadrant( Quadrant, WCSHolder ):
 class ScienceCCD( CCD ):
     SHAPE = 3080*2, 3072*2
     _QUADRANTCLASS = ScienceQuadrant
-    
+
+
+    def get_data(self, rebin=None, npstat="mean", rebin_ccd=None, persist=False,
+                     **kwargs):
+        """ ccd data 
+        
+        rebin, rebin_ccd: [None, int]
+            rebinning (based on restride) the data. 
+            rebin affect the individual quadrants, while rebin_ccd affect the ccd. 
+            then, rebin_ccd applies after rebin.
+        """
+        d = [self.get_quadrant(i).get_data(rebin=rebin, **kwargs) for i in [1,2,3,4]]
+
+        # numpy or dask.array ?
+        npda = da if self._use_dask else np 
+        
+        ccd_up = npda.concatenate([d[3],d[2]], axis=1)
+        ccd_down   = npda.concatenate([d[0],d[1]], axis=1)
+
+        ccd = npda.concatenate([ccd_down,ccd_up], axis=0)
+        if rebin_ccd is not None:
+            ccd = getattr(npda,npstat)( rebin_arr(ccd, (rebin_ccd, rebin_ccd), use_dask=self._use_dask),
+                                              axis=(-2,-1))
+        if self._use_dask and persist:
+            return ccd.persist()
+        
+        return ccd
     # =============== #
     #  Properties     #
     # =============== #
