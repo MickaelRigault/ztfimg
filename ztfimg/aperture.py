@@ -113,7 +113,7 @@ class AperturePhotometry( object ):
         return self.getcat_aperture(cats, radius=radius,
                                     xykeys=["x","y"],
                                     whichdata=whichdata, dataprop=dataprop,
-                                    contat=contat
+                                    contat=contat,
                                    **kwargs)
     
     # =============== #
