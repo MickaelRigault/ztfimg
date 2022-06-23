@@ -471,7 +471,7 @@ class ScienceQuadrant(Quadrant, WCSHolder):
             mask = self.get_mask(**maskprop)
 
         if imgdata is None:
-            imgdata = self.get_data({**{"which": which}, **dataprop})
+            imgdata = self.get_data(**{**{"which": which}, **dataprop})
 
         # calling back base.get_aperture()
         return super().get_aperture(x0, y0, radius,
