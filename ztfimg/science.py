@@ -175,7 +175,7 @@ class ScienceQuadrant(Quadrant, WCSHolder):
         if which == "data":
             data_ = self.data.copy()
 
-        elif which in ["clean", "dataclean"]:
+        elif which in ["clean", "dataclean", "cleandata"]:
             data_ = self.get_dataclean()
 
         elif which == "clean_sourcemasked":
@@ -199,7 +199,7 @@ class ScienceQuadrant(Quadrant, WCSHolder):
 
         elif which is not None:
             raise ValueError(
-                "Only which= clean, clean_sourmasked or sourcemask implemented")
+                f"Only which= clean, clean_sourmasked or sourcemask implemented ; {which} given")
         else:
             data_ = self.data.copy()
 
