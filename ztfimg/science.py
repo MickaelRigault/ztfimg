@@ -396,13 +396,15 @@ class ScienceQuadrant(Quadrant, WCSHolder):
 
         return self._source_background
 
-    def get_aperture(self, x0, y0, radius, bkgann=None, subpix=0,
+    def get_aperture(self, x0, y0, radius,
+                     imgdata=None,
+                     bkgann=None, subpix=0,
                      system="xy",
                      which="dataclean",
-                     use_dask=None, dataprop={},
+                     dataprop={},
                      mask=None, maskprop={},
                      err=None, noiseprop={},
-                     asdataframe=False,
+                     as_dataframe=False,
                      **kwargs):
         """
 
@@ -441,7 +443,7 @@ class ScienceQuadrant(Quadrant, WCSHolder):
             options entering self.get_mask() and self.get_noise() for `mask` and `err`
             attribute of the sep.sum_circle function.
 
-        asdataframe: [bool]
+        as_dataframe: [bool]
             return format.
             If As DataFrame, this will be a dataframe with
             3xn-radius columns (f_0...f_i, f_0_e..f_i_e, f_0_f...f_i_f)
@@ -468,12 +470,16 @@ class ScienceQuadrant(Quadrant, WCSHolder):
         if mask is None:
             mask = self.get_mask(**maskprop)
 
+        if imgdata is None:
+            imgdata = self.get_data({**{"which": which}, **dataprop})
+
         # calling back base.get_aperture()
-        return super().get_aperture(x0, y0, radius, err=err,
+        return super().get_aperture(x0, y0, radius,
+                                    imgdata=imgdata,
+                                    err=err,
                                     bkgann=bkgann, subpix=subpix,
-                                    use_dask=use_dask, dataprop={
-                                        **{"which": which}, **dataprop},
-                                    asdataframe=asdataframe, **kwargs)
+                                    as_dataframe=as_dataframe,
+                                    **kwargs)
     # -------- #
     # CATALOGS #
     # -------- #

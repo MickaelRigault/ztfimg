@@ -292,7 +292,6 @@ class Quadrant(_Image_):
             imgdata = self.get_data(**dataprop)
             
         return self._get_aperture(imgdata, x0, y0, radius,
-                                  imgdata=imgdata,
                                   bkgann=bkgann, subpix=subpix,
                                   err=err, mask=mask,
                                   as_dataframe=as_dataframe,
