@@ -366,13 +366,16 @@ class Quadrant(_Image_):
             
         return self._getcat_aperture(catdf, imgdata, radius,
                                      xykeys=["x", "y"],
-                                     join=True, **kwargs)
+                                     join=join, **kwargs)
 
     @classmethod
     def _getcat_aperture(cls, catdf, imgdata, radius,
                          xykeys=["x", "y"],
-                         join=True,   **kwargs):
+                         join=True, **kwargs):
         """ """
+        if join:
+            kwargs["as_dataframe"] = True
+            
         x, y = catdf[xykeys].values.T
         fdata = cls._get_aperture(imgdata, x, y, radius,
                                   **kwargs)
