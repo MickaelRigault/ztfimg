@@ -235,10 +235,11 @@ class Quadrant(_Image_):
         return this
 
     def get_aperture(self, x0, y0, radius,
+                     imgdata=None,
                      bkgann=None, subpix=0,
-                     use_dask=None, dataprop={},
                      err=None, mask=None,
-                     asdataframe=False,
+                     as_dataframe=False,
+                     dataprop={},                     
                      **kwargs):
         """ Get the Apeture photometry corrected from the background annulus if any.
 
@@ -256,12 +257,6 @@ class Quadrant(_Image_):
 
         subpix: [int] -optional-
             Subpixel sampling factor. If 0, exact overlap is calculated. 5 is acceptable.
-
-        system: [string] -optional-
-            In which system are the input x0, y0:
-            - xy (ccd )
-            - radec (in deg, sky)
-            - uv (focalplane)
 
         data: [string] -optional-
             the aperture will be applied on self.`data`
@@ -281,7 +276,7 @@ class Quadrant(_Image_):
             options entering self.get_mask() and self.get_noise() for `mask` and `err`
             attribute of the sep.sum_circle function.
 
-        asdataframe: [bool]
+        as_dataframe: [bool]
             return format.
             If As DataFrame, this will be a dataframe with
             3xn-radius columns (f_0...f_i, f_0_e..f_i_e, f_0_f...f_i_f)
@@ -293,16 +288,39 @@ class Quadrant(_Image_):
         2D array (see unit: (counts, dcounts) | (flux, dflux) | (mag, dmag))
            + flag (see get_flag option)
         """
+        if imgdata is None:
+            imgdata = self.get_data(**dataprop)
+            
+        return self._get_aperture(imgdata, x0, y0, radius,
+                                  imgdata=imgdata,
+                                  bkgann=bkgann, subpix=subpix,
+                                  err=err, mask=mask,
+                                  as_dataframe=as_dataframe,
+                                  **kwargs)
+
+                                 
+
+
+    @staticmethod
+    def _get_aperture(imgdata,
+                     x0, y0, radius,
+                     bkgann=None, subpix=0,
+                     use_dask=None,
+                     dataprop={},
+                     err=None, mask=None,
+                     as_dataframe=False,
+                     **kwargs):
+        """ """
         from .tools import get_aperture
 
         if use_dask is None:
-            use_dask = self._use_dask
+            use_dask = type(data) in [DaskArray, Delayed]
 
-        apdata = get_aperture(self.get_data(**dataprop),
+        apdata = get_aperture(imgdata,
                               x0, y0, radius=radius,
                               err=err, mask=mask, bkgann=bkgann,
                               use_dask=use_dask, **kwargs)
-        if not asdataframe:
+        if not as_dataframe:
             return apdata
 
         # Generic form works for dask and np arrays
@@ -318,8 +336,10 @@ class Quadrant(_Image_):
                                       columns=dic.keys())
 
         return pandas.DataFrame(dic)
-
-    def getcat_aperture(self, catdf, radius, xykeys=["x", "y"], join=True, system="xy",
+                
+    
+    def getcat_aperture(self, catdf, radius, imgdata=None,
+                        xykeys=["x", "y"], join=True,
                         dataprop={}, **kwargs):
         """ measures the aperture (using get_aperture) using a catalog dataframe as input
 
@@ -342,16 +362,27 @@ class Quadrant(_Image_):
         -------
         DataFrame
         """
+        if imgdata is None:
+            imgdata = self.get_data(**dataprop)
+            
+        return self._getcat_aperture(catdf, imgdata, radius,
+                                     xykeys=["x", "y"],
+                                     join=True, **kwargs)
+
+    @classmethod
+    def _getcat_aperture(cls, catdf, imgdata, radius,
+                         xykeys=["x", "y"],
+                         join=True,   **kwargs):
+        """ """
         x, y = catdf[xykeys].values.T
-        fdata = self.get_aperture(x, y, np.atleast_1d(radius)[:, None],
-                                  system=system, asdataframe=True,
-                                  dataprop=dataprop, **kwargs)
+        fdata = cls._get_aperture(imgdata, x, y, radius,
+                                  **kwargs):
         if join:
             # the index and drop is because dask.DataFrame do not behave as pandas.DataFrame
             return catdf.reset_index().join(fdata)
 
         return fdata
-
+    
 # -------------- #
 #                #
 #     CCD        #
