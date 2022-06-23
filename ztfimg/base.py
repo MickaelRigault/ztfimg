@@ -313,7 +313,7 @@ class Quadrant(_Image_):
         from .tools import get_aperture
 
         if use_dask is None:
-            use_dask = type(data) in [DaskArray, Delayed]
+            use_dask = type(imgdata) in [DaskArray, Delayed]
 
         apdata = get_aperture(imgdata,
                               x0, y0, radius=radius,
