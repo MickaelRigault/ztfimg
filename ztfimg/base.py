@@ -92,8 +92,9 @@ class _Image_(object):
     # PLOTTER  #
     # -------- #
     def show(self, ax=None, colorbar=True, cax=None, apply=None,
-             vmin="1", vmax="99", dataprop={}, savefile=None,
-             dpi=150, rebin=None, **kwargs):
+                 imgdata=None,
+                 vmin="1", vmax="99", dataprop={}, savefile=None,
+                 dpi=150, rebin=None, **kwargs):
         """ """
         import matplotlib.pyplot as mpl
 
@@ -103,17 +104,18 @@ class _Image_(object):
         else:
             fig = ax.figure
 
-        data = self.get_data(rebin=rebin, **dataprop)
-        if type(data) in [DaskArray, Delayed]:
-            data = data.compute()
+        if imgdata is None:
+            imgdata = self.get_data(rebin=rebin, **dataprop)
+        if type(imgdata) in [DaskArray, Delayed]:
+            imgdata = imgdata.compute()
 
         if apply is not None:
-            data = getattr(np, apply)(data)
+            imgdata = getattr(np, apply)(imgdata)
 
-        vmin, vmax = parse_vmin_vmax(data, vmin, vmax)
+        vmin, vmax = parse_vmin_vmax(imgdata, vmin, vmax)
         prop = dict(origin="lower", cmap="cividis", vmin=vmin, vmax=vmax)
 
-        im = ax.imshow(data, **{**prop, **kwargs})
+        im = ax.imshow(imgdata, **{**prop, **kwargs})
         if colorbar:
             fig.colorbar(im, cax=cax, ax=ax)
 
@@ -496,6 +498,7 @@ class CCD(_Image_):
     #   PLOTTER   #
     # ----------- #
     def show(self, ax=None, vmin="1", vmax="99", colorbar=False, cax=None,
+                 imgdata=None,
              rebin=None, dataprop={}, savefile=None,
              dpi=150, **kwargs):
         """ """
@@ -506,16 +509,18 @@ class CCD(_Image_):
         else:
             fig = ax.figure
 
-        data = self.get_data(rebin=rebin, **dataprop)
-        if type(data) in [DaskArray, Delayed]:
-            data = data.compute()
+        if imgdata is None:
+            imgdata = self.get_data(rebin=rebin, **dataprop)
+            
+        if type(imgdata) in [DaskArray, Delayed]:
+            imgdata = imgdata.compute()
 
-        vmin, vmax = parse_vmin_vmax(data, vmin, vmax)
+        vmin, vmax = parse_vmin_vmax(imgdata, vmin, vmax)
 
         prop = {**dict(origin="lower", cmap="cividis", vmin=vmin, vmax=vmax),
                 **kwargs}
 
-        im = ax.imshow(data, **prop)
+        im = ax.imshow(imgdata, **prop)
 
         if colorbar:
             fig.colorbar(im, cax=cax, ax=ax)
@@ -768,9 +773,10 @@ class FocalPlane(_Image_):
         return mosaic
 
     def show(self, ax=None, vmin="1", vmax="99", colorbar=False, cax=None,
-             rebin=None, incl_gap=True, dataprop={},
-             savefile=None, dpi=150,
-             **kwargs):
+                 imgdata=None,
+                 rebin=None, incl_gap=True, dataprop={},
+                 savefile=None, dpi=150,
+                 **kwargs):
         """ """
         import matplotlib.pyplot as mpl
         if ax is None:
@@ -779,17 +785,18 @@ class FocalPlane(_Image_):
         else:
             fig = ax.figure
 
-        data = self.get_data(
-            rebin=rebin, incl_gap=incl_gap, **dataprop).compute()
-        if type(data) in [DaskArray, Delayed]:
-            data = data.compute()
+        if imgdata is None:
+            imgdata = self.get_data(rebin=rebin, incl_gap=incl_gap, **dataprop)
+            
+        if type(imgdata) in [DaskArray, Delayed]:
+            imgdata = imgdata.compute()
 
-        vmin, vmax = parse_vmin_vmax(data, vmin, vmax)
+        vmin, vmax = parse_vmin_vmax(imgdata, vmin, vmax)
 
         prop = {**dict(origin="lower", cmap="cividis", vmin=vmin, vmax=vmax),
                 **kwargs}
 
-        im = ax.imshow(data, **prop)
+        im = ax.imshow(imgdata, **prop)
 
         if colorbar:
             fig.colorbar(im, cax=cax, ax=ax)
