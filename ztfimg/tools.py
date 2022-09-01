@@ -21,22 +21,24 @@ def rcid_to_ccdid_qid(rcid):
 def fit_polynome(x, y, degree, variance=None):
     """ """
     from scipy.optimize import fmin
-    from scipy.special import orthogonal
-    xdata = (x-np.min(x))/(np.max(x)-np.min(x))*2-1.
-    basemodel = np.asarray([orthogonal.legendre(i)(xdata) for i in range(degree)])
+    from scipy.special import legendre
+    
+    xdata = (x-np.nanmin(x))/(np.nanmax(x)-np.nanmin(x))*2-1.
+    basemodel = np.asarray([legendre(i)(xdata) for i in range(degree)])
     
     def get_model( parameters ):
         """ """
         return np.dot(basemodel.T, parameters.T).T
+    
     def get_chi2( parameters ):
         res = (y - get_model(parameters) )**2
         if variance is not None:
             res /= variance
             
-        return np.sum(res)
+        return np.nansum(res)
         
     guess = np.zeros(degree)
-    guess[0] = np.median(y)
+    guess[0] = np.nanmedian(y)
     param = fmin(get_chi2, guess, disp=0)
     return get_model(param)
 

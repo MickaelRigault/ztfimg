@@ -10,6 +10,8 @@ from dask.delayed import Delayed, DelayedAttr
 from .tools import rebin_arr, parse_vmin_vmax, ccdid_qid_to_rcid, rcid_to_ccdid_qid
 
 
+__all__ = ["Quadrant", "CCD", "FocalPlane"]
+
 class _Image_(object):
     SHAPE = None
     # Could be any type (raw, science)
@@ -234,8 +236,8 @@ class Quadrant(_Image_):
         # self
         this = cls(data=data, header=header, use_dask=use_dask)
         this._filename = filename
-        return this
-
+        return this        
+        
     def get_aperture(self, x0, y0, radius,
                      imgdata=None,
                      bkgann=None, subpix=0,

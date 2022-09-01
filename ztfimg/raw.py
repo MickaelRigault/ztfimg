@@ -1,6 +1,7 @@
 import os
 from astropy.io import fits
 import numpy as np
+from scipy import stats
 import pandas
 import warnings
 import dask
@@ -202,9 +203,9 @@ class RawQuadrant( Quadrant ):
         """
         return NONLINEARITY_TABLE.loc[self.rcid][["a","b"]].astype("float").values
         
-    def get_overscan(self, which="data",
-                         userange=[10,20], stackstat="nanmedian",
-                         modeldegree=5, specaxis=1):
+    def get_overscan(self, which="data", clipping=True,
+                         userange=[5,25], stackstat="nanmedian",
+                         modeldegree=3, specaxis=1):
         """ 
         
         Parameters
@@ -212,13 +213,18 @@ class RawQuadrant( Quadrant ):
         which: [string] 
             could be:
             - 'raw': as stored
-            - 'data': raw within userange
+            - 'data': raw within userange 
             - 'spec': vertical or horizontal profile of the overscan
                       see stackstat
                       (see specaxis)
+                      clipping is applied at that time (if clipping=True)
+
             - 'model': polynomial model of spec
             
-
+        clipping: [bool]:
+            Should clipping be applied to remove the obvious flux excess.
+            This clipping is made using median statistics (median and 3*nmad)
+            
         specaxis : [int] -optional-
             axis along which you are doing the median 
             = Careful: after userange applyed = 
@@ -244,22 +250,37 @@ class RawQuadrant( Quadrant ):
 
 
         """
+        # = Raw as given
         if which == "raw" or (which=="data" and userange is None):
             return self.overscan
         
+        # = Raw but cleaned
         if which == "data":
-            return self.overscan[:, userange[0]:userange[1]]
-        
+            data = self.overscan[:, userange[0]:userange[1]]                
+            return data
+
         if which == "spec":
-            return getattr(np if not self._use_dask else da, stackstat
-                          )( self.get_overscan(which="data", userange=userange), axis=specaxis )
+            data = self.get_overscan(which="data", userange=userange)
+            func_to_apply = getattr(np if not self._use_dask else da, stackstat)
+            spec = func_to_apply(data , axis=specaxis)
+            if clipping:
+                med_ = np.median( spec )
+                mad_  = stats.median_absolute_deviation( spec )
+                # Symetric to avoid bias, even though only positive outlier are expected.
+                flag_out = (spec>(med_+3*mad_)) +(spec<(med_-3*mad_))
+                spec[flag_out] = np.NaN
+                #warnings.warn("overscan clipping is not implemented")
+                
+            return spec
         
         if which == "model":
-            spec = self.get_overscan( which = "spec", userange=userange, stackstat=stackstat)
-            if self._use_dask:
+            spec = self.get_overscan( which = "spec", userange=userange, stackstat=stackstat,
+                                          clipping=clipping)
+            # dask
+            if self._use_dask:                
                 d_ = dask.delayed(fit_polynome)(np.arange( len(spec) ), spec, degree=modeldegree)
                 return da.from_delayed(d_, shape=spec.shape, dtype="float")
-                
+            # numpy
             return fit_polynome(np.arange(len(spec)), spec, degree=modeldegree)
         
         raise ValueError(f'which should be "raw", "data", "spec", "model", {which} given')    
