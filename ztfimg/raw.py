@@ -583,6 +583,7 @@ class RawCCDCollection( CCDCollection ):
                                                              **imgkwargs)
                      for filename in filenames]
             if persist:
+                print("PERSIST")
                 images = [i.persist() for i in images]
         else:
             images = [RawCCD.from_filename(filename, use_dask=False,
