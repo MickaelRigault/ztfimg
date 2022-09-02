@@ -87,7 +87,7 @@ class ImageCollection( object ):
         if use_dask is None:
             use_dask = self._use_dask
             
-        if self._use_dask:
+        if use_dask:
             header_  = dask.delayed(fits.getheader)(self.filenames[index])
         else:
             header_  = fits.getheader(self.filenames[index])
