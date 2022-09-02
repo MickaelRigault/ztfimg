@@ -63,7 +63,7 @@ class ImageCollection( object ):
         
         return filenames
 
-    def get_singleheader(self, index, as_serie=True):
+    def get_singleheader(self, index, as_serie=True, use_dask=False):
         """ call the fits.getheader function from the
         filenames[index]. 
         
@@ -84,10 +84,14 @@ class ImageCollection( object ):
         (see as_serie)
         """
         from astropy.io import fits
+        if use_dask is None:
+            use_dask = self._use_dask
+            
         if self._use_dask:
             header_  = dask.delayed(fits.getheader)(self.filenames[index])
         else:
             header_  = fits.getheader(self.filenames[index])
+            
         if not as_serie:
             return header_
         
@@ -223,7 +227,10 @@ class ImageCollection( object ):
             return None
         return len(self.images)
 
-
+    @property
+    def use_dask(self):
+        """ """
+        return self._use_dask
     
 class QuadrantCollection( ImageCollection ):
     SHAPE = Quadrant.SHAPE
