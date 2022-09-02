@@ -372,10 +372,11 @@ class RawQuadrant( Quadrant ):
 class RawCCD( CCD ):
     _QUADRANTCLASS = RawQuadrant
     
-    def __init__(self, filename=None, use_dask=True, **kwargs):
+    def __init__(self, filename=None, use_dask=True, persist=True, **kwargs):
         """ """
         _ = super().__init__(use_dask=use_dask)
-        self.load_file(filename, **kwargs)
+        self.load_file(filename, persist=persist,
+                           **kwargs)
         
     @classmethod
     def from_filename(cls, filename, use_dask=True, **kwargs):
@@ -400,7 +401,7 @@ class RawCCD( CCD ):
     # -------- #
     #  LOADER  #
     # -------- #
-    def load_file(self, filename, **kwargs):
+    def load_file(self, filename, persist=True, **kwargs):
         """ """
         if self._use_dask:
             filename = dask.delayed(io.get_file)(filename, show_progress=False, maxnprocess=1)
@@ -410,7 +411,7 @@ class RawCCD( CCD ):
             header = fits.open(filename)[0].header
             
         self.set_header(header)
-        self.load_quadrants(filename, format="fits", **kwargs)
+        self.load_quadrants(filename, format="fits", persist=persist, **kwargs)
         
     def load_quadrants(self, filename, which="*", persist=True, **kwargs):
         """ """

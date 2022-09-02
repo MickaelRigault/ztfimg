@@ -57,7 +57,7 @@ class ImageCollection( object ):
     def get_filenames(self, computed=False):
         """ """
         filenames = self.call_down("filename", False)
-        if self._use_dask and computed:
+        if self.use_dask and computed:
             # Tricks to avoid compute and gather
             return dask.delayed(list)(filenames).compute()
         
@@ -85,7 +85,7 @@ class ImageCollection( object ):
         """
         from astropy.io import fits
         if use_dask is None:
-            use_dask = self._use_dask
+            use_dask = self.use_dask
             
         if use_dask:
             header_  = dask.delayed(fits.getheader)(self.filenames[index])
@@ -95,7 +95,7 @@ class ImageCollection( object ):
         if not as_serie:
             return header_
         
-        if self._use_dask:
+        if self.use_dask:
             dh = dask.delayed(dict)(header_.items())
             return dd.from_delayed(dask.delayed(pandas.Series)(dh))
         
@@ -111,16 +111,30 @@ class ImageCollection( object ):
     def get_data(self, **kwargs):
         """ """
         datas = self.call_down("get_data",True, **kwargs)
-        if self._use_dask:
+        if self.use_dask:
             return da.stack([da.from_delayed(f_, shape=self.SHAPE, dtype="float")
                                      for f_ in datas])
         return datas
 
     def get_data_mean(self, chunkreduction=2,
+                          weights=1,
                           clipping=False,
                           sigma=3, sigma_lower=None, sigma_upper=None, maxiters=5,
                           cenfunc='median', stdfunc='std', axis=0, **kwargs):
         """ 
+        weights: [string, float or array]
+            If you want to apply a multiplicative weighting coef to the individual
+            images before getting there mean.
+            If string, this will be understood as a functuon to apply on data.
+            (ie. mean, median, std etc.) | any np.{weights}(data, axis=(1,2) will work.
+
+            if not None, this happens:
+            datas = self.get_data(**kwargs)
+            weights = np.asarray(np.atleast_1d(weights))[:,None,None] # broadcast
+            datas *=weights
+
+            
+
 
         chunkreduction: [int or None]
             rechunk and split of the image. 2 or 4 is best.
@@ -133,11 +147,21 @@ class ImageCollection( object ):
                           
         """
         datas = self.get_data(**kwargs)
+        if weights is not None:
+            if type(weights) == str:
+                npda = da if self.use_dask else np
+                weights = getattr(npda,weights)(data, axis=(1,2))[:,None,None]
+            else:
+                weights = np.asarray(np.atleast_1d(weights))[:,None,None] # broadcast
+                
+            datas *=weights
+            
         if axis==0 and chunkreduction is not None:
             chunk_merging_axis0 = np.asarray(np.asarray(datas.shape)/(1, 
                                                                   chunkreduction, 
                                                                   chunkreduction), dtype="int")
             datas = datas.rechunk( list(chunk_merging_axis0) )
+            
         elif chunkreduction is not None:
             warnings.warn(f"chunkreduction only implemented for axis=0 (axis={axis} given)")
             
@@ -147,22 +171,9 @@ class ImageCollection( object ):
                                  sigma=sigma, sigma_lower=sigma_lower, sigma_upper=sigma_upper, 
                                  maxiters=maxiters, cenfunc=cenfunc,
                                  stdfunc=stdfunc, masked=False)
+            
         return da.mean(datas, axis=axis)
 
-    
-    def get_data_rebustmean(self, chunkreduction=8, 
-                            sigma=3, sigma_lower=None, sigma_upper=None, maxiters=5,
-                            cenfunc='median', stdfunc='std',
-                            **kwargs):
-        """ robust mean along the 0th axis (images). This call get_data_mean(clipping=True)
-
-        **kwargs goes to get_data()
-
-        """
-        return self.get_data_mean(clipping=True,
-                                      chunkreduction=chunkreduction, 
-                                      sigma=sigma, sigma_lower=sigma_lower, sigma_upper=sigma_upper, maxiters=maxiters,
-                                      cenfunc=cenfunc, stdfunc=stdfunc, **kwargs)
     # ------- #
     # SETTER  #
     # ------- #
