@@ -25,9 +25,20 @@ class RawQuadrant( Quadrant ):
         self.setup(data=data, header=header, overscan=overscan)
         
     @classmethod
-    def from_filename(cls, filename, qid, use_dask=True,
-                          persist=True, download=True, format=None, **kwargs):
-        """ """
+    def from_filename(cls, filename, qid,
+                          as_path=False,
+                          use_dask=True,
+                          persist=False, download=True,
+                          format=None, **kwargs):
+        """ 
+
+        as_path: [bool] -optional-
+            if as_path is False, then rawfile=io.get_file(rawfile) is used.
+            the enables to automatically download the missing file but work
+            only for IPAC-pipeline based file. It add a (small) overhead.
+            If you know the file exists, use as_path=True.
+
+        """
         # - guessing format        
         if format is None:
             if type(filename) == Delayed:
@@ -40,21 +51,35 @@ class RawQuadrant( Quadrant ):
                 
         # - Fits format
         if format in ["fits",".fits"]:
-            return cls.read_fits(filename, qid, use_dask=use_dask, persist=persist, download=download, **kwargs)
+            return cls.read_fits(filename, qid, use_dask=use_dask,
+                                    persist=persist, download=download,
+                                    as_path=as_path,
+                                     **kwargs)
         
         raise NotImplementedError("Only fits format implemented.")
             
 
     @classmethod
-    def read_fits(cls, filename, qid, use_dask=True, persist=True,
+    def read_fits(cls, filename, qid, as_path=False,
+                      use_dask=True, persist=False,
                       download=True, reorder=True, **kwargs):
-        """ reads the fits file and load the object """
+        """ reads the fits file and load the object 
+
+        as_path: [bool] -optional-
+            if as_path is False, then rawfile=io.get_file(rawfile) is used.
+            the enables to automatically download the missing file but work
+            only for IPAC-pipeline based file. It add a (small) overhead.
+            If you know the file exists, use as_path=True.
+
+        """
         if qid not in [1,2,3,4]:
             raise ValueError(f"qid must be 1,2, 3 or 4 {qid} given")
         
         if use_dask:
-            filename  = dask.delayed(io.get_file)(filename, show_progress=False,
+            if not as_path:
+                filename  = dask.delayed(io.get_file)(filename, show_progress=False,
                                                   maxnprocess=1, download=download)
+                
             data      = da.from_delayed( dask.delayed( fits.getdata )(filename, ext=qid),
                                             shape=cls.SHAPE, dtype="float")
             overscan  = da.from_delayed(dask.delayed(fits.getdata)(filename, ext=qid+4),
@@ -62,8 +87,9 @@ class RawQuadrant( Quadrant ):
             header    = dask.delayed(fits.getheader)(filename, qid=qid)
             
         else:
-            filename  = io.get_file(filename, show_progress=False, maxnprocess=1,
-                                    download=download)
+            if not as_path:
+                filename  = io.get_file(filename, show_progress=False,
+                                            maxnprocess=1, download=download)
             data      = fits.getdata(filename, ext=qid)
             overscan  = fits.getdata(filename, ext=qid+4)
             header    = fits.getheader(filename, qid=qid)
@@ -82,7 +108,7 @@ class RawQuadrant( Quadrant ):
         return this
 
     @classmethod
-    def from_filefracday(cls, filefracday, rcid, use_dask=True, persist=True, **kwargs):
+    def from_filefracday(cls, filefracday, rcid, use_dask=True, persist=False, **kwargs):
         """ """
         from ztfquery.io import filefracday_to_local_rawdata
         ccdid, qid = RawFocalPlane.rcid_to_ccdid_qid(rcid)
@@ -91,6 +117,7 @@ class RawQuadrant( Quadrant ):
         
         if len(filename)==0:
             raise IOError(f"No local raw data found for filefracday: {filefracday} and ccdid: {ccdid}")
+        
         if len(filename)>1:
             raise IOError(f"Very strange: several local raw data found for filefracday: {filefracday} and ccdid: {ccdid}", filename)
         
@@ -372,16 +399,18 @@ class RawQuadrant( Quadrant ):
 class RawCCD( CCD ):
     _QUADRANTCLASS = RawQuadrant
     
-    def __init__(self, filename=None, use_dask=True, persist=True, **kwargs):
+    def __init__(self, filename=None, use_dask=True, persist=False, **kwargs):
         """ """
         _ = super().__init__(use_dask=use_dask)
         self.load_file(filename, persist=persist,
                            **kwargs)
         
     @classmethod
-    def from_filename(cls, filename, use_dask=True, **kwargs):
+    def from_filename(cls, filename, as_path=False,
+                          use_dask=True, persist=False, **kwargs):
         """ """
-        return cls(filename, use_dask=use_dask, **kwargs)
+        return cls(filename, as_path=as_path,
+                    use_dask=use_dask, persist=persist, **kwargs)
 
     @classmethod
     def from_filefracday(cls, filefracday, ccdid, use_dask=True, **kwargs):
@@ -401,21 +430,30 @@ class RawCCD( CCD ):
     # -------- #
     #  LOADER  #
     # -------- #
-    def load_file(self, filename, persist=True, test_file=True, **kwargs):
-        """ """
+    def load_file(self, filename, persist=False, as_path=False, **kwargs):
+        """ 
+        as_path: [bool] -optional-
+            if as_path is False, then rawfile=io.get_file(rawfile) is used.
+            the enables to automatically download the missing file but work
+            only for IPAC-pipeline based file. It add a (small) overhead.
+            If you know the file exists, use as_path=True.
+
+        """
         if self._use_dask:
-            if test_file:
+            if not as_path:
                 filename = dask.delayed(io.get_file)(filename, show_progress=False, maxnprocess=1)
+                
             header = dask.delayed(fits.open)(filename)[0].header
         else:
-            if test_file:
+            if not as_path:
                 filename = io.get_file(filename, show_progress=False, maxnprocess=1)
+                
             header = fits.open(filename)[0].header
             
         self.set_header(header)
         self.load_quadrants(filename, format="fits", persist=persist, **kwargs)
         
-    def load_quadrants(self, filename, which="*", persist=True, **kwargs):
+    def load_quadrants(self, filename, which="*", persist=False, **kwargs):
         """ """
         if which is None or type(which)==str and which in ["*","all"] :
             which = [1,2,3,4]
@@ -500,7 +538,8 @@ class RawFocalPlane( FocalPlane ):
 class RawCCDCollection( CCDCollection ):
     
     @staticmethod
-    def bulk_getfile_daterange(start, end, ccdid, imgtype=None, filtercode=None, dateformat=None, persist=False):
+    def bulk_getfile_daterange(start, end, ccdid, imgtype=None, filtercode=None,
+                                   dateformat=None, persist=False):
         """ """
         from astropy.time import Time
         from ztfquery import query
@@ -519,22 +558,35 @@ class RawCCDCollection( CCDCollection ):
             sql_query += f" and filtercode IN {filtercode}"
 
         zquery = query.ZTFQuery.from_metaquery(kind="raw",   sql_query=sql_query)
-        return io.bulk_get_file(zquery.get_data(exist=False), as_dask="persist" if persist else "delayed")
+        return io.bulk_get_file(zquery.get_data(exist=False),
+                            as_dask="persist" if persist else "delayed")
     
     # ------------ #
     #  INITIALISE  #
     # ------------ #
     @classmethod
-    def from_filenames(cls, filenames, use_dask=True, imgkwargs={}, persist=True, test_file=True, **kwargs):
-        """ """
+    def from_filenames(cls, filenames, as_path=False,
+                           use_dask=True, imgkwargs={},
+                           persist=False, **kwargs):
+        """ 
+        as_path: [bool] -optional-
+            if as_path is False, then rawfile=io.get_file(rawfile) is used.
+            the enables to automatically download the missing file but work
+            only for IPAC-pipeline based file. It add a (small) overhead.
+            If you know the file exists, use as_path=True.
+        """
         filenames = np.atleast_1d(filenames).tolist()
+        imgkwargs["as_path"] = as_path # pass this to RawCCD.from_filename
+        
         if use_dask:
-            images = [dask.delayed(RawCCD.from_filename)(filename, use_dask=False, test_file=test_file, **imgkwargs)
+            images = [dask.delayed(RawCCD.from_filename)(filename, use_dask=False,
+                                                             **imgkwargs)
                      for filename in filenames]
             if persist:
                 images = [i.persist() for i in images]
         else:
-            images = [RawCCD.from_filename(filename, use_dask=False, test_file=test_file, **imgkwargs)
+            images = [RawCCD.from_filename(filename, use_dask=False,
+                                               **imgkwargs)
                           for filename in filenames]
         
         this = cls(images, use_dask=use_dask, **kwargs)
@@ -548,7 +600,8 @@ class RawCCDCollection( CCDCollection ):
         return cls.from_daterange(start, start+1, dateformat="jd", ccdid=ccdid, **kwargs)
         
     @classmethod
-    def from_daterange(cls, start, end, ccdid, filtercode=None, dateformat=None, persist=True, queryprop={}, **kwargs):
+    def from_daterange(cls, start, end, ccdid, filtercode=None, dateformat=None,
+                           persist=False, queryprop={}, **kwargs):
         """ """
         files = cls.bulk_getfile_daterange(start, end, ccdid, filtercode=filtercode, dateformat=dateformat, 
                                            persist=persist, **queryprop)
