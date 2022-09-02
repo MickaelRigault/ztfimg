@@ -401,13 +401,15 @@ class RawCCD( CCD ):
     # -------- #
     #  LOADER  #
     # -------- #
-    def load_file(self, filename, persist=True, **kwargs):
+    def load_file(self, filename, persist=True, test_file=True, **kwargs):
         """ """
         if self._use_dask:
-            filename = dask.delayed(io.get_file)(filename, show_progress=False, maxnprocess=1)
+            if test_file:
+                filename = dask.delayed(io.get_file)(filename, show_progress=False, maxnprocess=1)
             header = dask.delayed(fits.open)(filename)[0].header
         else:
-            filename = io.get_file(filename, show_progress=False, maxnprocess=1)
+            if test_file:
+                filename = io.get_file(filename, show_progress=False, maxnprocess=1)
             header = fits.open(filename)[0].header
             
         self.set_header(header)
@@ -523,17 +525,17 @@ class RawCCDCollection( CCDCollection ):
     #  INITIALISE  #
     # ------------ #
     @classmethod
-    def from_filenames(cls, filenames, use_dask=True, imgkwargs={}, persist=True, **kwargs):
+    def from_filenames(cls, filenames, use_dask=True, imgkwargs={}, persist=True, test_file=True, **kwargs):
         """ """
         filenames = np.atleast_1d(filenames).tolist()
         if use_dask:
-            images = [dask.delayed(RawCCD.from_filename)(filename, use_dask=False,
+            images = [dask.delayed(RawCCD.from_filename)(filename, use_dask=False, test_file=test_file
                                                                 **imgkwargs)
                      for filename in filenames]
             if persist:
                 images = [i.persist() for i in images]
         else:
-            images = [RawCCD.from_filename(filename, use_dask=False, **imgkwargs)
+            images = [RawCCD.from_filename(filename, use_dask=False, test_file=test_file, **imgkwargs)
                           for filename in filenames]
         
         this = cls(images, use_dask=use_dask, **kwargs)
