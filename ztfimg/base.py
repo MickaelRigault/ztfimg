@@ -49,6 +49,21 @@ class _Image_( object ):
             header = getheader(filename)
             
         return header
+
+    @staticmethod
+    def _to_fits(fileout, data, header=None,  overwrite=True,
+                     **kwargs):
+        """ """
+        import os        
+        from astropy.io import fits
+        dirout = os.path.dirname(fileout)
+        if not os.path.isdir(dirout):
+            os.makedirs(dirout, exist_ok=True)
+
+        fits.writeto(fileout, data, header=header,
+                         overwrite=overwrite, **kwargs)
+        return fileout
+
     
     # -------- #
     #  SETTER  #
@@ -65,7 +80,7 @@ class _Image_( object ):
     #  GETTER  #
     # -------- #
     def get_data(self, rebin=None, rebin_stat="nanmean", data=None, rebuild=False):
-        """
+        """ 
 
         Parameters
         ----------
@@ -462,7 +477,6 @@ class CCD(_Image_):
             [self.set_quadrant(quad_, qid=qid, **kwargs)
              for quad_, qid in zip(quadrants, qids)]
         
-
     # =============== #
     #  I/O            #
     # =============== #
@@ -486,7 +500,6 @@ class CCD(_Image_):
         header = cls._read_header(filename, use_dask=dask_header, persist=persist)
         return cls(data=data, header=header, use_dask=use_dask)
         
-        
     @classmethod
     def from_single_filename(cls, filename, use_dask=True, persist=False, **kwargs):
         """ This classmethod enables to load a full CCD object given a single quadrant filename.
@@ -508,11 +521,61 @@ class CCD(_Image_):
                  for file_ in filenames]
         return cls(scimg, qids, use_dask=use_dask, **kwargs)
 
+
+    def to_fits(self, fileout, as_quadrants=False, overwrite=True,
+                    **kwargs):
+        """ """
+        if not as_quadrant:
+            out = self._to_fits(fileout, data=self.data, header=self.header,
+                              overwrite=overwrite, **kwargs)
+            
+        else:
+            quadrant_datas = self.get_quadrantdata()
+            primary_hdu = [fits.PrimaryHDU(data=None, header=self.header)]
+            quadrant_hdu = [fits.ImageHDU(qdata_) for qdata_ in quadrant_datas]
+            hdulist = fits.HDUList(primary_hdu +quadrant_hdu) # list + list
+            out = hdulist.writeto(fileout, overwrite=overwrite, **kwargs)
+            
+        return out
+
+    def to_quadrant_fits(self, quadrantfiles, overwrite=True, from_data=True,
+                    **kwargs):
+        """ dump the current CCD image into 4 different files: one for each quadrants 
+
+        from_data: [bool] -optional-
+            option of get_quadrantdata(). If both self.data exists and self.qudrants, 
+            should the data be taken from self.data (from_data=True) or from the 
+            individual quadrants (from_data=False) using self.quadrants[i].get_data()
+
+        """
+        if (nfiles:=len(quadrantfiles)) != 4:
+            raise ValueError(f"you need exactly 4 files ; {nfiles} given.")
+
+        quadrant_datas = self.get_quadrantdata(from_data=from_data)
+        return self._to_quadrant_fits(quadrantfiles, quadrant_datas,
+                                       header=self.header, overwrite=True,
+                                       **kwargs)
+
+    @classmethod
+    def _to_quadrant_fits(cls, fileouts, datas, header, overwrite=True, **kwargs):
+        """ """
+        if type(header) == fits.Header:
+            header = [header]*4
+        if len(header) !=4 or len(fileouts)!=4 or len(datas) !=4:
+            raise ValueError("You need exactly 4 of each: data, header, fileouts")
+
+        for file_, data_, header_ in zip(fileouts, datas, header):
+            cls._QUADRANTCLASS._to_fits(file_, data=data_, header=header_,
+                                            overwrite=overwrite, **kwargs)
+    
+    # --------- #
+    #  LOADER   #
+    # --------- #
     def load_data(self, **kwargs):
         """  **kwargs goes to self._quadrants_to_ccd() """
         data = self._quadrants_to_ccd(**kwargs)
         self.set_data(data)
-        
+
     # --------- #
     #  SETTER   #
     # --------- #
@@ -545,29 +608,59 @@ class CCD(_Image_):
 
     def get_quadrantheader(self):
         """ returns a DataFrame of the header quadrants """
+        if not self.has_quadrants():
+            return None
+        
         qid_range = [1, 2, 3, 4]
-        hs = [self.get_quadrant(i).get_header() for i in qid_range]
+        hs = [quadrant.get_header() for i in qid_range
+                  if (quadrant:=self.get_quadrant(i)) is not None]
         df = pandas.concat(hs, axis=1)
         df.columns = qid_range
         return df
 
-    def get_data(self, rebin=None, npstat="mean", rebin_ccd=None, persist=False,
+    def get_quadrantdata(self, rebin=False, from_data=False, npstat="mean", **kwargs):
+        """ 
+        npstat: string
+            function used to rebin (np.mean, np.median etc)
+        """
+        if not self.has_quadrants() and not self.has_data():
+            warnings.warn("no quadrant and no data. None returned")
+            return None
+
+        if self.has_quadrants() and not from_data:
+            qdata = [self.get_quadrant(i).get_data(rebin=rebin, **kwargs)
+                    for i in [1, 2, 3, 4]]
+        else:
+            q4, q1 = self.data[:self.qshape[0],self.qshape[1]:], data[self.qshape[0]:,self.qshape[1]:]
+            q3, q2 = self.data[:self.qshape[0],:self.qshape[1]], data[self.qshape[0]:,:self.qshape[1]]
+            qdata = [q1,q2,q3,q4]
+            if rebin is not None:
+                npda = da if self.use_dask else np
+                qdata = getattr(npda, npstat)(rebin_arr(qdata, (rebin, rebin),
+                                                        use_dask=self.use_dask),
+                                              axis=(-2, -1))
+        return qdata
+
+        
+        
+    def get_data(self, rebin=None, npstat="mean",
+                     rebin_quadrant=None, persist=False,
                      rebuild=False, **kwargs):
         """ ccd data
 
-        rebin, rebin_ccd: [None, int]
+        rebin, rebin_quadrant: [None, int]
             rebinning (based on restride) the data.
-            rebin affect the individual quadrants, while rebin_ccd affect the ccd.
-            then, rebin_ccd applies after rebin.
+            rebin affect the whole ccd, while rebin_quadrant affect the individual quadrants.
+            rebin is applied after rebin_quadrant..
         """
         # the normal case
-        if self.has_data() and not rebuild and not rebin:
+        if self.has_data() and not rebuild and not rebin_quadrant:
             data_ = self.data.copy()
         else:
-            data_ = self._quadrants_to_ccd(rebin=rebin)
+            data_ = self._quadrants_to_ccd(rebin=rebin_quadrant)
            
-        if rebin_ccd is not None:
-            data_ = getattr(npda, npstat)(rebin_arr(data_, (rebin_ccd, rebin_ccd),
+        if rebin is not None:
+            data_ = getattr(npda, npstat)(rebin_arr(data_, (rebin, rebin),
                                                         use_dask=self.use_dask),
                                               axis=(-2, -1))
         if self.use_dask and persist:
@@ -581,8 +674,7 @@ class CCD(_Image_):
         # numpy or dask.array ?
         npda = da if self.use_dask else np
         
-        d = [self.get_quadrant(i).get_data(rebin=rebin, **kwargs)
-                  for i in [1, 2, 3, 4]]
+        d = self.get_quandrantdata(rebin=rebin)
 
         if not self._POS_INVERTED:
             ccd_up = npda.concatenate([d[1], d[0]], axis=1)
