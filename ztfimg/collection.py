@@ -8,7 +8,7 @@ import warnings
 
 import numpy as np
 from .science import ScienceQuadrant
-from .base import Quadrant, CCD
+from .base import _Image_, Quadrant, CCD
 
 
 # -------------- #
@@ -34,8 +34,9 @@ def _headers_to_headerdf_(headers, persist=False):
 
 
 
-class ImageCollection( object ):
-
+class _ImageCollection_( object ):
+    COLLECTION_OF = _Image_
+    SHAPE = COLLECTION_OF.SHAPE
     QUADRANT_SHAPE = Quadrant.SHAPE
     
     def __init__(self, images, use_dask=True, **kwargs):
@@ -47,6 +48,22 @@ class ImageCollection( object ):
     def from_images(cls, images, use_dask=True, **kwargs):
         """ """
         return cls(images, use_dask=use_dask, **kwargs)
+
+    @classmethod
+    def from_filenames(cls, filenames, use_dask=True, imgkwargs={}, **kwargs):
+        """ """
+        filenames = np.atleast_1d(filenames).tolist()
+        if use_dask:
+            images = [dask.delayed(cls.COLLECTION_OF.from_filename)(filename, use_dask=False,
+                                                                      **imgkwargs)
+                     for filename in filenames]
+        else:
+            images = [cls.COLLECTION_OF.from_filename(filename, use_dask=False, **imgkwargs)
+                          for filename in filenames]
+            
+        this= cls.from_images(images, use_dask=use_dask, **kwargs)
+        this._filenames = filenames
+        return this
     
     # =============== #
     #  Methods        #
@@ -243,35 +260,17 @@ class ImageCollection( object ):
         """ """
         return self._use_dask
     
-class QuadrantCollection( ImageCollection ):
-    SHAPE = Quadrant.SHAPE
+class QuadrantCollection( _ImageCollection_ ):
+    COLLECTION_OF = Quadrant
 
 
 class CCDCollection( ImageCollection ):
-    QUADRANT_SHAPE = Quadrant.SHAPE
-    SHAPE = CCD.SHAPE
-
-
+    COLLECTION_OF = CCD
+        
 
     
 class ScienceQuadrantCollection( QuadrantCollection ):
-
-
-    @classmethod
-    def from_filenames(cls, filenames, use_dask=True, imgkwargs={}, **kwargs):
-        """ """
-        filenames = np.atleast_1d(filenames).tolist()
-        if use_dask:
-            images = [dask.delayed(ScienceQuadrant.from_filename)(filename, use_dask=False,
-                                                                      **imgkwargs)
-                     for filename in filenames]
-        else:
-            images = [ScienceQuadrant.from_filename(filename, use_dask=False, **imgkwargs)
-                          for filename in filenames]
-            
-        this= cls(images, use_dask=use_dask, **kwargs)
-        this._filenames = filenames
-        return this
+    COLLECTION_OF = ScienceQuadrant
 
     # =============== #
     #  Methods        #
