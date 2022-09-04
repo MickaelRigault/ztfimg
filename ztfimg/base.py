@@ -92,7 +92,7 @@ class _Image_( object ):
             data = "data"
 
         # This is the normal case
-        if self.has_data() and not rebuild and data="data":
+        if self.has_data() and not rebuild and data=="data":
             data_ = self.data.copy()
         
         else:
