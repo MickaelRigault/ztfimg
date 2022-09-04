@@ -16,6 +16,9 @@ from .collection import CCDCollection
 
 NONLINEARITY_TABLE= get_nonlinearity_table()
 
+__all__ = ["RawQuadrant", "RawCCD", "RawFocalPlane"]
+
+
 class RawQuadrant( Quadrant ):
 
     SHAPE_OVERSCAN = 3080, 30

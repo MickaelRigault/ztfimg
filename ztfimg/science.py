@@ -12,6 +12,9 @@ from .tools import rebin_arr, parse_vmin_vmax, rcid_to_ccdid_qid, ccdid_qid_to_r
 from .astrometry import WCSHolder
 
 
+__all__ = ["ScienceQuadrant", "ScienceCCD", "ScienceFocalPlane"]
+
+
 class ScienceQuadrant(Quadrant, WCSHolder):
 
     BITMASK_KEY = ["tracks", "sexsources", "lowresponsivity", "highresponsivity",
