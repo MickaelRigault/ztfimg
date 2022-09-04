@@ -637,9 +637,12 @@ class CCD(_Image_):
             qdata = [self.get_quadrant(i).get_data(rebin=rebin, **kwargs)
                     for i in [1, 2, 3, 4]]
         else:
-            q4, q1 = self.data[:self.qshape[0],self.qshape[1]:], data[self.qshape[0]:,self.qshape[1]:]
-            q3, q2 = self.data[:self.qshape[0],:self.qshape[1]], data[self.qshape[0]:,:self.qshape[1]]
+            q4 = self.data[:self.qshape[0],self.qshape[1]:]
+            q1 = self.data[self.qshape[0]:,self.qshape[1]:]
+            q3 = self.data[:self.qshape[0],:self.qshape[1]] 
+            q2 = self.data[self.qshape[0]:,:self.qshape[1]]
             qdata = [q1,q2,q3,q4]
+            
             if rebin is not None:
                 npda = da if self.use_dask else np
                 qdata = getattr(npda, npstat)(rebin_arr(qdata, (rebin, rebin),
