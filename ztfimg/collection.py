@@ -9,7 +9,7 @@ import warnings
 import numpy as np
 from .science import ScienceQuadrant
 from .base import _Image_, Quadrant, CCD
-from .utils.decorators import classproperty
+from astropy.utils.decorators import classproperty
 
 # -------------- #
 #
