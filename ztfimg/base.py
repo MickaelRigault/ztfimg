@@ -33,7 +33,7 @@ class _Image_( object ):
                 data = data.persist()
 
         else:
-            data = fits.getdata(filename)
+            data = getdata(filename)
 
         return data
 
@@ -46,7 +46,7 @@ class _Image_( object ):
             if persist:
                 header = header.persist()
         else:
-            header = fits.getheader(filename)
+            header = getheader(filename)
             
         return header
     
@@ -471,6 +471,9 @@ class CCD(_Image_):
         = 
         
         """
+        if not use_dask:
+            dask_header = False
+            
         data = cls._read_data(filename, use_dask=use_dask, persist=persist)
         header = cls._read_header(filename, use_dask=dask_header, persist=persist)
         return cls(data=data, header=header, use_dask=use_dask)
