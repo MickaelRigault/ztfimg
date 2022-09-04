@@ -57,7 +57,7 @@ class _Image_( object ):
         import os        
         from astropy.io import fits
         dirout = os.path.dirname(fileout)
-        if not os.path.isdir(dirout):
+        if dirout not in ["","."] and not os.path.isdir(dirout):
             os.makedirs(dirout, exist_ok=True)
 
         fits.writeto(fileout, data, header=header,
