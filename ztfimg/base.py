@@ -1,5 +1,6 @@
 import numpy as np
 import pandas
+import warnings
 import dask
 import dask.array as da
 import dask.dataframe as dd
@@ -12,7 +13,7 @@ from .tools import rebin_arr, parse_vmin_vmax, ccdid_qid_to_rcid, rcid_to_ccdid_
 
 __all__ = ["Quadrant", "CCD", "FocalPlane"]
 
-class _Image_(object):
+class _Image_( object ):
     SHAPE = None
     # Could be any type (raw, science)
 
@@ -20,6 +21,35 @@ class _Image_(object):
         """ """
         self._use_dask = use_dask
 
+    @classmethod
+    def _read_data(cls, filename, use_dask=True, persist=False):
+        """ assuming fits format."""
+        from astropy.io.fits import getdata
+        if use_dask:
+            # - Data
+            data = da.from_delayed( dask.delayed( getdata) (filename),
+                                   shape=cls.SHAPE, dtype="float")
+            if persist:
+                data = data.persist()
+
+        else:
+            data = fits.getdata(filename)
+
+        return data
+
+    @staticmethod
+    def _read_header(cls, filename, use_dask=True, persist=False):
+        """ assuming fits format. """
+        from astropy.io.fits import getheader        
+        if use_dask:
+            header = dask.delayed(getheader)(filename)
+            if persist:
+                header = header.persist()
+        else:
+            header = fits.getheader(filename)
+            
+        return header
+    
     # -------- #
     #  SETTER  #
     # -------- #
@@ -55,7 +85,7 @@ class _Image_(object):
         -------
         2d array
         """
-        npda = da if self._use_dask else np
+        npda = da if self.use_dask else np
 
         if type(data) == str:
             if data == "data":
@@ -143,6 +173,11 @@ class _Image_(object):
     #  Properties     #
     # =============== #
     @property
+    def use_dask(self):
+        """ """
+        return self._use_dask
+    
+    @property
     def data(self):
         """ """
         if not hasattr(self, "_data"):
@@ -209,7 +244,8 @@ class Quadrant(_Image_):
             self.set_header(header)
 
     @classmethod
-    def from_filename(cls, filename, use_dask=True, persist=True, **kwargs):
+    def from_filename(cls, filename, use_dask=True, persist=False,
+                          dask_header=False, **kwargs):
         """
         Parameters
         ----------
@@ -218,20 +254,8 @@ class Quadrant(_Image_):
 
         **kwargs goes to ztfquery.io.get_file()
         """
-        from astropy.io import fits
-
-        if use_dask:
-            # - Data
-            data = da.from_delayed(dask.delayed(fits.getdata)(filename),
-                                   shape=cls.SHAPE, dtype="float")
-            header = dask.delayed(fits.getheader)(filename)
-            if persist:
-                data = data.persist()
-                header = header.persist()
-
-        else:
-            data = fits.getdata(filename)
-            header = fits.getheader(filename)
+        data = cls._read_data(filename, use_dask=use_dask, persist=persist)
+        header = cls._read_header(filename, use_dask=dask_header, persist=persist)
 
         # self
         this = cls(data=data, header=header, use_dask=use_dask)
@@ -402,9 +426,25 @@ class CCD(_Image_):
     _QUADRANTCLASS = Quadrant
     _POS_INVERTED = False
 
-    def __init__(self, quadrants=None, qids=None, use_dask=True, **kwargs):
-        """ """
+    def __init__(self, quadrants=None, qids=None, use_dask=True,
+                     data=None, header=None, **kwargs):
+        """ Most likely, you want to load the CCD object using the from_* classmethods
+        - from_filenames() if you input the filename of the 4 quadrants
+        - from_single_filename() if you input only 1 quadrant and what this to find the rest
+        - from_filename() if you have a full-CCD image (non IPAC product).
+        """
+        if data is not None and quadrants is not None:
+            raise ValueError("both quadrants and data given. This is confusing. Use only one.")
+        
+        # - Ok good to go
         _ = super().__init__(use_dask=use_dask)
+
+        if data is not None:
+            self.set_data(data)
+            
+        if header is not None:
+            self.set_header(header)
+        
         if quadrants is not None:
             if qids is None:
                 qids = [None]*len(quadrants)
@@ -413,13 +453,34 @@ class CCD(_Image_):
 
             [self.set_quadrant(quad_, qid=qid, **kwargs)
              for quad_, qid in zip(quadrants, qids)]
+        
 
     # =============== #
     #  I/O            #
     # =============== #
     @classmethod
-    def from_single_filename(cls, filename, use_dask=True, persist=True, **kwargs):
-        """ """
+    def from_filename(cls, filename, use_dask=True, persist=False,
+                          dask_header=False, **kwargs):
+        """ This classmethod loads a CCD object from a full-ccd image (not quadrant).
+        = 
+        This method cannot be used for IPAC pipeline product (quadrant based).
+        If you want to load a IPAC ccd image, use 
+        - raw image: RawCCD.from_filename()
+        - using a quadrant image: self.from_single_filename()
+        - using the 4 quadrant images: self.from_filenames()
+        = 
+        
+        """
+        data = cls._read_data(filename, use_dask=use_dask, persist=persist)
+        header = cls._read_header(filename, use_dask=dask_header, persist=persist)
+        return cls(data=data, header=header, use_dask=use_dask)
+        
+        
+    @classmethod
+    def from_single_filename(cls, filename, use_dask=True, persist=False, **kwargs):
+        """ This classmethod enables to load a full CCD object given a single quadrant filename.
+        The other filenames of the 3 other quadrants will be build given the input one.
+        """
         import re
         qids = range(1, 5)
         scimg = [cls._QUADRANTCLASS.from_filename(re.sub(r"_o_q[1-5]*", f"_o_q{i}", filename),
@@ -429,19 +490,33 @@ class CCD(_Image_):
 
     @classmethod
     def from_filenames(cls, filenames, qids=[1, 2, 3, 4], use_dask=True,
-                       persist=True, qudrantprop={}, **kwargs):
+                       persist=False, qudrantprop={}, **kwargs):
         """ """
-        scimg = [cls._QUADRANTCLASS.from_filename(file_, use_dask=use_dask, persist=persist, **qudrantprop)
+        scimg = [cls._QUADRANTCLASS.from_filename(file_, use_dask=use_dask, persist=persist,
+                                                    **qudrantprop)
                  for file_ in filenames]
         return cls(scimg, qids, use_dask=use_dask, **kwargs)
 
     def load_data(self, **kwargs):
         """  **kwargs goes to self.get_data() """
-        self._data = self.get_data(**kwargs)
+        data = self.get_data(**kwargs)
+        self.set_data(data)
+        
+    # --------- #
+    #  SETTER   #
+    # --------- #
+    def set_data(self, data):
+        """ """
+        if (dshape:=data.shape) != self.SHAPE:
+            raise ValueError(f"shape of the input CCD data must be {self.SHAPE} ; {dshape} given")
 
-    # --------- #
-    #  GETTER   #
-    # --------- #
+        # Check dask compatibility
+        used_dask = "dask" in type(data)
+        if used_dask != self.use_dask:
+            warnings.warn(f"Input data and self.use_dask are not compatible. Now: use_dask={used_dask}")
+
+        self._data = data
+
     def set_quadrant(self, quadrant, qid=None):
         """ """
         if qid is None:
@@ -478,7 +553,7 @@ class CCD(_Image_):
              for i in [1, 2, 3, 4]]
 
         # numpy or dask.array ?
-        npda = da if self._use_dask else np
+        npda = da if self.use_dask else np
 
         if not self._POS_INVERTED:
             ccd_up = npda.concatenate([d[1], d[0]], axis=1)
@@ -489,9 +564,9 @@ class CCD(_Image_):
 
         ccd = npda.concatenate([ccd_down, ccd_up], axis=0)
         if rebin_ccd is not None:
-            ccd = getattr(npda, npstat)(rebin_arr(ccd, (rebin_ccd, rebin_ccd), use_dask=self._use_dask),
+            ccd = getattr(npda, npstat)(rebin_arr(ccd, (rebin_ccd, rebin_ccd), use_dask=self.use_dask),
                                         axis=(-2, -1))
-        if self._use_dask and persist:
+        if self.use_dask and persist:
             return ccd.persist()
 
         return ccd
@@ -560,15 +635,13 @@ class CCD(_Image_):
     @property
     def qshape(self):
         """ shape of an individual ccd quadrant """
-        return 3080, 3072
+        return self._QUADRANTCLASS.SHAPE
 
 # -------------- #
 #                #
 #  Focal Plane   #
 #                #
 # -------------- #
-
-
 class FocalPlane(_Image_):
     _CCDCLASS = CCD
 
@@ -591,7 +664,7 @@ class FocalPlane(_Image_):
     # =============== #
     @classmethod
     def from_filenames(cls, filenames, rcids=None, use_dask=True,
-                       persist=True, **kwargs):
+                       persist=False, **kwargs):
         """
         rcids: [list or None]
             if None: rcids = np.arange(0,64)
@@ -609,13 +682,14 @@ class FocalPlane(_Image_):
         ccdidlist = data.sort_values("qid").groupby("ccdid")[
                                      "path"].apply(list)
 
-        ccds = [cls._CCDCLASS.from_filenames(qfiles, qids=[1, 2, 3, 4], use_dask=use_dask, persist=persist, **kwargs)
+        ccds = [cls._CCDCLASS.from_filenames(qfiles, qids=[1, 2, 3, 4],
+                                                 use_dask=use_dask, persist=persist, **kwargs)
                 for qfiles in ccdidlist.values]
         return cls(ccds, np.asarray(ccdidlist.index, dtype="int"),
                    use_dask=use_dask)
 
     @classmethod
-    def from_single_filename(cls, filename, use_dask=True, persist=True, **kwargs):
+    def from_single_filename(cls, filename, use_dask=True, persist=False, **kwargs):
         """ """
         import re
         ccdids = range(1, 17)
@@ -678,7 +752,7 @@ class FocalPlane(_Image_):
         # Merge quadrants of the 16 CCDs
         prop = {**dict(rebin=rebin), **kwargs}
 
-        npda = da if self._use_dask else np
+        npda = da if self.use_dask else np
 
         if not incl_gap:
             line_1 = getattr(npda, "concatenate")((self.get_ccd(4).get_data(**prop),
@@ -769,7 +843,7 @@ class FocalPlane(_Image_):
                                                   da.ones(
                                                       (size_shape, line_1.shape[1]))*np.NaN,
                                                   line_4), axis=0)
-        if self._use_dask and persist:
+        if self.use_dask and persist:
             return mosaic.persist()
 
         return mosaic
