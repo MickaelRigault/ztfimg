@@ -64,7 +64,7 @@ class _Image_( object ):
     # -------- #
     #  GETTER  #
     # -------- #
-    def get_data(self, rebin=None, rebin_stat="nanmean", data="data"):
+    def get_data(self, rebin=None, rebin_stat="nanmean", data=None, rebuild=False):
         """
 
         Parameters
@@ -77,6 +77,7 @@ class _Image_( object ):
             numpy (dask.array) method used for rebinning the data.
 
         data: [string] -optional-
+            If None, data="data" assumed.
             Internal option to modify the data.
             This could be any attribure value of format (int/float)
             Leave to 'data' if you are not sure.
@@ -86,21 +87,29 @@ class _Image_( object ):
         2d array
         """
         npda = da if self.use_dask else np
+        
+        if data is None:
+            data = "data"
 
-        if type(data) == str:
-            if data == "data":
-                data_ = self.data.copy()
-            elif hasattr(self, data):
-                data_ = npda.ones(self.shape) * getattr(self, data)
-            else:
-                raise ValueError(
-                    f"value as string can only be 'data' or a known attribute ; {data} given")
-
-        elif type(data) in [int, float]:
-            data_ = npda.ones(self.shape) * data
-
+        # This is the normal case
+        if self.has_data() and not rebuild and data="data":
+            data_ = self.data.copy()
+        
         else:
-            data_ = data.copy()
+            if type(data) == str:
+                if data == "data":
+                    data_ = self.data.copy()
+                elif hasattr(self, data):
+                    data_ = npda.ones(self.shape) * getattr(self, data)
+                else:
+                    raise ValueError(
+                        f"value as string can only be 'data' or a known attribute ; {data} given")
+
+                elif type(data) in [int, float]:
+                    data_ = npda.ones(self.shape) * data
+
+            else:
+                data_ = data.copy()
 
         if rebin is not None:
             data_ = getattr(npda, rebin_stat)(
@@ -501,8 +510,8 @@ class CCD(_Image_):
         return cls(scimg, qids, use_dask=use_dask, **kwargs)
 
     def load_data(self, **kwargs):
-        """  **kwargs goes to self.get_data() """
-        data = self.get_data(**kwargs)
+        """  **kwargs goes to self._quadrants_to_ccd() """
+        data = self._quadrants_to_ccd(**kwargs)
         self.set_data(data)
         
     # --------- #
@@ -544,7 +553,7 @@ class CCD(_Image_):
         return df
 
     def get_data(self, rebin=None, npstat="mean", rebin_ccd=None, persist=False,
-                 **kwargs):
+                     rebuild=False, **kwargs):
         """ ccd data
 
         rebin, rebin_ccd: [None, int]
@@ -552,11 +561,29 @@ class CCD(_Image_):
             rebin affect the individual quadrants, while rebin_ccd affect the ccd.
             then, rebin_ccd applies after rebin.
         """
-        d = [self.get_quadrant(i).get_data(rebin=rebin, **kwargs)
-             for i in [1, 2, 3, 4]]
+        # the normal case
+        if self.has_data() and not rebuild and not rebin:
+            data_ = self.data.copy()
+        else:
+            data_ = self._quadrants_to_ccd(rebin=rebin)
+           
+        if rebin_ccd is not None:
+            data_ = getattr(npda, npstat)(rebin_arr(data_, (rebin_ccd, rebin_ccd),
+                                                        use_dask=self.use_dask),
+                                              axis=(-2, -1))
+        if self.use_dask and persist:
+            data_ = data_.persist()
+            
+        return data_
 
+    # - internal get
+    def _quadrants_to_ccd(self, rebin=False):
+        """ combine the ccd data into the quadrants"""
         # numpy or dask.array ?
         npda = da if self.use_dask else np
+        
+        d = [self.get_quadrant(i).get_data(rebin=rebin, **kwargs)
+                  for i in [1, 2, 3, 4]]
 
         if not self._POS_INVERTED:
             ccd_up = npda.concatenate([d[1], d[0]], axis=1)
@@ -566,14 +593,8 @@ class CCD(_Image_):
             ccd_down = npda.concatenate([d[0], d[1]], axis=1)
 
         ccd = npda.concatenate([ccd_down, ccd_up], axis=0)
-        if rebin_ccd is not None:
-            ccd = getattr(npda, npstat)(rebin_arr(ccd, (rebin_ccd, rebin_ccd), use_dask=self.use_dask),
-                                        axis=(-2, -1))
-        if self.use_dask and persist:
-            return ccd.persist()
-
         return ccd
-
+    
     # ----------- #
     #   PLOTTER   #
     # ----------- #
