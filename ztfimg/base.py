@@ -284,7 +284,12 @@ class Quadrant(_Image_):
         this = cls(data=data, header=header, use_dask=use_dask)
         this._filename = filename
         return this        
-        
+
+    def to_fits(self, fileout, overwrite=True, **kwargs):
+        """ right the quadrant (data and header) into a fits file. """
+        return self._to_fits(fileout, data=self.data, header=self.header,
+                                overwrite=overwrite, **kwargs)
+    
     def get_aperture(self, x0, y0, radius,
                      imgdata=None,
                      bkgann=None, subpix=0,
