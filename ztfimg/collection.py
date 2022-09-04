@@ -264,7 +264,7 @@ class QuadrantCollection( _ImageCollection_ ):
     COLLECTION_OF = Quadrant
 
 
-class CCDCollection( ImageCollection ):
+class CCDCollection( _ImageCollection_ ):
     COLLECTION_OF = CCD
         
 
