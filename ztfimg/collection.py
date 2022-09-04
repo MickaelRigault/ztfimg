@@ -131,7 +131,7 @@ class _ImageCollection_( object ):
         if self.use_dask:
             return da.stack([da.from_delayed(f_, shape=self.SHAPE, dtype="float")
                                      for f_ in datas])
-        return datas
+        return np.stack(datas)
 
     def get_data_mean(self, chunkreduction=2,
                           weights=1,
@@ -163,33 +163,39 @@ class _ImageCollection_( object ):
             
                           
         """
+        npda = da if self.use_dask else np
+        
         datas = self.get_data(**kwargs)
         if weights is not None:
             if type(weights) == str:
-                npda = da if self.use_dask else np
                 weights = getattr(npda,weights)(data, axis=(1,2))[:,None,None]
             else:
                 weights = np.asarray(np.atleast_1d(weights))[:,None,None] # broadcast
                 
             datas *=weights
-            
-        if axis==0 and chunkreduction is not None:
-            chunk_merging_axis0 = np.asarray(np.asarray(datas.shape)/(1, 
+
+        if self.use_dask:
+            if axis==0 and chunkreduction is not None:
+                chunk_merging_axis0 = np.asarray(np.asarray(datas.shape)/(1, 
                                                                   chunkreduction, 
                                                                   chunkreduction), dtype="int")
-            datas = datas.rechunk( list(chunk_merging_axis0) )
+                datas = datas.rechunk( list(chunk_merging_axis0) )
             
-        elif chunkreduction is not None:
-            warnings.warn(f"chunkreduction only implemented for axis=0 (axis={axis} given)")
+            elif chunkreduction is not None:
+                warnings.warn(f"chunkreduction only implemented for axis=0 (axis={axis} given)")
             
         if clipping:
             from astropy.stats import sigma_clip
-            datas = datas.map_blocks(sigma_clip, axis=axis, 
+            clipping_prop = dict(axis=axis, 
                                  sigma=sigma, sigma_lower=sigma_lower, sigma_upper=sigma_upper, 
                                  maxiters=maxiters, cenfunc=cenfunc,
                                  stdfunc=stdfunc, masked=False)
+            if self.use_dask:
+                datas = datas.map_blocks(sigma_clip, **clipping_prop)
+            else:
+                datas = sigma_clip(datas, **clipping_prop)
             
-        return da.mean(datas, axis=axis)
+        return npda.mean(datas, axis=axis)
 
     # ------- #
     # SETTER  #
