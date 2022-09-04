@@ -104,10 +104,9 @@ class _Image_( object ):
                 else:
                     raise ValueError(
                         f"value as string can only be 'data' or a known attribute ; {data} given")
-
-                elif type(data) in [int, float]:
-                    data_ = npda.ones(self.shape) * data
-
+                
+            elif type(data) in [int, float]:
+                data_ = npda.ones(self.shape) * data
             else:
                 data_ = data.copy()
 
