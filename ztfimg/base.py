@@ -243,6 +243,7 @@ class _Image_( object ):
         """ """
         return self.get_headerkey("EXPTIME", np.NaN)
 
+    @property
     def obsjd(self):
         """ """
         return self.get_headerkey("OBSJD", None)
@@ -530,7 +531,7 @@ class CCD(_Image_):
     def to_fits(self, fileout, as_quadrants=False, overwrite=True,
                     **kwargs):
         """ """
-        if not as_quadrant:
+        if not as_quadrants:
             out = self._to_fits(fileout, data=self.data, header=self.header,
                               overwrite=overwrite, **kwargs)
             
