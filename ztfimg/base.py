@@ -514,7 +514,7 @@ class CCD(_Image_):
             raise ValueError(f"shape of the input CCD data must be {self.SHAPE} ; {dshape} given")
 
         # Check dask compatibility
-        used_dask = "dask" in type(data)
+        used_dask = "dask" in str(type(data))
         if used_dask != self.use_dask:
             warnings.warn(f"Input data and self.use_dask are not compatible. Now: use_dask={used_dask}")
 
