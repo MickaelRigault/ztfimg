@@ -38,7 +38,7 @@ class _Image_( object ):
         return data
 
     @staticmethod
-    def _read_header(cls, filename, use_dask=True, persist=False):
+    def _read_header(filename, use_dask=True, persist=False):
         """ assuming fits format. """
         from astropy.io.fits import getheader        
         if use_dask:
