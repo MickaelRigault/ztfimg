@@ -9,7 +9,7 @@ import dask.array as da
 
 from ztfquery import io
         
-from .tools import fit_polynome, rebin_arr, parse_vmin_vmax
+from .utils.tools import fit_polynome, rebin_arr, parse_vmin_vmax
 from .base import Quadrant, CCD, FocalPlane, Delayed
 from .io import get_nonlinearity_table
 from .collection import CCDCollection

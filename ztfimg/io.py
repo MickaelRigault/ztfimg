@@ -46,7 +46,7 @@ def get_catalog_from_ccin2p3(ra, dec, radius, which, enrich=True):
     -------
     DataFrame
     """
-    from .tools import get_htm_intersect, njy_to_mag
+    from .utils.tools import get_htm_intersect, njy_to_mag
     from astropy.table import Table
     IN2P3_LOCATION = "/sps/lsst/datasets/refcats/htm/v1/"
     IN2P3_CATNAME = {"ps1":"ps1_pv3_3pi_20170110",
@@ -98,7 +98,7 @@ def parse_input(rcids, fields, radecs):
 
 def get_nonlinearity_table():
     """ """
-    from .tools import ccdid_qid_to_rcid
+    from .utils.tools import ccdid_qid_to_rcid
     nl_table = pandas.read_csv(NONLINEARITY_FILE, comment='#', header=None, sep='\s+', usecols=[0, 1, 2, 3, 4],
                                       names=["ccdid", "ampname", "qid", "a", "b"])
     nl_table["qid"] += 1 # qid in the file is actually AMP_ID that starts at 0, while qid starts at 1.

@@ -9,7 +9,7 @@ import warnings
 import numpy as np
 from .science import ScienceQuadrant
 from .base import _Image_, Quadrant, CCD
-
+from .utils.decorators import classproperty
 
 # -------------- #
 #
@@ -36,7 +36,6 @@ def _headers_to_headerdf_(headers, persist=False):
 
 class _ImageCollection_( object ):
     COLLECTION_OF = _Image_
-    SHAPE = COLLECTION_OF.SHAPE
     QUADRANT_SHAPE = Quadrant.SHAPE
     
     def __init__(self, images, use_dask=True, **kwargs):
@@ -265,6 +264,14 @@ class _ImageCollection_( object ):
     def use_dask(self):
         """ """
         return self._use_dask
+
+    # --------------- #
+    # Class Property  #
+    # --------------- #
+    @classproperty
+    def SHAPE(cls):
+        """ """
+        return cls.COLLECTION_OF.SHAPE
     
 class QuadrantCollection( _ImageCollection_ ):
     COLLECTION_OF = Quadrant

@@ -16,8 +16,6 @@ def rcid_to_ccdid_qid(rcid):
     ccdid  = int((rcid-(qid - 1))/4 +1)
     return ccdid,qid
 
-
-
 def fit_polynome(x, y, degree, variance=None):
     """ """
     from scipy.optimize import fmin

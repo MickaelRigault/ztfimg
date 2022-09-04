@@ -8,7 +8,7 @@ import warnings
 from astropy.nddata import bitmask
 
 from .base import Quadrant, CCD, FocalPlane
-from .tools import rebin_arr, parse_vmin_vmax, rcid_to_ccdid_qid, ccdid_qid_to_rcid
+from .utils.tools import rebin_arr, parse_vmin_vmax, rcid_to_ccdid_qid, ccdid_qid_to_rcid
 from .astrometry import WCSHolder
 
 
@@ -374,7 +374,7 @@ class ScienceQuadrant(Quadrant, WCSHolder):
     def get_source_mask(self, thresh=5, r=8):
         """ """
         if not hasattr(self, "_source_mask"):
-            from .tools import extract_sources, get_source_mask
+            from .utils.tools import extract_sources, get_source_mask
             data = self.get_data(
                 applymask=True, rmbkgd=True, whichbkgd="median")
             mask = self.get_mask()

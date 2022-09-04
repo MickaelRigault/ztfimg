@@ -3,7 +3,7 @@
 import numpy as np
 from astropy.wcs import WCS as astropyWCS
 import pandas
-from . import tools
+from .utils import tools
 
 def read_radec(filename, ext=0, as_serie=False):
     """ """

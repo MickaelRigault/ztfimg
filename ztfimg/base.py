@@ -8,7 +8,7 @@ import dask.dataframe as dd
 from dask.array.core import Array as DaskArray
 from dask.delayed import Delayed, DelayedAttr
 
-from .tools import rebin_arr, parse_vmin_vmax, ccdid_qid_to_rcid, rcid_to_ccdid_qid
+from .utils.tools import rebin_arr, parse_vmin_vmax, ccdid_qid_to_rcid, rcid_to_ccdid_qid
 
 
 __all__ = ["Quadrant", "CCD", "FocalPlane"]
@@ -367,7 +367,7 @@ class Quadrant(_Image_):
                      as_dataframe=False,
                      **kwargs):
         """ """
-        from .tools import get_aperture
+        from .utils.tools import get_aperture
 
         if use_dask is None:
             use_dask = type(imgdata) in [DaskArray, Delayed]
