@@ -624,7 +624,7 @@ class CCD(_Image_):
         df.columns = qid_range
         return df
 
-    def get_quadrantdata(self, rebin=False, from_data=False, npstat="mean", **kwargs):
+    def get_quadrantdata(self, rebin=None, from_data=False, npstat="mean", **kwargs):
         """ 
         npstat: string
             function used to rebin (np.mean, np.median etc)
@@ -678,7 +678,7 @@ class CCD(_Image_):
         return data_
 
     # - internal get
-    def _quadrants_to_ccd(self, rebin=False):
+    def _quadrants_to_ccd(self, rebin=None):
         """ combine the ccd data into the quadrants"""
         # numpy or dask.array ?
         npda = da if self.use_dask else np
