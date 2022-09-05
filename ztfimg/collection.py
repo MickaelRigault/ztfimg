@@ -9,6 +9,7 @@ import warnings
 import numpy as np
 from .science import ScienceQuadrant
 from .base import _Image_, Quadrant, CCD
+from .raw import RawCCD
 from astropy.utils.decorators import classproperty
 
 # -------------- #
@@ -49,13 +50,19 @@ class _ImageCollection_( object ):
         return cls(images, use_dask=use_dask, **kwargs)
 
     @classmethod
-    def from_filenames(cls, filenames, use_dask=True, imgkwargs={}, **kwargs):
+    def from_filenames(cls, filenames, use_dask=True, imgkwargs={},
+                           as_path=False, persist=False, **kwargs):
         """ """
         filenames = np.atleast_1d(filenames).tolist()
+        imgkwargs["as_path"] = as_path # pass this to .from_filename
+        
         if use_dask:
             images = [dask.delayed(cls.COLLECTION_OF.from_filename)(filename, use_dask=False,
                                                                       **imgkwargs)
                      for filename in filenames]
+            if persist:
+                images = [i.persist() for i in images]
+                
         else:
             images = [cls.COLLECTION_OF.from_filename(filename, use_dask=False, **imgkwargs)
                           for filename in filenames]
@@ -270,18 +277,18 @@ class _ImageCollection_( object ):
     # --------------- #
     @classproperty
     def SHAPE(cls):
-        """ """
+        """ shape of object the collection is made of"""
         return cls.COLLECTION_OF.SHAPE
     
+# Collection of Quadrant    
 class QuadrantCollection( _ImageCollection_ ):
     COLLECTION_OF = Quadrant
 
-
+# Collection of CCD    
 class CCDCollection( _ImageCollection_ ):
     COLLECTION_OF = CCD
-        
 
-    
+# Collection of Science Quadrant
 class ScienceQuadrantCollection( QuadrantCollection ):
     COLLECTION_OF = ScienceQuadrant
 
@@ -375,6 +382,7 @@ class ScienceQuadrantCollection( QuadrantCollection ):
 #                         #
 # ======================= #
 class RawCCDCollection( CCDCollection ):
+    COLLECTION_OF = RawCCD
     
     @staticmethod
     def bulk_getfile_daterange(start, end, ccdid, imgtype=None, filtercode=None,
@@ -404,36 +412,6 @@ class RawCCDCollection( CCDCollection ):
     #  INITIALISE  #
     # ------------ #
     @classmethod
-    def from_filenames(cls, filenames, as_path=False,
-                           use_dask=True, imgkwargs={},
-                           persist=False, **kwargs):
-        """ 
-        as_path: [bool] -optional-
-            if as_path is False, then rawfile=io.get_file(rawfile) is used.
-            the enables to automatically download the missing file but work
-            only for IPAC-pipeline based file. It add a (small) overhead.
-            If you know the file exists, use as_path=True.
-        """
-        filenames = np.atleast_1d(filenames).tolist()
-        imgkwargs["as_path"] = as_path # pass this to RawCCD.from_filename
-        
-        if use_dask:
-            images = [dask.delayed(RawCCD.from_filename)(filename, use_dask=False,
-                                                             **imgkwargs)
-                     for filename in filenames]
-            if persist:
-                print("PERSIST")
-                images = [i.persist() for i in images]
-        else:
-            images = [RawCCD.from_filename(filename, use_dask=False,
-                                               **imgkwargs)
-                          for filename in filenames]
-        
-        this = cls(images, use_dask=use_dask, **kwargs)
-        this._filenames = filenames
-        return this
-    
-    @classmethod
     def from_date(cls, date, ccdid, dateformat=None, **kwargs):
         """ """
         start = Time(date, format=dateformat).jd
@@ -446,17 +424,8 @@ class RawCCDCollection( CCDCollection ):
         files = cls.bulk_getfile_daterange(start, end, ccdid, filtercode=filtercode, dateformat=dateformat, 
                                            persist=persist, **queryprop)
         return cls.from_filenames(files, use_dask=True, persist=persist, **kwargs)
-    
-    # ============ #
-    #  Methods     #
-    # ============ #
-    # --------- #
-    #  GETTER   #
-    # --------- #    
-    def get_data(self, corr_overscan=False, corr_nl=False, **kwargs):
-        """ """
-        return super().get_data(corr_overscan=corr_overscan, corr_nl=corr_nl, **kwargs)
-    
+
+
 class RawFlatCCDCollection( RawCCDCollection ):
     
     @classmethod
@@ -464,8 +433,10 @@ class RawFlatCCDCollection( RawCCDCollection ):
                                    dateformat=None, persist=False,
                                    **kwargs):
         """ """
-        return super().bulk_getfile_daterange(start, end, ccdid, filtercode=filtercode,
-                                              dateformat=None, persist=False, imgtype="flat", 
+        return super().bulk_getfile_daterange(start, end, ccdid,
+                                             imgtype="flat",  # forcing this.
+                                              filtercode=filtercode,
+                                              dateformat=dateformat, persist=persist, 
                                               **kwargs)    
     
     # ============ #

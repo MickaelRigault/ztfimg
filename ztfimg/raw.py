@@ -24,9 +24,18 @@ class RawQuadrant( Quadrant ):
     SHAPE_OVERSCAN = 3080, 30
     def __init__(self, data=None, header=None, overscan=None, use_dask=True):
         """ """
-        _ = super().__init__(use_dask=use_dask)
-        self.setup(data=data, header=header, overscan=overscan)
-        
+        # Add the overscan to the __init__
+        _ = super().__init__(data=data, header=header, use_dask=use_dask)
+        if overscan is not None:
+            self.set_overscan(overscan)
+
+    @classmethod
+    def from_data(cls, data, header=None, overscan=None, **kwargs):
+        """ """
+        # the super knows overscan thanks to the kwargs passed to __init__
+        return super().from_data(data, header=header, overscan=overscan,
+                                     **kwargs)
+    
     @classmethod
     def from_filename(cls, filename, qid,
                           as_path=False,
@@ -54,7 +63,8 @@ class RawQuadrant( Quadrant ):
                 
         # - Fits format
         if format in ["fits",".fits"]:
-            return cls.read_fits(filename, qid, use_dask=use_dask,
+            return cls.read_fits(filename, qid,
+                                    use_dask=use_dask,
                                     persist=persist, download=download,
                                     as_path=as_path,
                                      **kwargs)
@@ -149,17 +159,6 @@ class RawQuadrant( Quadrant ):
     # -------- #
     #  SETTER  #
     # -------- #
-    def setup(self, data=None, header=None, overscan=None):
-        """ """
-        if data is not None:
-            self.set_data(data)
-            
-        if header is not None:
-            self.set_header(header)
-            
-        if overscan is not None:
-            self.set_overscan(overscan)
-            
     def set_overscan(self, overscan):
         """ """
         self._overscan = overscan
@@ -401,19 +400,6 @@ class RawQuadrant( Quadrant ):
 class RawCCD( CCD ):
     _QUADRANTCLASS = RawQuadrant
     
-    def __init__(self, filename=None, use_dask=True, persist=False, **kwargs):
-        """ """
-        _ = super().__init__(use_dask=use_dask)
-        self.load_file(filename, persist=persist,
-                           **kwargs)
-        
-    @classmethod
-    def from_filename(cls, filename, as_path=False,
-                          use_dask=True, persist=False, **kwargs):
-        """ """
-        return cls(filename, as_path=as_path,
-                    use_dask=use_dask, persist=persist, **kwargs)
-
     @classmethod
     def from_filefracday(cls, filefracday, ccdid, use_dask=True, **kwargs):
         """ """
@@ -425,73 +411,7 @@ class RawCCD( CCD ):
             raise IOError(f"Very strange: several local raw data found for filefracday: {filefracday} and ccdid: {ccdid}", filename)
         
         return cls.from_filename(filename[0], use_dask=use_dask, **kwargs)
-        
-    # =============== #
-    #   Methods       #
-    # =============== #
-    # -------- #
-    #  LOADER  #
-    # -------- #
-    def load_file(self, filename, persist=False, as_path=False, **kwargs):
-        """ 
-        as_path: [bool] -optional-
-            if as_path is False, then rawfile=io.get_file(rawfile) is used.
-            the enables to automatically download the missing file but work
-            only for IPAC-pipeline based file. It add a (small) overhead.
-            If you know the file exists, use as_path=True.
 
-        """
-        if self._use_dask:
-            if not as_path:
-                filename = dask.delayed(io.get_file)(filename, show_progress=False, maxnprocess=1)
-                
-            header = dask.delayed(fits.open)(filename)[0].header
-        else:
-            if not as_path:
-                filename = io.get_file(filename, show_progress=False, maxnprocess=1)
-                
-            header = fits.open(filename)[0].header
-            
-        self.set_header(header)
-        self.load_quadrants(filename, format="fits", persist=persist, **kwargs)
-        
-    def load_quadrants(self, filename, which="*", persist=False, **kwargs):
-        """ """
-        if which is None or type(which)==str and which in ["*","all"] :
-            which = [1,2,3,4]
-        else:
-            which = np.asarray(np.atleast_1d(which), dtype="int")
-        
-        for qid in which:
-            qradrant = RawQuadrant.from_filename(filename, qid, use_dask=self._use_dask,
-                                                     persist=persist, **kwargs)
-            self.set_quadrant(qradrant,  qid=qid)
-            
-    # -------- #
-    #  SETTER  #
-    # -------- #                
-
-    # --------- #
-    #  GETTER   #
-    # --------- # 
-           
-    # --------- #
-    #  PLOTTER  #
-    # --------- # 
-        
-    # =============== #
-    #  Properties     #
-    # =============== #
-    @property
-    def ccdid(self):
-        """ number of the CCD """
-        return self.get_headerkey("CCD_ID", None)
-    
-    @property
-    def filename(self):
-        """ """
-        return self.get_headerkey("FILENAME", None)
-    
     
 class RawFocalPlane( FocalPlane ):
     # INFORMATION || Numbers to be fine tuned from actual observations

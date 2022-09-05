@@ -9,7 +9,7 @@ from astropy.nddata import bitmask
 
 from .base import Quadrant, CCD, FocalPlane
 from .utils.tools import rebin_arr, parse_vmin_vmax, rcid_to_ccdid_qid, ccdid_qid_to_rcid
-from .astrometry import WCSHolder
+from .utils.astrometry import WCSHolder
 
 
 __all__ = ["ScienceQuadrant", "ScienceCCD", "ScienceFocalPlane"]
@@ -31,8 +31,9 @@ class ScienceQuadrant(Quadrant, WCSHolder):
         self._meta = meta
 
     @classmethod
-    def from_filename(cls, filename, filenamemask=None, download=True,
-                      use_dask=True, persist=True, **kwargs):
+    def from_filename(cls, sciimgpath, mskimgpath=None,
+                          download=True,
+                          use_dask=True, persist=True, **kwargs):
         """
         Parameters
         ----------
@@ -856,12 +857,6 @@ class ScienceQuadrant(Quadrant, WCSHolder):
             self.load_wcs()
         return self._wcs
 
-    @property
-    def filename(self):
-        """ """
-        if not hasattr(self, "_filename"):
-            return None
-        return self._filename
 
     # // shortcut
     @property

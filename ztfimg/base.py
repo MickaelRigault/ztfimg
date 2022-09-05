@@ -9,7 +9,7 @@ from dask.array.core import Array as DaskArray
 from dask.delayed import Delayed, DelayedAttr
 
 from .utils.tools import rebin_arr, parse_vmin_vmax, ccdid_qid_to_rcid, rcid_to_ccdid_qid
-
+from .utils.decorators import classproperty
 
 __all__ = ["Quadrant", "CCD", "FocalPlane"]
 
@@ -17,9 +17,15 @@ class _Image_( object ):
     SHAPE = None
     # Could be any type (raw, science)
 
-    def __init__(self, use_dask=True):
-        """ """
+    def __init__(self, data=None, header=None, use_dask=True):
+        """  """
         self._use_dask = use_dask
+        
+        if data is not None:
+            self.set_data(data)
+            
+        if header is not None:
+            self.set_header(header)
 
     @classmethod
     def _read_data(cls, filename, use_dask=True, persist=False):
@@ -63,24 +69,79 @@ class _Image_( object ):
         fits.writeto(fileout, data, header=header,
                          overwrite=overwrite, **kwargs)
         return fileout
+    
+    @classmethod
+    def from_filename(cls, filename, use_dask=True, persist=False,
+                          dask_header=False, **kwargs):
+        """ This classmethod loads a CCD object from a full-ccd image (not quadrant).
 
+        
+        """
+        if not use_dask:
+            dask_header = False
+            
+        data = cls._read_data(filename, use_dask=use_dask, persist=persist)
+        header = cls._read_header(filename, use_dask=dask_header, persist=persist)
+        
+        # self
+        this = cls.from_data(data=data, header=header)
+        this._filename = filename
+        return this
+
+    @classmethod
+    def from_data(cls, data, header=None, **kwargs):
+        """ Instanciate this class given data. 
+        
+        data: [numpy or dask array] 
+            Data of the Image.
+            this will automatically detect if the data are dasked.
+
+        header: [fits.Header or dask.delayed]
+            Header of the image.
+
+        **kwargs goes to __init__
+
+        Returns
+        -------
+        
+        """
+        use_dask = "dask" in str(type(data))
+        return cls(data=data, header=header, use_dask=use_dask, **kwargs)
+
+    def to_fits(self, fileout, overwrite=True, **kwargs):
+        """ right the quadrant (data and header) into a fits file. """
+        return self._to_fits(fileout, data=self.data, header=self.header,
+                                overwrite=overwrite, **kwargs)
     
     # -------- #
     #  SETTER  #
     # -------- #
     def set_header(self, header):
-        """ """
+        """ set self.header with the given header. """
         self._header = header
 
     def set_data(self, data):
-        """ """
-        self._data = data
+        """ Set the data (numpy or dask array). 
+        The data shape should match the self.SHAPE class property.
+        """
+        if self.SHAPE is not None and (dshape:=data.shape) != self.SHAPE:
+            raise ValueError(f"shape of the input CCD data must be {self.SHAPE} ; {dshape} given")
 
+        # Check dask compatibility
+        used_dask = "dask" in str(type(data))
+        if self.use_dask is None and used_dask != self.use_dask:
+            warnings.warn(f"Input data and self.use_dask are not compatible. Now: use_dask={used_dask}")
+            
+        self._use_dask = used_dask
+        self._data = data
+        
     # -------- #
     #  GETTER  #
     # -------- #
     def get_data(self, rebin=None, rebin_stat="nanmean", data=None, rebuild=False):
         """ 
+        get (a copy of) the data in self.data. You can apply rebining to it.
+        Rebins merge (see rebin_stat) to pixel in a [rebin, rebin] square.
 
         Parameters
         ----------
@@ -132,12 +193,13 @@ class _Image_( object ):
         return data_
 
     def get_header(self):
-        """ returns the header (self.header), see self.header
-        """
+        """ returns the header (self.header) """
         return self.header
 
     def get_headerkey(self, key, default=None):
-        """ """
+        """ get a key from the header. 
+        If no header is set. This returns an AttributeError 
+        """
         if self.header is None:
             raise AttributeError("No header set. see the set_header() method")
 
@@ -150,11 +212,15 @@ class _Image_( object ):
                  imgdata=None,
                  vmin="1", vmax="99", dataprop={}, savefile=None,
                  dpi=150, rebin=None, **kwargs):
-        """ """
-        import matplotlib.pyplot as mpl
+        """ Plot the image (data). 
 
+        dataprop: dict
+            used as kwargs of get_data() when accessing the data 
+            to be shown.
+        """
         if ax is None:
-            fig = mpl.figure(figsize=[5 + (1.5 if colorbar else 0), 5])
+            import matplotlib.pyplot as plt            
+            fig = plt.figure(figsize=[5 + (1.5 if colorbar else 0), 5])
             ax = fig.add_subplot(111)
         else:
             fig = ax.figure
@@ -197,55 +263,55 @@ class _Image_( object ):
     # =============== #
     @property
     def use_dask(self):
-        """ """
+        """ are the data dasked (did you set use_dask=True) """
         return self._use_dask
     
     @property
     def data(self):
-        """ """
+        """ data of the image ; numpy.array or dask.array"""
         if not hasattr(self, "_data"):
             return None
         return self._data
 
     def has_data(self):
-        """ """
+        """ are data set ? (True means yes)"""
         return self.data is not None
 
     @property
     def header(self, compute=True):
-        """ """
+        """ header of the data."""
         if not hasattr(self, "_header"):
             return None
         # Computes the header only if necessary
         self._compute_header()
         return self._header
 
-    @property
-    def shape(self):
-        """ """
-        return self.SHAPE
+    @classproperty
+    def shape(cls):
+        """ shape of the images """
+        return np.asarray(cls.SHAPE)
 
     # // header
     @property
     def filename(self):
-        """ """
+        """ If this method was loaded from a file, this is it's filename. None otherwise """
         if not hasattr(self, "_filename"):
             return None
         return self._filename
 
     @property
     def filtername(self):
-        """ """
+        """ Name of the image's filter (from header) """
         return self.get_headerkey("FILTER", "unknown")
 
     @property
     def exptime(self):
-        """ """
+        """ Exposure time of the image (from header) """
         return self.get_headerkey("EXPTIME", np.NaN)
 
     @property
     def obsjd(self):
-        """ """
+        """ Observation Julian date of the image (from header) """
         return self.get_headerkey("OBSJD", None)
 
 # -------------- #
@@ -253,43 +319,8 @@ class _Image_( object ):
 #   QUANDRANT    #
 #                #
 # -------------- #
-
-
 class Quadrant(_Image_):
     SHAPE = 3080, 3072
-
-    def __init__(self, data=None, header=None, use_dask=True):
-        """ """
-        _ = super().__init__(use_dask=use_dask)
-        if data is not None:
-            self.set_data(data)
-
-        if header is not None:
-            self.set_header(header)
-
-    @classmethod
-    def from_filename(cls, filename, use_dask=True, persist=False,
-                          dask_header=False, **kwargs):
-        """
-        Parameters
-        ----------
-        download: [bool] -optional-
-             Downloads the maskfile if necessary.
-
-        **kwargs goes to ztfquery.io.get_file()
-        """
-        data = cls._read_data(filename, use_dask=use_dask, persist=persist)
-        header = cls._read_header(filename, use_dask=dask_header, persist=persist)
-
-        # self
-        this = cls(data=data, header=header, use_dask=use_dask)
-        this._filename = filename
-        return this        
-
-    def to_fits(self, fileout, overwrite=True, **kwargs):
-        """ right the quadrant (data and header) into a fits file. """
-        return self._to_fits(fileout, data=self.data, header=self.header,
-                                overwrite=overwrite, **kwargs)
     
     def get_aperture(self, x0, y0, radius,
                      imgdata=None,
@@ -448,7 +479,6 @@ class Quadrant(_Image_):
 #                #
 # -------------- #
 
-
 class CCD(_Image_):
     # Basically a Quadrant collection
     SHAPE = 3080*2, 3072*2
@@ -485,27 +515,7 @@ class CCD(_Image_):
         
     # =============== #
     #  I/O            #
-    # =============== #
-    @classmethod
-    def from_filename(cls, filename, use_dask=True, persist=False,
-                          dask_header=False, **kwargs):
-        """ This classmethod loads a CCD object from a full-ccd image (not quadrant).
-        = 
-        This method cannot be used for IPAC pipeline product (quadrant based).
-        If you want to load a IPAC ccd image, use 
-        - raw image: RawCCD.from_filename()
-        - using a quadrant image: self.from_single_filename()
-        - using the 4 quadrant images: self.from_filenames()
-        = 
-        
-        """
-        if not use_dask:
-            dask_header = False
-            
-        data = cls._read_data(filename, use_dask=use_dask, persist=persist)
-        header = cls._read_header(filename, use_dask=dask_header, persist=persist)
-        return cls(data=data, header=header, use_dask=use_dask)
-        
+    # =============== #        
     @classmethod
     def from_single_filename(cls, filename, use_dask=True, persist=False, **kwargs):
         """ This classmethod enables to load a full CCD object given a single quadrant filename.
@@ -526,7 +536,6 @@ class CCD(_Image_):
                                                     **qudrantprop)
                  for file_ in filenames]
         return cls(scimg, qids, use_dask=use_dask, **kwargs)
-
 
     def to_fits(self, fileout, as_quadrants=False, overwrite=True,
                     **kwargs):
@@ -585,18 +594,6 @@ class CCD(_Image_):
     # --------- #
     #  SETTER   #
     # --------- #
-    def set_data(self, data):
-        """ """
-        if (dshape:=data.shape) != self.SHAPE:
-            raise ValueError(f"shape of the input CCD data must be {self.SHAPE} ; {dshape} given")
-
-        # Check dask compatibility
-        used_dask = "dask" in str(type(data))
-        if used_dask != self.use_dask:
-            warnings.warn(f"Input data and self.use_dask are not compatible. Now: use_dask={used_dask}")
-
-        self._data = data
-
     def set_quadrant(self, quadrant, qid=None):
         """ """
         if qid is None:
@@ -609,7 +606,7 @@ class CCD(_Image_):
     #  GETTER   #
     # --------- #
     def get_quadrant(self, qid):
-        """ """
+        """ get a quadrant (self.quadrants[qid]) """
         return self.quadrants[qid]
 
     def get_quadrantheader(self):
@@ -649,8 +646,6 @@ class CCD(_Image_):
                                                         use_dask=self.use_dask),
                                               axis=(-2, -1))
         return qdata
-
-        
         
     def get_data(self, rebin=None, npstat="mean",
                      rebin_quadrant=None, persist=False,
@@ -703,9 +698,9 @@ class CCD(_Image_):
              rebin=None, dataprop={}, savefile=None,
              dpi=150, **kwargs):
         """ """
-        import matplotlib.pyplot as mpl
         if ax is None:
-            fig = mpl.figure(figsize=[6, 6])
+            import matplotlib.pyplot as plt            
+            fig = plt.figure(figsize=[6, 6])
             ax = fig.add_subplot(111)
         else:
             fig = ax.figure
@@ -735,7 +730,7 @@ class CCD(_Image_):
     # =============== #
     @property
     def data(self):
-        """ """
+        """ the image data. """
         if not hasattr(self, "_data"):
             if not self.has_quadrants("all"):
                 return None
@@ -746,20 +741,20 @@ class CCD(_Image_):
 
     @property
     def quadrants(self):
-        """ """
+        """ dictionnary of the quadrants, keys are the quadrant id"""
         if not hasattr(self, "_quadrants"):
             self._quadrants = {k: None for k in [1, 2, 3, 4]}
         return self._quadrants
 
     def has_quadrants(self, logic="all"):
-        """ """
+        """ are (all/any, see option) quadrant loaded ? """
         is_none = [v is not None for v in self.quadrants.values()]
         return getattr(np, logic)(is_none)
 
-    @property
-    def qshape(self):
+    @classproperty
+    def qshape(cls):
         """ shape of an individual ccd quadrant """
-        return self._QUADRANTCLASS.SHAPE
+        return cls._QUADRANTCLASS.shape
 
 # -------------- #
 #                #
@@ -770,10 +765,11 @@ class FocalPlane(_Image_):
     _CCDCLASS = CCD
 
     # Basically a CCD collection
-    def __init__(self, ccds=None, ccdids=None, use_dask=True, **kwargs):
+    def __init__(self, ccds=None, ccdids=None, use_dask=True,
+                     data=None, header=None, **kwargs):
         """ """
-        _ = super().__init__(use_dask=use_dask)
-
+        _ = super().__init__(data=data, header=header, use_dask=use_dask)
+        
         if ccds is not None:
             if ccdids is None:
                 ccdids = [None]*len(ccds)
@@ -825,20 +821,20 @@ class FocalPlane(_Image_):
     # =============== #
     #   Methods       #
     # =============== #
-    def set_ccd(self, rawccd, ccdid=None):
-        """ """
+    def set_ccd(self, ccd, ccdid=None):
+        """ attach ccd images to the instance. """
         if ccdid is None:
-            ccdid = rawccd.qid
+            ccdid = ccd.qid
 
-        self.ccds[ccdid] = rawccd
+        self.ccds[ccdid] = ccd
         self._meta = None
 
     def get_ccd(self, ccdid):
-        """ """
+        """ get the ccd (self.ccds[ccdid])"""
         return self.ccds[ccdid]
 
     def get_quadrant(self, rcid):
-        """ """
+        """ get the quadrant (get the ccd and then get its quadrant """
         ccdid, qid = self.rcid_to_ccdid_qid(rcid)
         return self.get_ccd(ccdid).get_quadrant(qid)
 
@@ -872,7 +868,7 @@ class FocalPlane(_Image_):
         return hpixels, vpixels
 
     def get_data(self, rebin=None, incl_gap=True, persist=False, **kwargs):
-        """  """
+        """ get data. """
         # Merge quadrants of the 16 CCDs
         prop = {**dict(rebin=rebin), **kwargs}
 
@@ -977,10 +973,10 @@ class FocalPlane(_Image_):
                  rebin=None, incl_gap=True, dataprop={},
                  savefile=None, dpi=150,
                  **kwargs):
-        """ """
-        import matplotlib.pyplot as mpl
+        """ show the focal plane. """
         if ax is None:
-            fig = mpl.figure(figsize=[6, 6])
+            import matplotlib.pyplot as plt            
+            fig = plt.figure(figsize=[6, 6])
             ax = fig.add_subplot(111)
         else:
             fig = ax.figure
@@ -1024,34 +1020,34 @@ class FocalPlane(_Image_):
     # =============== #
     @property
     def ccds(self):
-        """ """
+        """ dictionary of the ccds {ccdid:CCD, ...}"""
         if not hasattr(self, "_ccds"):
             self._ccds = {k: None for k in np.arange(1, 17)}
 
         return self._ccds
 
     def has_ccds(self, logic="all"):
-        """ """
+        """ test if (any/all see option) ccds are loaded. """
         is_none = [v is not None for v in self.ccds.values()]
         return getattr(np, logic)(is_none)
 
-    @property
-    def shape_full(self):
+    @classproperty
+    def shape_full(cls):
         """ shape with gap"""
         print("gap missing")
-        return self.ccdshape*4
+        return cls.shape
 
-    @property
-    def shape(self):
+    @classproperty
+    def shape(cls):
         """ shape without gap"""
-        return self.ccdshape*4
+        return cls.ccdshape*4
 
-    @property
-    def ccdshape(self):
+    @classproperty
+    def ccdshape(cls):
         """ """
-        return self.qshape*2
+        return cls.qshape*2
 
-    @property
-    def qshape(self):
+    @classproperty
+    def qshape(cls):
         """ """
-        return np.asarray([3080, 3072])
+        return cls._CCDCLASS.qshape
