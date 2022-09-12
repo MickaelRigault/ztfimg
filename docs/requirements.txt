@@ -1,0 +1,7 @@
+numpy
+scipy
+astropy
+matplotlib
+pandas
+ztfquery
+dask
