@@ -5,7 +5,6 @@ import os
 import pandas
 from .collection import ScienceQuadrantCollection
 
-
 class AperturePhotometry(object):
 
     def __init__(self, filenames, use_dask=True, load=True):
@@ -73,7 +72,7 @@ class AperturePhotometry(object):
                  ...
                  [xN_0, xN_1, ..., xN_M]
                  ]
-            same for y0
+           same for y0
 
         system: [string] -optional-
             In which system are the input x0, y0:

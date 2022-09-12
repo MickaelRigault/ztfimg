@@ -38,8 +38,8 @@ class ScienceQuadrant(Quadrant, WCSHolder):
         self._meta = meta
 
     @classmethod
-    def from_filename(cls, sciimgpath, mskimgpath=None,
-                          download=True,
+    def from_filename(cls, filename, filename_mask=None,
+                          download=True, as_path=False,
                           use_dask=True, persist=True, **kwargs):
         """
         Parameters
@@ -52,28 +52,29 @@ class ScienceQuadrant(Quadrant, WCSHolder):
         from ztfquery import io
         from astropy.io import fits
 
-        if filenamemask is None:
-            filenamemask = filename
+        if filename_mask is None:
+            filename_mask = filename
 
         if use_dask:
             # Getting the filenames, download if needed
-            sciimgpath = dask.delayed(io.get_file)(filename, suffix="sciimg.fits",
+            if not as_path:
+                filename = dask.delayed(io.get_file)(filename, suffix="sciimg.fits",
                                                    downloadit=download,
                                                    show_progress=False, maxnprocess=1,
                                                    **kwargs)
 
-            mskimgpath = dask.delayed(io.get_file)(filenamemask, suffix="mskimg.fits",
+                filename_mask = dask.delayed(io.get_file)(filename_mask, suffix="mskimg.fits",
                                                    downloadit=download,
                                                    show_progress=False, maxnprocess=1,
                                                    **kwargs)
 
             # Getting the filenames
             # - Data
-            data = da.from_delayed(dask.delayed(fits.getdata)(sciimgpath),
+            data = da.from_delayed(dask.delayed(fits.getdata)(filename),
                                    shape=cls.SHAPE, dtype="float")
-            header = dask.delayed(fits.getheader)(sciimgpath)
+            header = dask.delayed(fits.getheader)(filename)
             # - Mask
-            mask = da.from_delayed(dask.delayed(fits.getdata)(mskimgpath),
+            mask = da.from_delayed(dask.delayed(fits.getdata)(filename_mask),
                                    shape=cls.SHAPE, dtype="float")
             if persist:
                 data = data.persist()
@@ -81,18 +82,20 @@ class ScienceQuadrant(Quadrant, WCSHolder):
                 mask = mask.persist()
 
         else:
-            sciimgpath = io.get_file(filename, suffix="sciimg.fits",
+            if not as_path:
+                filename = io.get_file(filename, suffix="sciimg.fits",
                                      downloadit=download, **kwargs)
-            mskimgpath = io.get_file(filenamemask, suffix="mskimg.fits",
+                filename_mask = io.get_file(filename_mask, suffix="mskimg.fits",
                                      downloadit=download, **kwargs)
-            data = fits.getdata(sciimgpath)
-            header = fits.getheader(sciimgpath)
+            data = fits.getdata(filename)
+            header = fits.getheader(filename)
             # - Mask
-            mask = fits.getdata(mskimgpath)
+            mask = fits.getdata(filename_mask)
 
         # self
         meta = io.parse_filename(filename)
-        this = cls(data=data, header=header, use_dask=use_dask,
+        this = cls(data=data, header=header,
+                  use_dask=use_dask,
                    mask=mask, meta=meta)
         this._filename = filename
         return this
@@ -138,8 +141,8 @@ class ScienceQuadrant(Quadrant, WCSHolder):
         return ScienceFocalPlane.from_single_filename(self.filename, use_dask=use_dask, **kwargs)
 
     def get_data(self, which=None,
-                 applymask=True, maskvalue=np.NaN,
-                 rmbkgd=True, whichbkgd="median",
+                 applymask=False, maskvalue=np.NaN,
+                 rmbkgd=False, whichbkgd="median",
                  rebin=None, rebin_stat="nanmean",
                  **kwargs):
         """ get a copy of the data affected by background and/or masking.

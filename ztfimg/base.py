@@ -280,7 +280,7 @@ class _Image_( object ):
 
     def has_data(self):
         """ are data set ? (True means yes)"""
-        return self.data is not None
+        return hasattr(self, "_data") and self._data is not None
 
     @property
     def header(self, compute=True):
@@ -321,7 +321,7 @@ class _Image_( object ):
 
 # -------------- #
 #                #
-#   QUANDRANT    #
+#   QUADRANT     #
 #                #
 # -------------- #
 class Quadrant(_Image_):
@@ -528,19 +528,19 @@ class CCD(_Image_):
         """
         import re
         qids = range(1, 5)
-        scimg = [cls._QUADRANTCLASS.from_filename(re.sub(r"_o_q[1-5]*", f"_o_q{i}", filename),
+        quadrants = [cls._QUADRANTCLASS.from_filename(re.sub(r"_o_q[1-5]*", f"_o_q{i}", filename),
                                                   use_dask=use_dask, persist=persist)
                  for i in qids]
-        return cls(scimg, qids, use_dask=use_dask)
+        return cls(quadrants=quadrants, qids=qids, use_dask=use_dask)
 
     @classmethod
     def from_filenames(cls, filenames, qids=[1, 2, 3, 4], use_dask=True,
                        persist=False, qudrantprop={}, **kwargs):
         """ """
-        scimg = [cls._QUADRANTCLASS.from_filename(file_, use_dask=use_dask, persist=persist,
+        quadrants = [cls._QUADRANTCLASS.from_filename(file_, use_dask=use_dask, persist=persist,
                                                     **qudrantprop)
                  for file_ in filenames]
-        return cls(scimg, qids, use_dask=use_dask, **kwargs)
+        return cls(quadrants=quadrants, qids=qids, use_dask=use_dask, **kwargs)
 
     def to_fits(self, fileout, as_quadrants=False, overwrite=True,
                     **kwargs):
@@ -666,7 +666,7 @@ class CCD(_Image_):
         if self.has_data() and not rebuild and not rebin_quadrant:
             data_ = self.data.copy()
         else:
-            data_ = self._quadrants_to_ccd(rebin=rebin_quadrant)
+            data_ = self._quadrants_to_ccd(rebin=rebin_quadrant, **kwargs)
            
         if rebin is not None:
             data_ = getattr(npda, npstat)(rebin_arr(data_, (rebin, rebin),
@@ -678,12 +678,12 @@ class CCD(_Image_):
         return data_
 
     # - internal get
-    def _quadrants_to_ccd(self, rebin=None):
+    def _quadrants_to_ccd(self, rebin=None, **kwargs):
         """ combine the ccd data into the quadrants"""
         # numpy or dask.array ?
         npda = da if self.use_dask else np
         
-        d = self.get_quandrantdata(rebin=rebin)
+        d = self.get_quadrantdata(rebin=rebin, **kwargs)
 
         if not self._POS_INVERTED:
             ccd_up = npda.concatenate([d[1], d[0]], axis=1)
@@ -736,11 +736,12 @@ class CCD(_Image_):
     @property
     def data(self):
         """ the image data. """
-        if not hasattr(self, "_data"):
-            if not self.has_quadrants("all"):
-                return None
-
-            self.load_data()
+        if not self.has_data():
+            if self.has_quadrants("all"):
+                warnings.warn("use get_data() to fetch data from the quadrants")
+            return None
+            # do not load by default too dangerous for they are options in get_data
+            #self.load_data()
 
         return self._data
 

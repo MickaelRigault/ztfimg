@@ -33,7 +33,7 @@ from ztfimg import *
 
 # -- General configuration ---------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration
-
+"""
 extensions = [# Standard extensions
     "numpydoc",
     'sphinx.ext.autodoc',
@@ -50,7 +50,21 @@ extensions = [# Standard extensions
     # 'sphinx.ext.coverage',
     # Other extensions  
 ]
-
+"""
+extensions = [
+    'sphinx.ext.autodoc',
+    'sphinx.ext.autosummary',
+    'sphinx.ext.intersphinx',
+    'sphinx.ext.mathjax',
+    'sphinx.ext.napoleon',
+    'sphinx.ext.viewcode',
+    'matplotlib.sphinxext.plot_directive',
+    # extra
+    'myst_nb',
+    "nbsphinx",
+    'sphinx_copybutton'
+    ]
+    
 
 # Class to another class
 inheritance_node_attrs = dict(shape='ellipse', fontsize=13, height=0.75,
@@ -74,13 +88,20 @@ intersphinx_mapping = {
 templates_path = ['_templates']
 exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store']
 
+# = from jax docs =
+# The suffix(es) of source filenames.
+# Note: important to list ipynb before md here: we have both md and ipynb
+# copies of each notebook, and myst will choose which to convert based on
+# the order in the source_suffix list. Notebooks which are not executed have
+# outputs stored in ipynb but not in md, so we must convert the ipynb.
+source_suffix = ['.rst', '.ipynb', '.md']
 
 
 # -- Options for HTML output -------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#options-for-html-output
 
 #html_theme = 'alabaster'
-html_theme = 'sphinx_rtd_theme'
+html_theme = 'sphinx_book_theme'
 html_static_path = ['_static']
 
 #html_permalinks_icon = '<span>#</span>'

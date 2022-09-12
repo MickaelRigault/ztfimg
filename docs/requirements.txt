@@ -7,3 +7,7 @@ ztfquery
 dask
 
 numpydoc
+sphinx-book-theme
+myst-nb
+nbsphinx
+sphinx_copybutton
