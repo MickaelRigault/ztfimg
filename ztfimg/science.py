@@ -22,7 +22,14 @@ class ScienceQuadrant(Quadrant, WCSHolder):
                    "dead", "nan", "psfsources", "brightstarhalo"]
 
     def __init__(self, data=None, mask=None, header=None, use_dask=True, meta=None):
-        """ """
+        """ Science Quadrant. You most likely want to load it using from_* class method
+
+        See also
+        --------
+        from_filename: load the instance using a quadrant filename
+        
+        
+        """
         _ = super().__init__(data=data, header=header, use_dask=use_dask)
 
         if mask is not None:

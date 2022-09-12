@@ -5,9 +5,6 @@ import dask
 import dask.array as da
 import dask.dataframe as dd
 
-from dask.array.core import Array as DaskArray
-from dask.delayed import Delayed, DelayedAttr
-
 from .utils.tools import rebin_arr, parse_vmin_vmax, ccdid_qid_to_rcid, rcid_to_ccdid_qid
 from .utils.decorators import classproperty
 
@@ -18,7 +15,16 @@ class _Image_( object ):
     # Could be any type (raw, science)
 
     def __init__(self, data=None, header=None, use_dask=True):
-        """  """
+        """  load the instance given input data.
+        You most likely want to load this using from_* methods 
+
+
+        See also
+        --------
+        from_filename:
+        from_data:
+        
+        """
         self._use_dask = use_dask
         
         if data is not None:
@@ -139,8 +145,7 @@ class _Image_( object ):
     #  GETTER  #
     # -------- #
     def get_data(self, rebin=None, rebin_stat="nanmean", data=None, rebuild=False):
-        """ 
-        get (a copy of) the data in self.data. You can apply rebining to it.
+        """  get (a copy of) the data in self.data. You can apply rebining to it.
         Rebins merge (see rebin_stat) to pixel in a [rebin, rebin] square.
 
         Parameters
@@ -227,7 +232,7 @@ class _Image_( object ):
 
         if imgdata is None:
             imgdata = self.get_data(rebin=rebin, **dataprop)
-        if type(imgdata) in [DaskArray, Delayed]:
+        if "dask" in str(type(imgdata)):
             imgdata = imgdata.compute()
 
         if apply is not None:
@@ -250,7 +255,7 @@ class _Image_( object ):
     # -------- #
     def _compute_header(self):
         """ """
-        if self._use_dask and type(self._header) in [Delayed, DelayedAttr]:
+        if self._use_dask and "dask" in str(type(self._header)):
             self._header = self._header.compute()
 
     def _compute_data(self):
@@ -401,7 +406,7 @@ class Quadrant(_Image_):
         from .utils.tools import get_aperture
 
         if use_dask is None:
-            use_dask = type(imgdata) in [DaskArray, Delayed]
+            use_dask = "dask" in str(type(imgdata))
 
         apdata = get_aperture(imgdata,
                               x0, y0, radius=radius,
@@ -418,7 +423,7 @@ class Quadrant(_Image_):
                **{f'f_{k}_f': apdata[2, k] for k in range(nradius)},
                }
 
-        if type(apdata) == DaskArray:
+        if "dask" in str(type(apdata)):
             return dd.from_dask_array(da.stack(dic.values(), allow_unknown_chunksizes=True).T,
                                       columns=dic.keys())
 
@@ -708,7 +713,7 @@ class CCD(_Image_):
         if imgdata is None:
             imgdata = self.get_data(rebin=rebin, **dataprop)
             
-        if type(imgdata) in [DaskArray, Delayed]:
+        if "dask" in str(type(imgdata)):
             imgdata = imgdata.compute()
 
         vmin, vmax = parse_vmin_vmax(imgdata, vmin, vmax)
@@ -984,7 +989,7 @@ class FocalPlane(_Image_):
         if imgdata is None:
             imgdata = self.get_data(rebin=rebin, incl_gap=incl_gap, **dataprop)
             
-        if type(imgdata) in [DaskArray, Delayed]:
+        if "dask" in str(type(imgdata)):
             imgdata = imgdata.compute()
 
         vmin, vmax = parse_vmin_vmax(imgdata, vmin, vmax)
