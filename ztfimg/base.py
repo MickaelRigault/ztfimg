@@ -31,32 +31,32 @@ class Image( object ):
             self.set_header(header)
 
     @classmethod
-    def _read_data(cls, filename, use_dask=True, persist=False):
+    def _read_data(cls, filename, use_dask=True, persist=False, ext=None):
         """ assuming fits format."""
         from astropy.io.fits import getdata
         if use_dask:
             # - Data
-            data = da.from_delayed( dask.delayed( getdata) (filename),
+            data = da.from_delayed( dask.delayed( getdata) (filename, ext=ext),
                                    shape=cls.SHAPE, dtype="float")
             if persist:
                 data = data.persist()
 
         else:
-            data = getdata(filename)
+            data = getdata(filename, ext=ext)
 
         return data
 
     @staticmethod
-    def _read_header(filename, use_dask=True, persist=False):
+    def _read_header(filename, use_dask=True, persist=False, ext=None):
         """ assuming fits format. """
         from astropy.io.fits import getheader
         
         if use_dask:
-            header = dask.delayed(getheader)(filename)
+            header = dask.delayed(getheader)(filename, ext=ext)
             if persist:
                 header = header.persist()
         else:
-            header = getheader(filename)
+            header = getheader(filename, ext=ext)
             
         return header
 
@@ -109,7 +109,7 @@ class Image( object ):
     @classmethod
     def from_filename(cls, filename,
                           as_path=True,
-                          use_dask=True, persist=False,
+                          use_dask=False, persist=False,
                           dask_header=False, **kwargs):
         """ classmethod load an instance given an input file.
 

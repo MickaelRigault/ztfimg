@@ -21,106 +21,145 @@ __all__ = ["RawQuadrant", "RawCCD", "RawFocalPlane"]
 class RawQuadrant( Quadrant ):
 
     SHAPE_OVERSCAN = 3080, 30
-    def __init__(self, data=None, header=None, overscan=None, use_dask=True):
-        """ """
+    def __init__(self, data=None, header=None, overscan=None, use_dask=False):
+        """ 
+        See also
+        --------
+        from_filename: load the instance given a filename 
+        from_data: load the instance given its data (and header)
+        """
         # Add the overscan to the __init__
         _ = super().__init__(data=data, header=header, use_dask=use_dask)
         if overscan is not None:
             self.set_overscan(overscan)
 
+
+    @staticmethod
+    def _read_overscan(filename, ext, use_dask=True, persist=False):
+        """ assuming fits format. """
+        from astropy.io.fits import getdata
+        
+        if use_dask:
+            overscan = da.from_delayed(dask.delayed(getdata)(filename, ext=ext+4),
+                                            shape=cls.SHAPE_OVERSCAN, dtype="float")
+            if persist:
+                overscan = overscan.persist()
+        else:
+            overscan = getdata(filename, ext=ext+4)
+            
+        return overscan            
+
     @classmethod
     def from_data(cls, data, header=None, overscan=None, **kwargs):
-        """ """
+        """ Instanciate this class given data. 
+        
+        Parameters
+        ----------
+        data: numpy.array or dask.array]
+            Data of the Image.
+            this will automatically detect if the data are dasked.
+
+        header: fits.Header or dask.delayed
+            Header of the image.
+
+        overscan: 2d-array
+            overscan image.
+
+        **kwargs goes to __init__
+
+        Returns
+        -------
+        class instance
+        """
         # the super knows overscan thanks to the kwargs passed to __init__
+        use_dask = "dask" in str( type(data))
         return super().from_data(data, header=header, overscan=overscan,
-                                     **kwargs)
+                                     use_dask=use_dask, **kwargs)
     
     @classmethod
     def from_filename(cls, filename, qid,
-                          as_path=False,
-                          use_dask=True,
-                          persist=False, download=True,
-                          format=None, **kwargs):
-        """ 
+                          as_path=True,
+                          use_dask=False, persist=False,
+                          dask_header=False,
+                          **kwargs):
+        """ classmethod load an instance given an input file.
 
-        as_path: [bool] -optional-
-            if as_path is False, then rawfile=io.get_file(rawfile) is used.
-            the enables to automatically download the missing file but work
-            only for IPAC-pipeline based file. It add a (small) overhead.
-            If you know the file exists, use as_path=True.
+        Parameters
+        ----------
+        filename: str
+            fullpath or filename or the file to load. This must be a raw ccd file.
+            If a filename is given, set as_path=False, then ztfquery.get_file() 
+            will be called to grab the file for you (and download it if necessary)
+            
+        qid: int
+            quadrant id. Which quadrant to load from the input raw image ?
+            
+        as_path: bool
+            Set this to true if the input file is not the fullpath but you need
+            ztfquery.get_file() to look for it for you.
+        
+        use_dask: bool
+            Should dask be used ? The data will not be loaded but delayed 
+            (dask.array)
 
+        persist: bool
+            = only applied if use_dask=True =
+            should we use dask's persist() on data ?
+
+        dask_header: bool, optional
+            should the header be dasked too (slows down a lot)
+
+        **kwargs: goes to __init__()
+
+        Returns
+        -------
+        class instance     
         """
         # - guessing format        
-        if format is None:
-            if type(filename) == Delayed:
-                raise ValueError("cannot guess the input format from delayed filenames. Please provide the format.")
-            
-            if filename.endswith(".fits") or filename.endswith(".fits.gz") or filename.endswith(".fits.fz"):
-                format = "fits"
-            else:
-                format = filename.split('.')
-                
-        # - Fits format
-        if format in ["fits",".fits"]:
-            return cls.read_fits(filename, qid,
-                                    use_dask=use_dask,
-                                    persist=persist, download=download,
-                                    as_path=as_path,
-                                     **kwargs)
-        
-        raise NotImplementedError("Only fits format implemented.")
-            
-
-    @classmethod
-    def read_fits(cls, filename, qid, as_path=False,
-                      use_dask=True, persist=False,
-                      download=True, reorder=True, **kwargs):
-        """ reads the fits file and load the object 
-
-        as_path: [bool] -optional-
-            if as_path is False, then rawfile=io.get_file(rawfile) is used.
-            the enables to automatically download the missing file but work
-            only for IPAC-pipeline based file. It add a (small) overhead.
-            If you know the file exists, use as_path=True.
-
-        """
         if qid not in [1,2,3,4]:
             raise ValueError(f"qid must be 1,2, 3 or 4 {qid} given")
-        
-        if use_dask:
-            if not as_path:
-                filename  = dask.delayed(io.get_file)(filename, show_progress=False,
-                                                  maxnprocess=1, download=download)
-                
-            data      = da.from_delayed( dask.delayed( fits.getdata )(filename, ext=qid),
-                                            shape=cls.SHAPE, dtype="float")
-            overscan  = da.from_delayed(dask.delayed(fits.getdata)(filename, ext=qid+4),
-                                            shape=cls.SHAPE_OVERSCAN, dtype="float")
-            header    = dask.delayed(fits.getheader)(filename, qid=qid)
-            
-        else:
-            if not as_path:
-                filename  = io.get_file(filename, show_progress=False,
-                                            maxnprocess=1, download=download)
-            data      = fits.getdata(filename, ext=qid)
-            overscan  = fits.getdata(filename, ext=qid+4)
-            header    = fits.getheader(filename, qid=qid)
 
-        if qid in [2, 3]:
-            overscan = overscan[:,::-1]
+        if not use_dask:
+            dask_header = False
         
-        if persist and use_dask:
-            data = data.persist()
-            overscan = overscan.persist()
-            header = header.persist()
-            
+        filename = cls._get_filename(filename, as_path=as_path, use_dask=use_dask)
+        # data
+        data = cls._read_data(filename, ext=qid, use_dask=use_dask, persist=persist)
+        header = cls._read_header(filename, ext=qid, use_dask=dask_header, persist=persist)
+        overscan = cls._read_overscan(filename, ext=qid, use_dask=dask_header, persist=persist)
+        
         this = cls(data, header=header, overscan=overscan, use_dask=use_dask, **kwargs)
         this._qid = qid
         return this
 
     @classmethod
     def from_filefracday(cls, filefracday, rcid, use_dask=True, persist=False, **kwargs):
-        """ """
+        """ load the instance given a filefracday and the rcid (ztf ID)
+
+        Parameters
+        ----------
+        filefracday: str
+            ztf ID of the exposure (YYYYMMDDFFFFFF) like 20220704387176
+            ztfquery will fetch for the corresponding data.
+
+        rcid: int
+            rcid of the given quadrant
+
+        use_dask: bool
+            Should dask be used ? The data will not be loaded but delayed 
+            (dask.array)
+
+        persist: bool
+            = only applied if use_dask=True =
+            should we use dask's persist() on data ?
+
+        **kwargs goes to from_filename -> __init__
+
+        Returns
+        -------
+        class instance
+        
+        """
         from ztfquery.io import filefracday_to_local_rawdata
         ccdid, qid = RawFocalPlane.rcid_to_ccdid_qid(rcid)
         
@@ -159,7 +198,19 @@ class RawQuadrant( Quadrant ):
     #  SETTER  #
     # -------- #
     def set_overscan(self, overscan):
-        """ """
+        """ set the overscan image.
+        
+        = It is unlikely you need to use that directly. =
+        
+        Parameters
+        ----------
+        overscan: 2d-array
+            overscan 2d-image
+
+        Returns
+        -------
+        None
+        """
         self._overscan = overscan
                     
     # -------- #
@@ -167,34 +218,46 @@ class RawQuadrant( Quadrant ):
     # -------- #
     def get_data(self, corr_overscan=False, corr_nl=False,
                      rebin=None, rebin_stat="nanmean", reorder=True,
-                     overscanprop={},
-                     **kwargs):
+                     overscan_prop={}, **kwargs):
         """ 
         
         Parameters
         ----------
-        corr_overscan, corr_nl: [bool] -optional-
-            Should the data be corrected for non-linearity and
-            overscan (if both are true, nl is applied first).
+        corr_overscan: bool
+            Should the data be corrected for overscan
+            (if both corr_overscan and corr_nl are true, 
+            nl is applied first)
 
-        rebin: [int / None] -optional-
+        corr_nl: bool
+            Should the data be corrected for non-linearity
+            
+        rebin: int, None
             Shall the data be rebinned by square of size `rebin` ?
-            None means no rebinning
+            None means no rebinning.
+            (see details in rebin_stat)
+            rebin must be a multiple of the image shape.
+            for instance if the input shape is (6160, 6144)
+            rebin could be 2,4,8 or 16
 
-        rebin_stat: [string] -optional-
+        rebin_stat: str
+            = applies only if rebin is not None =
             numpy (dask.array) method used for rebinning the data.
+            For instance, if rebin=4 and rebin_stat = median
+            the median of a 4x4 pixel will be used to form a new pixel.
+            The dimension of the final image will depend on rebin.
         
-        reorder: [bool] -optional-
+        reorder: bool
             Should the data be re-order to match the actual north-up.
             (leave to True if not sure)
             
-        overscanprop: [dict] -optional-
+        overscan_prop: [dict] -optional-
             kwargs going to get_overscan()
             - > e.g. userange=[10,20], stackstat="nanmedian", modeldegree=5,
             
         Returns
         -------
-        2d array
+        2d-array
+            numpy or dask array
         """
         # rebin is made later on.
         data_ = super().get_data(rebin=None, **kwargs)
@@ -204,7 +267,7 @@ class RawQuadrant( Quadrant ):
             data_ /= (a*data_**2 + b*data_ + 1)
         
         if corr_overscan:
-            osmodel = self.get_overscan(**{**dict(which="model"),**overscanprop})
+            osmodel = self.get_overscan(**{**dict(which="model"),**overscan_prop})
             data_ -= osmodel[:,None]            
 
         if rebin is not None:
@@ -398,10 +461,99 @@ class RawQuadrant( Quadrant ):
         
 class RawCCD( CCD ):
     _QUADRANTCLASS = RawQuadrant
+
+    @classmethod
+    def from_filename(cls, filename, as_path=True, use_dask=False, persist=False, **kwargs):
+        """ load the instance from the raw filename.
+
+        Parameters
+        ----------
+        filename: str
+            fullpath or filename or the file to load.
+            If a filename is given, set as_path=False,  then ztfquery.get_file() 
+            will be called to grab the file for you (and download it if necessary)
+            
+        as_path: bool
+            Set this to true if the input file is not the fullpath but you need
+            ztfquery.get_file() to look for it for you.
+        
+        use_dask: bool, optional
+            Should dask be used ? The data will not be loaded but delayed 
+            (dask.array)
+
+        persist: bool, optional
+            = only applied if use_dask=True =
+            should we use dask's persist() on data ?
+
+        **kwargs: goes to _QUADRANTCLASS.from_filename
+
+        
+        Returns
+        -------
+        class instance 
+        
+        Examples
+        --------
+        Load a ztf image you know the name of but not the full path.
+        
+        >>> rawccd = RawCCD.from_filename("ztf_20190301070509_000000_zg_c01_f.fits.fz", as_path=False)
+        """
+        qids = (1,2,3,4)
+        quadrants = [cls._QUADRANTCLASS.from_filename(filename, qid=qid,
+                                                          as_path=as_path,
+                                                          use_dask=use_dask,
+                                                          persist=persist, **kwargs)
+                         for qid in qids]
+        return cls.from_quadrants(quadrants, qids=qids, use_dask=use_dask)
+
+    @classmethod
+    def from_single_filename(cls, *args, **kwargs):
+        """ rawccd data have a single file. 
+
+        See also
+        --------
+        from_filename: load the instance given the raw filename
+        """
+        raise NotImplementedError("from_single_filename does not exists. See from_filename")
+    
+    @classmethod
+    def from_filenames(cls, *args, **kwargs):
+        """ rawccd data have a single file. 
+
+        See also
+        --------
+        from_filename: load the instance given the raw filename
+        """
+        raise NotImplementedError("from_filenames does not exists. See from_filename")
     
     @classmethod
     def from_filefracday(cls, filefracday, ccdid, use_dask=True, **kwargs):
-        """ """
+        """ load the instance given a filefracday and the ccidid (ztf ID)
+
+        Parameters
+        ----------
+        filefracday: str
+            ztf ID of the exposure (YYYYMMDDFFFFFF) like 20220704387176
+            ztfquery will fetch for the corresponding data.
+
+        ccidid: int
+            ccidid of the given ccd
+
+        use_dask: bool
+            Should dask be used ? The data will not be loaded but delayed 
+            (dask.array)
+
+        persist: bool
+            = only applied if use_dask=True =
+            should we use dask's persist() on data ?
+
+        **kwargs goes to from_filename -> __init__
+
+        Returns
+        -------
+        class instance
+        
+        """
         from ztfquery.io import filefracday_to_local_rawdata
         filename = filefracday_to_local_rawdata(filefracday, ccdid=ccdid)
         if len(filename)==0:
@@ -420,11 +572,43 @@ class RawFocalPlane( FocalPlane ):
     _CCDCLASS = RawCCD
     
     @classmethod
-    def from_filenames(cls, ccd_filenames, use_dask=True, **kwargs):
-        """ """
+    def from_filenames(cls, filenames, as_path=True,
+                           use_dask=False, persist=False,
+                           **kwargs):
+        """ load the instance from the raw filename.
+
+        Parameters
+        ----------
+        filenames: list of str
+            list of fullpath or filename or the ccd file to load.
+            If a filename is given, set as_path=False,  then ztfquery.get_file() 
+            will be called to grab the file for you (and download it if necessary)
+            
+        as_path: bool
+            Set this to true if the input file is not the fullpath but you need
+            ztfquery.get_file() to look for it for you.
+        
+        use_dask: bool, optional
+            Should dask be used ? The data will not be loaded but delayed 
+            (dask.array)
+
+        persist: bool, optional
+            = only applied if use_dask=True =
+            should we use dask's persist() on data ?
+
+        **kwargs: goes to _CCDCLASS.from_filename
+
+        
+        Returns
+        -------
+        class instance 
+        
+        """
         this = cls(use_dask=use_dask)
         for file_ in ccd_filenames:
-            ccd_ = cls._CCDCLASS.from_filename(file_, use_dask=use_dask, **kwargs)
+            ccd_ = cls._CCDCLASS.from_filename(file_, as_path=as_path,
+                                                   use_dask=use_dask, persist=persist,
+                                                   **kwargs)
             this.set_ccd(ccd_, ccdid=ccd_.ccdid)
 
         this._filenames = ccd_filenames
@@ -432,7 +616,29 @@ class RawFocalPlane( FocalPlane ):
 
     @classmethod
     def from_filefracday(cls, filefracday, use_dask=True, **kwargs):
-        """ """
+        """ load the instance given a filefracday and the ccidid (ztf ID)
+
+        Parameters
+        ----------
+        filefracday: str
+            ztf ID of the exposure (YYYYMMDDFFFFFF) like 20220704387176
+            ztfquery will fetch for the corresponding data.
+
+        use_dask: bool
+            Should dask be used ? The data will not be loaded but delayed 
+            (dask.array)
+
+        persist: bool
+            = only applied if use_dask=True =
+            should we use dask's persist() on data ?
+
+        **kwargs goes to from_filenames -> _CCDCLASS.from_filename
+
+        Returns
+        -------
+        class instance
+        
+        """
         from ztfquery.io import filefracday_to_local_rawdata
         filenames = filefracday_to_local_rawdata(filefracday, ccdid="*")
         if len(filenames)==0:
