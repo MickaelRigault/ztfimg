@@ -509,7 +509,7 @@ class RawCCD( CCD ):
         quadrants = [quadrant_from_filename(filename, qid=qid,
                                                 as_path=as_path,
                                                 use_dask=False,
-                                                persist=, **kwargs)
+                                                persist=False, **kwargs)
                          for qid in qids]
         if persist and use_dask:
             quadrants = [q.persist() for q in quadrants]
