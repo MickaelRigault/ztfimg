@@ -461,7 +461,8 @@ class RawQuadrant( Quadrant ):
         
 class RawCCD( CCD ):
     _QUADRANTCLASS = RawQuadrant
-
+    _POS_INVERTED = False
+    
     @classmethod
     def from_filename(cls, filename, as_path=True, use_dask=False, persist=False, **kwargs):
         """ load the instance from the raw filename.
