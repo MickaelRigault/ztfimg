@@ -18,8 +18,8 @@ class Image( object ):
         """  
         See also
         --------
-        from_filename:
-        from_data:
+        from_filename: load the instance given a filename 
+        from_data: load the instance given its data (and header)
         
         """
         self._use_dask = use_dask
@@ -120,7 +120,7 @@ class Image( object ):
             If a filename is given, set as_path=False,  then ztfquery.get_file() 
             will be called to grab the file for you (and download it if necessary)
             
-        as_path: bool -optional-
+        as_path: bool
             Set this to true if the input file is not the fullpath but you need
             ztfquery.get_file() to look for it for you.
         
@@ -482,6 +482,9 @@ class Image( object ):
 
         as_dataframe: bool
             return format.
+            If As DataFrame, this will be a dataframe with
+            3xn-radius columns (f_0...f_i, f_0_e..f_i_e, f_0_f...f_i_f)
+            standing for fluxes, errors, flags.
 
         Returns
         -------
@@ -516,29 +519,58 @@ class Image( object ):
         return pandas.DataFrame(dic)
                 
     
-    def getcat_aperture(self, catdf, radius, imgdata=None,
-                        xykeys=["x", "y"], join=True,
-                        dataprop={}, **kwargs):
+    def getcat_aperture(self, catdf, radius,
+                            imgdata=None, dataprop={},
+                            xykeys=["x", "y"], join=True,
+                            as_dataframe=True,
+                            **kwargs):
         """ measures the aperture (using get_aperture) using a catalog dataframe as input
 
-        # Careful, the indexing is reset (becomes index column)  when joined. #
+        # Careful, the indexing is reset (becomes index column) when joined. #
+
         Parameters
         ----------
-        catdf: [DataFrame]
+        catdf: pandas.DataFrame
             dataframe containing, at minimum the x and y centroid positions
 
-        xykeys: [string, string] -optional-
+        radius: float, list
+            size (radius) of the aperture. This could be a list of radius.
+
+        imgdata: 2d-array, None
+            if you want to apply the aperture photometry on this specific image, provide it.
+            otherwhise, ``imgdata = self.get_data(**dataprop)`` is used
+
+        dataprop: dict
+            = ignored if imgdata is given =
+            kwargs used to get the data. 
+            ``imgdata = self.get_data(**dataprop)``
+
+        xykeys: list of two str
             name of the x and y columns in the input dataframe
 
-        join: [bool] -optional-
+        join: bool, optional
             shall the returned dataframe be a new dataframe joined
             to the input one, or simply the aperture dataframe?
 
-        **kwargs goes to get_aperture
+        as_dataframe: bool
+            return format.
+            If As DataFrame, this will be a dataframe with
+            3xn-radius columns (f_0...f_i, f_0_e..f_i_e, f_0_f...f_i_f)
+            standing for fluxes, errors, flags.
+
+        **kwargs goes to self.get_aperture
 
         Returns
         -------
-        DataFrame
+        2d-array or dataframe
+           flux, error and flag for each coordinates and radius.
+
+
+        See also
+        --------
+        get_aperture: run the aperture photometry given list of pixel coordinates
+
+        
         """
         if imgdata is None:
             imgdata = self.get_data(**dataprop)
@@ -620,6 +652,10 @@ class Image( object ):
         -------
         matplotlib.Figure
 
+
+        See also
+        --------
+        get_data: acess the image data
         """
         if ax is None:
             import matplotlib.pyplot as plt            
@@ -725,9 +761,22 @@ class Image( object ):
 # -------------- #
 class Quadrant(Image):
     SHAPE = (3080, 3072)
-    
 
-    
+    @property
+    def qid(self):
+        """ quadrant id (from header) """
+        return self.get_headerkey("QID", None)
+        
+    @property
+    def ccdid(self):
+        """ ccd id (from header) """
+        return self.get_headerkey("CCDID", None)
+
+    @property
+    def rcid(self):
+        """ rdic (from header) """
+        return self.get_headerkey("RCID", None)
+        
 # -------------- #
 #                #
 #     CCD        #
@@ -736,16 +785,21 @@ class Quadrant(Image):
 
 class CCD(Image):
     # Basically a Quadrant collection
-    SHAPE = 3080*2, 3072*2
+    SHAPE = (3080*2, 3072*2)
     _QUADRANTCLASS = Quadrant
-    _POS_INVERTED = False
+    _POS_INVERTED = True
 
     def __init__(self, quadrants=None, qids=None, use_dask=True,
-                     data=None, header=None, **kwargs):
-        """ Most likely, you want to load the CCD object using the from_* classmethods
-        - from_filenames() if you input the filename of the 4 quadrants
-        - from_single_filename() if you input only 1 quadrant and what this to find the rest
-        - from_filename() if you have a full-CCD image (non IPAC product).
+                     data=None, header=None,
+                     pos_inverted=None, **kwargs):
+        """ CCD are collections for quadrants except if loaded from whole CCD data.
+        
+
+        See also
+        --------
+        from_filename: load the instance given a filename 
+        from_filenames: load the image given the list of its four quadrant filenames
+        from_single_filename: build and load the instance given the filename of a single quadrant.
         """
         if data is not None and quadrants is not None:
             raise ValueError("both quadrants and data given. This is confusing. Use only one.")
@@ -767,34 +821,152 @@ class CCD(Image):
 
             [self.set_quadrant(quad_, qid=qid, **kwargs)
              for quad_, qid in zip(quadrants, qids)]
+
+        self._hpos_inverted = pos_inverted # if None, falls back to self._POS_INVERTED
         
     # =============== #
     #  I/O            #
     # =============== #        
     @classmethod
-    def from_single_filename(cls, filename, use_dask=True, persist=False, **kwargs):
-        """ This classmethod enables to load a full CCD object given a single quadrant filename.
-        The other filenames of the 3 other quadrants will be build given the input one.
+    def from_single_filename(cls, filename, as_path=True, use_dask=True, persist=False, **kwargs):
+        """ given a single quadrant file, this fetchs the missing ones and loads the instance.
+
+        Parameters
+        ----------
+        filename: str
+            filename of a single *quadrant* filename.
+            This will look for the 3 missing to build the ccd.
+            
+        as_path: bool -optional-
+            Set this to true if the input file is not the fullpath but you need
+            ztfquery.get_file() to look for it for you.
+        
+        use_dask: bool, optional
+            Should dask be used ? The data will not be loaded but delayed 
+            (dask.array)
+
+        persist: bool, optional
+            = only applied if use_dask=True =
+            should we use dask's persist() on data ?
+
+        **kwargs goes to _QUADRANTCLASS.from_filename
+
+        Returns
+        -------
+        class instance
+
+        Examples
+        --------
+        >>> ccdimg = CCD.from_single_filename("ztf_20220704387176_000695_zr_c11_o_q3_sciimg.fits", as_path=False, use_dask=False)
+
+        See also
+        --------
+        from_quadrants: loads the instance given a list of the four quadrants
+        from_filenames: loads the instance given the filename of the four quadrants
+        from_filename: loads the intance given a filename (assuming data are full-ccd shape)
         """
         import re
         qids = range(1, 5)
         quadrants = [cls._QUADRANTCLASS.from_filename(re.sub(r"_o_q[1-5]*", f"_o_q{i}", filename),
-                                                  use_dask=use_dask, persist=persist)
+                                                      as_path=as_path,
+                                                      use_dask=use_dask, persist=persist,
+                                                      **kwargs)
                  for i in qids]
-        return cls(quadrants=quadrants, qids=qids, use_dask=use_dask)
+        return cls.from_quadrants(quadrants=quadrants, qids=qids, use_dask=use_dask)
 
     @classmethod
-    def from_filenames(cls, filenames, qids=[1, 2, 3, 4], use_dask=True,
-                       persist=False, qudrantprop={}, **kwargs):
-        """ """
-        quadrants = [cls._QUADRANTCLASS.from_filename(file_, use_dask=use_dask, persist=persist,
-                                                    **qudrantprop)
-                 for file_ in filenames]
+    def from_quadrants(cls, quadrants, qids=None, use_dask=True, **kwargs):
+        """ loads the instance given a list of four quadrants.
+
+        Parameters
+        ----------
+        quadrants: list of ztfimg.Quadrants
+            the for quadrants 
+
+        qids: None, list of int
+            the quadrants idea (otherise taken from the quadrants)
+            
+        use_dask: bool
+            Should dask be used ? The data will not be loaded but delayed 
+            (dask.array)
+
+        Returns
+        -------
+        class instance
+
+        Raises
+        ------
+        ValueError
+            this error is returned if you do not provide exactly 4 quadrants.
+        """
+        if (nquad:=len(quadrants)) !=4:
+            raise ValueError(f"You must provide exactly 4 quadrants, {nquad} given")
+        
         return cls(quadrants=quadrants, qids=qids, use_dask=use_dask, **kwargs)
+
+    @classmethod
+    def from_filenames(cls, filenames, as_path=True,
+                           qids=[1, 2, 3, 4], use_dask=True,
+                           persist=False, **kwargs):
+        """ loads the instance from a list of the quadrant files.
+
+        Parameters
+        ----------
+        filanames: list of four str
+            filenames for the four quadrants 
+        
+        as_path: bool
+            Set this to true if the input file is not the fullpath but you need
+            ztfquery.get_file() to look for it for you.
+
+        qids: list of int
+            list of the qid for the input filenames
+
+        use_dask: bool
+            Should dask be used ? The data will not be loaded but delayed 
+            (dask.array)
+ 
+        persist: bool
+            = only applied if use_dask=True =
+            should we use dask's persist() on data ?
+
+        **kwargs goes to _QUADRANTCLASS.from_filename
+
+        Returns
+        -------
+        class instance
+        """
+        quadrants = [cls._QUADRANTCLASS.from_filename(file_, use_dask=use_dask, persist=persist,
+                                                        as_path=as_path, **kwargs)
+                 for file_ in filenames]
+        return cls(quadrants=quadrants, qids=qids, use_dask=use_dask)
 
     def to_fits(self, fileout, as_quadrants=False, overwrite=True,
                     **kwargs):
-        """ """
+        """ dump the data (and header if any) into the given fitsfile
+
+        Parameters
+        ----------
+        fileout: str
+            path to where the data should be stored. (fits file)
+            
+        as_quadrant: bool
+            should the data stored as 4 quadrant hdu images (True) 
+            or one larger image (as_quadrant=False)
+            
+        overwrite: bool
+            if fileout already exists, shall this overwrite it ?
+
+        **kwargs goes to astropy.io.fits' writeto.
+
+        Returns
+        -------
+        output of astropy.io.fits.writeto
+
+        See also
+        --------
+        to_quadrant_fits: store the data as quadrant fitsfile
+        """
         if not as_quadrants:
             out = self._to_fits(fileout, data=self.data, header=self.header,
                               overwrite=overwrite, **kwargs)
@@ -810,13 +982,30 @@ class CCD(Image):
 
     def to_quadrant_fits(self, quadrantfiles, overwrite=True, from_data=True,
                     **kwargs):
-        """ dump the current CCD image into 4 different files: one for each quadrants 
+        """ dump the current image into 4 different files: one for each quadrants 
 
-        from_data: [bool] -optional-
+        Parameters
+        ----------
+        quadrantfiles: list of string
+            list of the filenames for each of the quadrants
+
+        overwrite: bool
+            if fileout already exists, shall this overwrite it ?
+
+        from_data: bool
             option of get_quadrantdata(). If both self.data exists and self.qudrants, 
             should the data be taken from self.data (from_data=True) or from the 
-            individual quadrants (from_data=False) using self.quadrants[i].get_data()
+            individual quadrants (from_data=False) using 
+            ``self.quadrants[i].get_data()``
+        
+        Returns
+        -------
+        None
 
+        See also
+        --------
+        to_fits: store the data as a unique fitsfile
+        get_quadrantdata: get a list of 2d-array (on per quadrant)
         """
         if (nfiles:=len(quadrantfiles)) != 4:
             raise ValueError(f"you need exactly 4 files ; {nfiles} given.")
@@ -828,7 +1017,36 @@ class CCD(Image):
 
     @classmethod
     def _to_quadrant_fits(cls, fileouts, datas, header, overwrite=True, **kwargs):
-        """ """
+        """ dump the current image into 4 different files: one for each quadrants 
+
+        = Internal method =
+
+        Parameters
+        ----------
+        fileouts: list of string
+            list of the filenames for each of the quadrants
+
+        datas: list of 2d-array
+            the list of quadrant data
+
+        header: fits.Header of list of
+            (list of) quadrant header. If not a list, the same header
+            will be used for all the different images.
+
+        overwrite: bool
+            if fileout already exists, shall this overwrite it ?
+
+        from_data: bool
+            option of get_quadrantdata(). If both self.data exists and self.qudrants, 
+            should the data be taken from self.data (from_data=True) or from the 
+            individual quadrants (from_data=False) using 
+            ``self.quadrants[i].get_data()``
+        
+        Returns
+        -------
+        None
+
+        """
         if type(header) == fits.Header:
             header = [header]*4
         if len(header) !=4 or len(fileouts)!=4 or len(datas) !=4:
@@ -842,7 +1060,7 @@ class CCD(Image):
     #  LOADER   #
     # --------- #
     def load_data(self, **kwargs):
-        """  **kwargs goes to self._quadrants_to_ccd() """
+        """  get the data from the quadrants and set it to data. """
         data = self._quadrants_to_ccd(**kwargs)
         self.set_data(data)
 
@@ -850,7 +1068,30 @@ class CCD(Image):
     #  SETTER   #
     # --------- #
     def set_quadrant(self, quadrant, qid=None):
-        """ """
+        """ set the quadrants to the instance.
+        
+        = It is unlikely you need to use that directly. =
+
+        Parameters
+        ----------
+        quadrant: ztfimg.Quadrant
+            attach a quadrant to the instance.
+            will be added to ``self.quadrants[qid]``
+
+        qid: int, None
+            quadrant id. If not provided, it will be taken from 
+            quadrant.qid.
+
+        Returns
+        -------
+        None
+
+        See also
+        --------
+        from_filenames: load the image given the list of its four quadrant filenames
+        from_single_filename: build and load the instance given the filename of a single quadrant.
+ 
+        """
         if qid is None:
             qid = quadrant.qid
 
@@ -861,11 +1102,17 @@ class CCD(Image):
     #  GETTER   #
     # --------- #
     def get_quadrant(self, qid):
-        """ get a quadrant (self.quadrants[qid]) """
+        """ get a quadrant (``self.quadrants[qid]``) """
         return self.quadrants[qid]
 
     def get_quadrantheader(self):
-        """ returns a DataFrame of the header quadrants """
+        """ get a DataFrame gathering the quadrants's header 
+        
+        Returns
+        -------
+        DataFrame
+            on column per quadrant
+        """
         if not self.has_quadrants():
             return None
         
@@ -876,10 +1123,44 @@ class CCD(Image):
         df.columns = qid_range
         return df
 
-    def get_quadrantdata(self, rebin=None, from_data=False, npstat="mean", **kwargs):
-        """ 
-        npstat: string
-            function used to rebin (np.mean, np.median etc)
+    def get_quadrantdata(self, from_data=False, rebin=None, rebin_stat="mean", **kwargs):
+        """ get the quadrant's data.
+        
+        Parameters
+        ----------
+
+        from_data: bool
+            if self.data exists, should the quadrant be taken from it 
+            (spliting it into 4 quadrants) ?
+            if not, it will be taken from self.get_quadrant(i).get_data()
+        
+        
+        rebin: int, None
+            Shall the data be rebinned by square of size `rebin` ?
+            None means no rebinning.
+            (see details in rebin_stat)
+            rebin must be a multiple of the image shape.
+            for instance if the input shape is (6160, 6144)
+            rebin could be 2,4,8 or 16
+
+        rebin_stat: str
+            = applies only if rebin is not None =
+            numpy (dask.array) method used for rebinning the data.
+            For instance, if rebin=4 and rebin_stat = median
+            the median of a 4x4 pixel will be used to form a new pixel.
+            The dimension of the final image will depend on rebin.
+
+        **kwargs goes to each quadrant's get_data() (only if not from_data)
+
+        Returns
+        -------
+        3d-array
+            list of 2d-array.
+
+        See also
+        --------
+        get_data: access the image data.
+
         """
         if not self.has_quadrants() and not self.has_data():
             warnings.warn("no quadrant and no data. None returned")
@@ -897,29 +1178,75 @@ class CCD(Image):
             
             if rebin is not None:
                 npda = da if self.use_dask else np
-                qdata = getattr(npda, npstat)(rebin_arr(qdata, (rebin, rebin),
+                qdata = getattr(npda, rebin_stat)(rebin_arr(qdata, (rebin, rebin),
                                                         use_dask=self.use_dask),
                                               axis=(-2, -1))
         return qdata
         
-    def get_data(self, rebin=None, npstat="mean",
-                     rebin_quadrant=None, persist=False,
-                     rebuild=False, **kwargs):
-        """ ccd data
+    def get_data(self, rebin=None, 
+                     rebin_quadrant=None,
+                     rebin_stat="mean",
+                     rebuild=False, persist=False, **kwargs):
+        """ get (a copy of) the data
 
-        rebin, rebin_quadrant: [None, int]
-            rebinning (based on restride) the data.
-            rebin affect the whole ccd, while rebin_quadrant affect the individual quadrants.
-            rebin is applied after rebin_quadrant..
+
+        Parameters
+        ----------
+        rebin: int, None
+            Shall the data be rebinned by square of size `rebin` ?
+            None means no rebinning.
+            (see details in rebin_stat)
+            rebin must be a multiple of the image shape.
+            for instance if the input shape is (6160, 6144)
+            rebin could be 2,4,8 or 16
+            = rebin is applied to the whole ccd image see 
+            rebin_quadrant for rebinning at the quadrant level =
+
+        rebin_quadrant: int, None
+            rebinning (like rebin) but applied at the quadrant level
+            (prior merging then as data)
+
+        rebin_stat: str
+            = applies only if rebin is not None =
+            numpy (dask.array) method used for rebinning the data.
+            For instance, if rebin=4 and rebin_stat = median
+            the median of a 4x4 pixel will be used to form a new pixel.
+            The dimension of the final image will depend on rebin.
+
+        rebuild: bool
+            if self.data exist and rebin_quadrant is None, then 
+            ``self.data.copy()`` will be used. If rebuild=True, 
+            then this will be re-build the data and ignore self.data
+
+        persist: bool
+            = only applied if self.use_dask is True =
+            should we use dask's persist() on data ?
+
+        Returns
+        -------
+        2d-array
+            dask or numpy array
+        
+        See also
+        --------
+        get_quadrantdata: get a list of all the individual quadrant data.
+    
+        Examples
+        --------
+        get the ccd image and rebin it by 4
+        >>> ccdimg.get_data(rebin=4).shape
+        
+        
         """
         # the normal case
-        if self.has_data() and not rebuild and not rebin_quadrant:
+        if self.has_data() and not rebuild and rebin_quadrant is None:
             data_ = self.data.copy()
         else:
             data_ = self._quadrants_to_ccd(rebin=rebin_quadrant, **kwargs)
            
         if rebin is not None:
-            data_ = getattr(npda, npstat)(rebin_arr(data_, (rebin, rebin),
+            npda = np if not self.use_dask else da
+            data_ = getattr(npda, rebin_stat)(rebin_arr(data_, (rebin, rebin),
                                                         use_dask=self.use_dask),
                                               axis=(-2, -1))
         if self.use_dask and persist:
@@ -945,41 +1272,6 @@ class CCD(Image):
         ccd = npda.concatenate([ccd_down, ccd_up], axis=0)
         return ccd
     
-    # ----------- #
-    #   PLOTTER   #
-    # ----------- #
-    def show(self, ax=None, vmin="1", vmax="99", colorbar=False, cax=None,
-                 imgdata=None,
-             rebin=None, dataprop={}, savefile=None,
-             dpi=150, **kwargs):
-        """ """
-        if ax is None:
-            import matplotlib.pyplot as plt            
-            fig = plt.figure(figsize=[6, 6])
-            ax = fig.add_subplot(111)
-        else:
-            fig = ax.figure
-
-        if imgdata is None:
-            imgdata = self.get_data(rebin=rebin, **dataprop)
-            
-        if "dask" in str(type(imgdata)):
-            imgdata = imgdata.compute()
-
-        vmin, vmax = parse_vmin_vmax(imgdata, vmin, vmax)
-
-        prop = {**dict(origin="lower", cmap="cividis", vmin=vmin, vmax=vmax),
-                **kwargs}
-
-        im = ax.imshow(imgdata, **prop)
-
-        if colorbar:
-            fig.colorbar(im, cax=cax, ax=ax)
-
-        if savefile is not None:
-            fig.savefig(savefile, dpi=dpi)
-        return ax
-
     # =============== #
     #  Properties     #
     # =============== #
@@ -995,6 +1287,13 @@ class CCD(Image):
 
         return self._data
 
+    @property
+    def _pos_inverted(self):
+        """ are the quadants position inverted (like in raw data) """
+        if not hasattr(self, "_hpos_inverted") or self._hpos_inverted is None:
+            return self._POS_INVERTED
+        return self._hpos_inverted
+        
     @property
     def quadrants(self):
         """ dictionnary of the quadrants, keys are the quadrant id"""
@@ -1012,6 +1311,11 @@ class CCD(Image):
         """ shape of an individual ccd quadrant """
         return cls._QUADRANTCLASS.shape
 
+    @property
+    def ccdid(self):
+        """ ccd id (from header) """
+        return self.get_headerkey("CCDID", None)
+        
 # -------------- #
 #                #
 #  Focal Plane   #
@@ -1023,7 +1327,14 @@ class FocalPlane(Image):
     # Basically a CCD collection
     def __init__(self, ccds=None, ccdids=None, use_dask=True,
                      data=None, header=None, **kwargs):
-        """ """
+        """ 
+
+        See also
+        --------
+        from_filename: load the instance given a filename 
+        from_filenames: load the image given the list of its quadrant filenames
+        from_single_filename: build and load the instance given the filename of a single quadrant.
+        """
         _ = super().__init__(data=data, header=header, use_dask=use_dask)
         
         if ccds is not None:
@@ -1039,12 +1350,36 @@ class FocalPlane(Image):
     #  I/O            #
     # =============== #
     @classmethod
-    def from_filenames(cls, filenames, rcids=None, use_dask=True,
-                       persist=False, **kwargs):
-        """
-        rcids: [list or None]
-            if None: rcids = np.arange(0,64)
+    def from_filenames(cls, filenames, as_path=True,
+                           rcids=None, use_dask=True,
+                           persist=False, **kwargs):
+        """ loads the instance from a list of the quadrant files.
 
+        Parameters
+        ----------
+        filanames: list of four str
+            filenames for the four quadrants 
+        
+        as_path: bool
+            Set this to true if the input file is not the fullpath but you need
+            ztfquery.get_file() to look for it for you.
+
+        rcid: list of int
+            list of the rcid (0->63) for the input filenames
+
+        use_dask: bool
+            Should dask be used ? The data will not be loaded but delayed 
+            (dask.array)
+ 
+        persist: bool
+            = only applied if use_dask=True =
+            should we use dask's persist() on data ?
+
+        **kwargs goes to _CCDCLASS.from_filenames
+
+        Returns
+        -------
+        class instance
         """
         if rcids is None:
             rcids = np.arange(0, 64)
@@ -1058,19 +1393,50 @@ class FocalPlane(Image):
         ccdidlist = data.sort_values("qid").groupby("ccdid")[
                                      "path"].apply(list)
 
-        ccds = [cls._CCDCLASS.from_filenames(qfiles, qids=[1, 2, 3, 4],
+        ccds = [cls._CCDCLASS.from_filenames(qfiles, qids=[1, 2, 3, 4],as_path=as_path,
                                                  use_dask=use_dask, persist=persist, **kwargs)
                 for qfiles in ccdidlist.values]
         return cls(ccds, np.asarray(ccdidlist.index, dtype="int"),
                    use_dask=use_dask)
 
     @classmethod
-    def from_single_filename(cls, filename, use_dask=True, persist=False, **kwargs):
-        """ """
+    def from_single_filename(cls, filename, as_path=True, use_dask=True,
+                                 persist=False, **kwargs):
+        """ given a single quadrant file, this fetchs the missing ones and loads the instance.
+
+        Parameters
+        ----------
+        filename: str
+            filename of a single *quadrant* filename.
+            This will look for the 3 missing to build the ccd.
+            
+        as_path: bool -optional-
+            Set this to true if the input file is not the fullpath but you need
+            ztfquery.get_file() to look for it for you.
+        
+        use_dask: bool, optional
+            Should dask be used ? The data will not be loaded but delayed 
+            (dask.array)
+
+        persist: bool, optional
+            = only applied if use_dask=True =
+            should we use dask's persist() on data ?
+
+        **kwargs goes to _CCDCLASS.from_single_filename -> _QUADRANTCLASS.from_filename()
+
+        Returns
+        -------
+        class instance
+
+        Examples
+        --------
+        >>> ccdimg = CCD.from_single_filename("ztf_20220704387176_000695_zr_c11_o_q3_sciimg.fits", as_path=False, use_dask=False)
+        """
         import re
         ccdids = range(1, 17)
         ccds = [cls._CCDCLASS.from_single_filename(re.sub("_c(\d\d)_*", f"_c{i:02d}_", filename),
-                                                   use_dask=use_dask, persist=persist, **kwargs)
+                                                   as_path=as_path, use_dask=use_dask,
+                                                   persist=persist, **kwargs)
                 for i in ccdids]
         return cls(ccds, ccdids, use_dask=use_dask)
 
@@ -1105,7 +1471,7 @@ class FocalPlane(Image):
         return df
 
     @staticmethod
-    def get_datagap(which, rebin=None, fillna=np.NaN):
+    def _get_datagap(which, rebin=None, fillna=np.NaN):
         """
         horizontal (or row) = between rows
         """
@@ -1160,54 +1526,54 @@ class FocalPlane(Image):
                 (line_1, line_2, line_3, line_4), axis=0)
         else:
             line_1 = getattr(npda, "concatenate")((self.get_ccd(4).get_data(**prop),
-                                                   da.ones(self.get_datagap(
+                                                   da.ones(self._get_datagap(
                                                        "columns", rebin=rebin))*np.NaN,
                                                    self.get_ccd(
                                                      3).get_data(**prop),
-                                                   da.ones(self.get_datagap(
+                                                   da.ones(self._get_datagap(
                                                        "columns", rebin=rebin))*np.NaN,
                                                    self.get_ccd(
                                                      2).get_data(**prop),
-                                                   da.ones(self.get_datagap(
+                                                   da.ones(self._get_datagap(
                                                        "columns", rebin=rebin))*np.NaN,
                                                    self.get_ccd(1).get_data(**prop)), axis=1)
             line_2 = getattr(npda, "concatenate")((self.get_ccd(8).get_data(**prop),
-                                                   da.ones(self.get_datagap(
+                                                   da.ones(self._get_datagap(
                                                        "columns", rebin=rebin))*np.NaN,
                                                    self.get_ccd(
                                                      7).get_data(**prop),
-                                                   da.ones(self.get_datagap(
+                                                   da.ones(self._get_datagap(
                                                        "columns", rebin=rebin))*np.NaN,
                                                    self.get_ccd(
                                                      6).get_data(**prop),
-                                                   da.ones(self.get_datagap(
+                                                   da.ones(self._get_datagap(
                                                        "columns", rebin=rebin))*np.NaN,
                                                    self.get_ccd(5).get_data(**prop)), axis=1)
             line_3 = getattr(npda, "concatenate")((self.get_ccd(12).get_data(**prop),
-                                                   da.ones(self.get_datagap(
+                                                   da.ones(self._get_datagap(
                                                        "columns", rebin=rebin))*np.NaN,
                                                    self.get_ccd(
                                                        11).get_data(**prop),
-                                                   da.ones(self.get_datagap(
+                                                   da.ones(self._get_datagap(
                                                        "columns", rebin=rebin))*np.NaN,
                                                    self.get_ccd(
                                                        10).get_data(**prop),
-                                                   da.ones(self.get_datagap(
+                                                   da.ones(self._get_datagap(
                                                        "columns", rebin=rebin))*np.NaN,
                                                    self.get_ccd(9).get_data(**prop)), axis=1)
             line_4 = getattr(npda, "concatenate")((self.get_ccd(16).get_data(**prop),
-                                                   da.ones(self.get_datagap(
+                                                   da.ones(self._get_datagap(
                                                        "columns", rebin=rebin))*np.NaN,
                                                    self.get_ccd(
                                                        15).get_data(**prop),
-                                                   da.ones(self.get_datagap(
+                                                   da.ones(self._get_datagap(
                                                        "columns", rebin=rebin))*np.NaN,
                                                    self.get_ccd(
                                                        14).get_data(**prop),
-                                                   da.ones(self.get_datagap(
+                                                   da.ones(self._get_datagap(
                                                        "columns", rebin=rebin))*np.NaN,
                                                    self.get_ccd(13).get_data(**prop)), axis=1)
-            size_shape = self.get_datagap("rows", rebin=rebin)[0]
+            size_shape = self._get_datagap("rows", rebin=rebin)[0]
 
             mosaic = getattr(npda, "concatenate")((line_1,
                                                   da.ones(
@@ -1223,40 +1589,6 @@ class FocalPlane(Image):
             return mosaic.persist()
 
         return mosaic
-
-    def show(self, ax=None, vmin="1", vmax="99", colorbar=False, cax=None,
-                 imgdata=None,
-                 rebin=None, incl_gap=True, dataprop={},
-                 savefile=None, dpi=150,
-                 **kwargs):
-        """ show the focal plane. """
-        if ax is None:
-            import matplotlib.pyplot as plt            
-            fig = plt.figure(figsize=[6, 6])
-            ax = fig.add_subplot(111)
-        else:
-            fig = ax.figure
-
-        if imgdata is None:
-            imgdata = self.get_data(rebin=rebin, incl_gap=incl_gap, **dataprop)
-            
-        if "dask" in str(type(imgdata)):
-            imgdata = imgdata.compute()
-
-        vmin, vmax = parse_vmin_vmax(imgdata, vmin, vmax)
-
-        prop = {**dict(origin="lower", cmap="cividis", vmin=vmin, vmax=vmax),
-                **kwargs}
-
-        im = ax.imshow(imgdata, **prop)
-
-        if colorbar:
-            fig.colorbar(im, cax=cax, ax=ax)
-
-        if savefile is not None:
-            fig.savefig(savefile, dpi=dpi)
-
-        return ax
 
     # --------- #
     # CONVERTS  #
