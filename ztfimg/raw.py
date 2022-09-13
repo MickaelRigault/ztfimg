@@ -126,7 +126,8 @@ class RawQuadrant( Quadrant ):
         # data
         data = cls._read_data(filename, ext=qid, use_dask=use_dask, persist=persist)
         header = cls._read_header(filename, ext=qid, use_dask=dask_header, persist=persist)
-        overscan = cls._read_overscan(filename, ext=qid, use_dask=dask_header, persist=persist)
+        # and overscan
+        overscan = cls._read_overscan(filename, ext=qid, use_dask=use_dask, persist=persist)
         
         this = cls(data, header=header, overscan=overscan, use_dask=use_dask, **kwargs)
         this._qid = qid
@@ -497,14 +498,22 @@ class RawCCD( CCD ):
         --------
         Load a ztf image you know the name of but not the full path.
         
-        >>> rawccd = RawCCD.from_filename("ztf_20190301070509_000000_zg_c01_f.fits.fz", as_path=False)
+        >>> rawccd = ztfimg.RawCCD.from_filename("ztf_20220704387176_000695_zr_c11_o.fits.fz", as_path=False)
         """
         qids = (1,2,3,4)
-        quadrants = [cls._QUADRANTCLASS.from_filename(filename, qid=qid,
-                                                          as_path=as_path,
-                                                          use_dask=use_dask,
-                                                          persist=persist, **kwargs)
+        
+        quadrant_from_filename = cls._QUADRANTCLASS.from_filename
+        if use_dask:
+            quadrant_from_filename = dask.delayed(quadrant_from_filename)
+            
+        quadrants = [quadrant_from_filename(filename, qid=qid,
+                                                as_path=as_path,
+                                                use_dask=False,
+                                                persist=, **kwargs)
                          for qid in qids]
+        if persist and use_dask:
+            quadrants = [q.persist() for q in quadrants]
+            
         return cls.from_quadrants(quadrants, qids=qids, use_dask=use_dask)
 
     @classmethod
