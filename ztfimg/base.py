@@ -8,17 +8,14 @@ import dask.dataframe as dd
 from .utils.tools import rebin_arr, parse_vmin_vmax, ccdid_qid_to_rcid, rcid_to_ccdid_qid
 from .utils.decorators import classproperty
 
-__all__ = ["Quadrant", "CCD", "FocalPlane"]
+__all__ = ["Image", "Quadrant", "CCD", "FocalPlane"]
 
-class _Image_( object ):
+class Image( object ):
     SHAPE = None
     # Could be any type (raw, science)
 
     def __init__(self, data=None, header=None, use_dask=True):
-        """  load the instance given input data.
-        You most likely want to load this using from_* methods 
-
-
+        """  
         See also
         --------
         from_filename:
@@ -52,7 +49,8 @@ class _Image_( object ):
     @staticmethod
     def _read_header(filename, use_dask=True, persist=False):
         """ assuming fits format. """
-        from astropy.io.fits import getheader        
+        from astropy.io.fits import getheader
+        
         if use_dask:
             header = dask.delayed(getheader)(filename)
             if persist:
@@ -76,21 +74,90 @@ class _Image_( object ):
                          overwrite=overwrite, **kwargs)
         return fileout
     
-    @classmethod
-    def from_filename(cls, filename, use_dask=True, persist=False,
-                          dask_header=False, **kwargs):
-        """ This classmethod loads a CCD object from a full-ccd image (not quadrant).
+    @staticmethod
+    def _get_filename(filename, as_path=True, use_dask=False, **kwargs):
+        """ internal function that can call ztfquery.get_file() to download files you don't have yet.
+        
+        Parameters
+        ----------
+        as_path: bool
+            is the into filename the full path (so nothing to do)
+        
+        use_dask: bool
+            = only applies if as_path is False =
+            this using ztfquery.get_file(). Should this be delayed ?
 
+        **kwargs: options of ztfquery.get_file()
+
+        Returns
+        -------
+        filepath or delayed
+        """
+        if as_path:
+            return filename
+        
+        from ztfquery import io
+        # Look for it
+        prop = dict(show_progress=False, maxnprocess=1)
+        if use_dask:
+            filename  = dask.delayed(io.get_file)(filename, **prop)
+        else:
+            filename  = io.get_file(filename, **prop)
+
+        return filename
+    
+    @classmethod
+    def from_filename(cls, filename,
+                          as_path=True,
+                          use_dask=True, persist=False,
+                          dask_header=False, **kwargs):
+        """ classmethod load an instance given an input file.
+
+        Parameters
+        ----------
+        filename: str
+            fullpath or filename or the file to load.
+            If a filename is given, set as_path=False,  then ztfquery.get_file() 
+            will be called to grab the file for you (and download it if necessary)
+            
+        as_path: bool -optional-
+            Set this to true if the input file is not the fullpath but you need
+            ztfquery.get_file() to look for it for you.
+        
+        use_dask: bool, optional
+            Should dask be used ? The data will not be loaded but delayed 
+            (dask.array)
+
+        persist: bool, optional
+            = only applied if use_dask=True =
+            should we use dask's persist() on data ?
+
+        dask_header: bool, optional
+            should the header be dasked too (slows down a lot)
+
+        **kwargs: goes to __init__()
+
+        
+        Returns
+        -------
+        class instance 
+        
+        Examples
+        --------
+        Load a ztf image you know the name of but not the full path.
+        
+        >>> img = Image.from_filename("ztf_20220704387176_000695_zr_c11_o_q3_sciimg.fits", as_path=False, use_dask=False)
         
         """
         if not use_dask:
             dask_header = False
             
+        filename = cls._get_filename(filename, as_path=as_path, use_dask=use_dask)
         data = cls._read_data(filename, use_dask=use_dask, persist=persist)
         header = cls._read_header(filename, use_dask=dask_header, persist=persist)
         
         # self
-        this = cls.from_data(data=data, header=header)
+        this = cls.from_data(data=data, header=header, **kwargs)
         this._filename = filename
         return this
 
@@ -98,24 +165,44 @@ class _Image_( object ):
     def from_data(cls, data, header=None, **kwargs):
         """ Instanciate this class given data. 
         
-        data: [numpy or dask array] 
+
+        Parameters
+        ----------
+        data: numpy.array or dask.array]
             Data of the Image.
             this will automatically detect if the data are dasked.
 
-        header: [fits.Header or dask.delayed]
+        header: fits.Header or dask.delayed
             Header of the image.
 
         **kwargs goes to __init__
 
         Returns
         -------
+        class instance
         
         """
         use_dask = "dask" in str(type(data))
         return cls(data=data, header=header, use_dask=use_dask, **kwargs)
 
     def to_fits(self, fileout, overwrite=True, **kwargs):
-        """ right the quadrant (data and header) into a fits file. """
+        """ writes the image (data and header) into a fits file.
+
+        Parameters
+        ----------
+        fileout: str
+            path of where the data (.fits format) should be stored
+
+        overwrite: bool
+            if fileout already exists, shall this overwrite it ?
+
+        **kwargs goes to astropy.fits.writeto()
+        
+        Returns
+        -------
+        str
+            for convinience, the fileout is returned
+        """
         return self._to_fits(fileout, data=self.data, header=self.header,
                                 overwrite=overwrite, **kwargs)
     
@@ -127,11 +214,32 @@ class _Image_( object ):
         self._header = header
 
     def set_data(self, data):
-        """ Set the data (numpy or dask array). 
-        The data shape should match the self.SHAPE class property.
+        """ Set the data to the instance
+
+        = It is unlikely you need to use that directly. =
+        
+        Parameters
+        ----------
+        data: numpy.array, dask.array
+            numpy or dask array with the same shape as cls.shape.
+        
+        Returns
+        -------
+        None
+
+        Raises
+        ------
+        ValueError
+            This error is returned if the shape is not matching 
+        
+        See also
+        --------
+        from_filename: loads the instance (data, header) given a filepath
+        from_data: loads the instance given data and header.
+        
         """
-        if self.SHAPE is not None and (dshape:=data.shape) != self.SHAPE:
-            raise ValueError(f"shape of the input CCD data must be {self.SHAPE} ; {dshape} given")
+        if self.shape is not None and ((dshape:=data.shape) != self.shape).any():
+            raise ValueError(f"shape of the input CCD data must be {self.shape} ; {dshape} given")
 
         # Check dask compatibility
         used_dask = "dask" in str(type(data))
@@ -144,20 +252,28 @@ class _Image_( object ):
     # -------- #
     #  GETTER  #
     # -------- #
-    def get_data(self, rebin=None, rebin_stat="nanmean", data=None, rebuild=False):
+    def get_data(self, rebin=None, rebin_stat="nanmean", data=None):
         """  get (a copy of) the data in self.data. You can apply rebining to it.
         Rebins merge (see rebin_stat) to pixel in a [rebin, rebin] square.
 
         Parameters
         ----------
-        rebin: [int / None] -optional-
+        rebin: int, None
             Shall the data be rebinned by square of size `rebin` ?
-            None means no rebinning
+            None means no rebinning.
+            (see details in rebin_stat)
+            rebin must be a multiple of the image shape.
+            for instance if the input shape is (6160, 6144)
+            rebin could be 2,4,8 or 16
 
-        rebin_stat: [string] -optional-
+        rebin_stat: str
+            = applies only if rebin is not None =
             numpy (dask.array) method used for rebinning the data.
+            For instance, if rebin=4 and rebin_stat = median
+            the median of a 4x4 pixel will be used to form a new pixel.
+            The dimension of the final image will depend on rebin.
 
-        data: [string] -optional-
+        data: str
             If None, data="data" assumed.
             Internal option to modify the data.
             This could be any attribure value of format (int/float)
@@ -166,14 +282,19 @@ class _Image_( object ):
         Returns
         -------
         2d array
+            dask or numpy array, which shape will depend on rebin
         """
         npda = da if self.use_dask else np
         
         if data is None:
             data = "data"
+            
+        if rebin is not None and rebin <= 1:
+            warnings.warn("rebin <=1 does not make sense. rebin set to None")
+            rebin = None
 
         # This is the normal case
-        if self.has_data() and not rebuild and data=="data":
+        if self.has_data() and rebin is None and data=="data":
             data_ = self.data.copy()
         
         else:
@@ -198,193 +319,116 @@ class _Image_( object ):
         return data_
 
     def get_header(self):
-        """ returns the header (self.header) """
+        """ get the current header
+
+        this is a shortcut to self.header
+
+        Returns
+        -------
+        fits.header
+            whatever is in self.header 
+        """
         return self.header
 
     def get_headerkey(self, key, default=None):
         """ get a key from the header. 
-        If no header is set. This returns an AttributeError 
+        
+        Parameters
+        ----------
+        key: str
+            entry of the header. 
+
+        default: None, float, str
+            what is returned if the entry cannot be found in the header.
+
+        Returns
+        -------
+        str, float, int, etc.
+            whatever is in the header key you queried.
+
+        Raises
+        ------
+        AttributeError 
+            If no header is set this returns is returned
         """
         if self.header is None:
             raise AttributeError("No header set. see the set_header() method")
 
         return self.header.get(key, default)
 
-    # -------- #
-    # PLOTTER  #
-    # -------- #
-    def show(self, ax=None, colorbar=True, cax=None, apply=None,
-                 imgdata=None,
-                 vmin="1", vmax="99", dataprop={}, savefile=None,
-                 dpi=150, rebin=None, **kwargs):
-        """ Plot the image (data). 
 
-        dataprop: dict
-            used as kwargs of get_data() when accessing the data 
-            to be shown.
-        """
-        if ax is None:
-            import matplotlib.pyplot as plt            
-            fig = plt.figure(figsize=[5 + (1.5 if colorbar else 0), 5])
-            ax = fig.add_subplot(111)
-        else:
-            fig = ax.figure
-
-        if imgdata is None:
-            imgdata = self.get_data(rebin=rebin, **dataprop)
-        if "dask" in str(type(imgdata)):
-            imgdata = imgdata.compute()
-
-        if apply is not None:
-            imgdata = getattr(np, apply)(imgdata)
-
-        vmin, vmax = parse_vmin_vmax(imgdata, vmin, vmax)
-        prop = dict(origin="lower", cmap="cividis", vmin=vmin, vmax=vmax)
-
-        im = ax.imshow(imgdata, **{**prop, **kwargs})
-        if colorbar:
-            fig.colorbar(im, cax=cax, ax=ax)
-
-        if savefile is not None:
-            fig.savefig(savefile, dpi=dpi)
-
-        return ax
-
-    # -------- #
-    # PLOTTER  #
-    # -------- #
-    def _compute_header(self):
-        """ """
-        if self._use_dask and "dask" in str(type(self._header)):
-            self._header = self._header.compute()
-
-    def _compute_data(self):
-        """ """
-        if self._use_dask and "dask." in str(type(self._data)):
-            self._data = self._data.compute()
-
-    # =============== #
-    #  Properties     #
-    # =============== #
-    @property
-    def use_dask(self):
-        """ are the data dasked (did you set use_dask=True) """
-        return self._use_dask
-    
-    @property
-    def data(self):
-        """ data of the image ; numpy.array or dask.array"""
-        if not hasattr(self, "_data"):
-            return None
-        return self._data
-
-    def has_data(self):
-        """ are data set ? (True means yes)"""
-        return hasattr(self, "_data") and self._data is not None
-
-    @property
-    def header(self, compute=True):
-        """ header of the data."""
-        if not hasattr(self, "_header"):
-            return None
-        # Computes the header only if necessary
-        self._compute_header()
-        return self._header
-
-    @classproperty
-    def shape(cls):
-        """ shape of the images """
-        return np.asarray(cls.SHAPE)
-
-    # // header
-    @property
-    def filename(self):
-        """ If this method was loaded from a file, this is it's filename. None otherwise """
-        if not hasattr(self, "_filename"):
-            return None
-        return self._filename
-
-    @property
-    def filtername(self):
-        """ Name of the image's filter (from header) """
-        return self.get_headerkey("FILTER", "unknown")
-
-    @property
-    def exptime(self):
-        """ Exposure time of the image (from header) """
-        return self.get_headerkey("EXPTIME", np.NaN)
-
-    @property
-    def obsjd(self):
-        """ Observation Julian date of the image (from header) """
-        return self.get_headerkey("OBSJD", None)
-
-# -------------- #
-#                #
-#   QUADRANT     #
-#                #
-# -------------- #
-class Quadrant(_Image_):
-    SHAPE = 3080, 3072
-    
-    def get_aperture(self, x0, y0, radius,
-                     imgdata=None,
+    def get_aperture(self, x, y, radius,
+                     imgdata=None, dataprop={},
                      bkgann=None, subpix=0,
                      err=None, mask=None,
-                     as_dataframe=False,
-                     dataprop={},                     
+                     as_dataframe=True,
                      **kwargs):
-        """ Get the Apeture photometry corrected from the background annulus if any.
-
-        # Based on sep.sum_circle() #
+        """ get the apeture photometry, base on `sep.sum_circle()`
 
         Parameters
         ----------
-        x0, y0, radius: [array]
-            Center coordinates and radius (radii) of aperture(s).
-            (could be x,y, ra,dec or u,v ; see system)
+        x, y: array
+            coordinates of the centroid for the apertures.
+            x and y are image pixel coordinates.
 
-        bkgann: [None/2D array] -optional-
-            Length 2 tuple giving the inner and outer radius of a “background annulus”.
-            If supplied, the background is estimated by averaging unmasked pixels in this annulus.
+        radius: float, list
+            size (radius) of the aperture. This could be a list of radius.
+            
+        imgdata: 2d-array, None
+            if you want to apply the aperture photometry on this specific image, provide it.
+            otherwhise, ``imgdata = self.get_data(**dataprop)`` is used
+            
+        dataprop: dict
+            = ignored if imgdata is given =
+            kwargs used to get the data. 
+            ``imgdata = self.get_data(**dataprop)``
 
-        subpix: [int] -optional-
-            Subpixel sampling factor. If 0, exact overlap is calculated. 5 is acceptable.
+        bkgann: 2d-array, None
+            inner and outer radius of a “background annulus”.
+            If supplied, the background is estimated by averaging 
+            unmasked pixels in this annulus.
 
-        data: [string] -optional-
-            the aperture will be applied on self.`data`
+        subpix: int
+            Subpixel sampling factor. 0 is the exact overlap calculation ; 5 is acceptable.
+            
+        err: 2d-array, None
+            error image if you have it.
 
-        unit: [string] -optional-
-            unit of the output | counts, flux and mag are accepted.
+        mask: 2d-array, None
+            mask image if you have it. Pixels within this mask will be ignored.
 
-        clean_flagout: [bool] -optional-
-            remove entries that are masked or partially masked
-            (remove sum_circle flag!=0)
-            = Careful, this does not affects the returned flags, len(flag) remains len(x0)=len(y0) =
-
-        get_flag: [bool]  -optional-
-            shall this also return the sum_circle flags
-
-        maskprop, noiseprop:[dict] -optional-
-            options entering self.get_mask() and self.get_noise() for `mask` and `err`
-            attribute of the sep.sum_circle function.
-
-        as_dataframe: [bool]
+        as_dataframe: bool
             return format.
             If As DataFrame, this will be a dataframe with
             3xn-radius columns (f_0...f_i, f_0_e..f_i_e, f_0_f...f_i_f)
             standing for fluxes, errors, flags.
-
+            
 
         Returns
         -------
-        2D array (see unit: (counts, dcounts) | (flux, dflux) | (mag, dmag))
-           + flag (see get_flag option)
+        2d-array or dataframe
+           flux, error and flag for each coordinates and radius.
+
+        Examples
+        --------
+        get the aperture photometry of random location in the image.
+
+        >>> import ztfimg
+        >>> import numpy as np
+        >>> img = ztfimg.Quadrant.from_filename("ztf_20220704387176_000695_zr_c11_o_q3_sciimg.fits", as_path=False, 
+                                    use_dask=False)
+        >>> x = np.random.uniform(0, ztfimg.Quadrant.shape[1], size=400)
+        >>> y = np.random.uniform(0, ztfimg.Quadrant.shape[0], size=400)
+        >>> radius = np.linspace(1,5,10)
+        >>> df = img.get_aperture(x,y, radius=radius[:,None], as_dataframe=True)
+        >>> df.shape
+        (400, 30) # 30 because 10 radius, so 10 flux, 10 errors, 10 flags
+         
         """
         if imgdata is None:
             imgdata = self.get_data(**dataprop)
             
-        return self._get_aperture(imgdata, x0, y0, radius,
+        return self._get_aperture(imgdata, x, y, radius,
                                   bkgann=bkgann, subpix=subpix,
                                   err=err, mask=mask,
                                   as_dataframe=as_dataframe,
@@ -395,21 +439,63 @@ class Quadrant(_Image_):
 
     @staticmethod
     def _get_aperture(imgdata,
-                     x0, y0, radius,
+                     x, y, radius,
                      bkgann=None, subpix=0,
                      use_dask=None,
                      dataprop={},
                      err=None, mask=None,
                      as_dataframe=False,
                      **kwargs):
-        """ """
+        """  get the apeture photometry, base on `sep.sum_circle()`
+        = Internal method = 
+
+        Parameters
+        ----------
+        imgdata: 2d-array, None
+            data onto which the aperture will be applied.
+
+        x, y: array
+            coordinates of the centroid for the apertures.
+            x and y are image pixel coordinates.
+
+        radius: float, list
+            size (radius) of the aperture. This could be a list of radius.
+            
+        dataprop: dict
+            = ignored if imgdata is given =
+            kwargs used to get the data. 
+            ``imgdata = self.get_data(**dataprop)``
+
+        bkgann: 2d-array, None
+            inner and outer radius of a “background annulus”.
+            If supplied, the background is estimated by averaging 
+            unmasked pixels in this annulus.
+
+        subpix: int
+            Subpixel sampling factor. 0 is the exact overlap calculation ; 5 is acceptable.
+            
+        err: 2d-array, None
+            error image if you have it.
+
+        mask: 2d-array, None
+            mask image if you have it. Pixels within this mask will be ignored.
+
+        as_dataframe: bool
+            return format.
+
+        Returns
+        -------
+        2d-array or dataframe
+           flux, error and flag for each coordinates and radius.
+        """
+
         from .utils.tools import get_aperture
 
         if use_dask is None:
             use_dask = "dask" in str(type(imgdata))
 
         apdata = get_aperture(imgdata,
-                              x0, y0, radius=radius,
+                              x, y, radius=radius,
                               err=err, mask=mask, bkgann=bkgann,
                               use_dask=use_dask, **kwargs)
         if not as_dataframe:
@@ -478,13 +564,177 @@ class Quadrant(_Image_):
 
         return fdata
     
+    # -------- #
+    # PLOTTER  #
+    # -------- #
+    def show(self, ax=None, colorbar=True, cax=None, apply=None,
+                 imgdata=None,
+                 vmin="1", vmax="99",
+                 rebin=None, dataprop={},
+                 savefile=None,
+                 dpi=150,  **kwargs):
+        """ Show the image data (imshow)
+
+        Parameters
+        ----------
+        ax: matplotlib.Axes, None
+            provide the axes where the image should be drawn
+
+        colobar: bool
+            should be colobar be added ?
+
+        cax: matplotlib.Axes, None
+            = ignored if colobar=False =
+            axes where the colorbar should be drawn
+
+        apply: str, None
+            provide a numpy method that should be applied to the data
+            prior been shown. 
+            For instance, apply="log10", then np.log10(data) will be shown.
+            
+        imgdata: 2d-array, None
+            if you want to plot this specific image, provide it.
+            otherwhise, ``imgdata = self.get_data(rebin=rebin, **dataprop)`` is shown.
+
+        vmin, vmax: str, float
+            minimum and maximum value for the colormap.
+            string are interpreted as 'percent of data'. 
+            float or int are understood as 'use as such'
+
+        rebin: int, None
+            by how much should the data be rebinned when accessed ?
+            (see details in get_data())
+            
+        dataprop: dict
+            used as kwargs of get_data() when accessing the data 
+            to be shown.
+
+        savefile: str, None
+            if you want to save the plot, provide here the path for that.
+        
+        dpi: int
+            = ignored if savefile is None =
+            dpi of the stored image
+
+        Returns
+        -------
+        matplotlib.Figure
+
+        """
+        if ax is None:
+            import matplotlib.pyplot as plt            
+            fig = plt.figure(figsize=[5 + (1.5 if colorbar else 0), 5])
+            ax = fig.add_subplot(111)
+        else:
+            fig = ax.figure
+
+        if imgdata is None:
+            imgdata = self.get_data(rebin=rebin, **dataprop)
+        if "dask" in str(type(imgdata)):
+            imgdata = imgdata.compute()
+
+        if apply is not None:
+            imgdata = getattr(np, apply)(imgdata)
+
+        vmin, vmax = parse_vmin_vmax(imgdata, vmin, vmax)
+        prop = dict(origin="lower", cmap="cividis", vmin=vmin, vmax=vmax)
+
+        im = ax.imshow(imgdata, **{**prop, **kwargs})
+        if colorbar:
+            fig.colorbar(im, cax=cax, ax=ax)
+
+        if savefile is not None:
+            fig.savefig(savefile, dpi=dpi)
+
+        return fig
+
+    # -------- #
+    # PLOTTER  #
+    # -------- #
+    def _compute_header(self):
+        """ """
+        if self._use_dask and "dask" in str(type(self._header)):
+            self._header = self._header.compute()
+
+    def _compute_data(self):
+        """ """
+        if self._use_dask and "dask." in str(type(self._data)):
+            self._data = self._data.compute()
+
+    # =============== #
+    #  Properties     #
+    # =============== #
+    @property
+    def use_dask(self):
+        """ are the data dasked (did you set use_dask=True) """
+        return self._use_dask
+    
+    @property
+    def data(self):
+        """ data of the image ; numpy.array or dask.array"""
+        if not hasattr(self, "_data"):
+            return None
+        
+        return self._data
+
+    def has_data(self):
+        """ are data set ? (True means yes)"""
+        return hasattr(self, "_data") and self._data is not None
+
+    @property
+    def header(self, compute=True):
+        """ header of the data."""
+        if not hasattr(self, "_header"):
+            return None
+        # Computes the header only if necessary
+        self._compute_header()
+        return self._header
+
+    @classproperty
+    def shape(cls):
+        """ shape of the images """
+        return np.asarray(cls.SHAPE)
+
+    # // header
+    @property
+    def filename(self):
+        """ If this method was loaded from a file, this is it's filename. None otherwise """
+        if not hasattr(self, "_filename"):
+            return None
+        return self._filename
+
+    @property
+    def filtername(self):
+        """ Name of the image's filter (from header) """
+        return self.get_headerkey("FILTER", "unknown")
+
+    @property
+    def exptime(self):
+        """ Exposure time of the image (from header) """
+        return self.get_headerkey("EXPTIME", np.NaN)
+
+    @property
+    def obsjd(self):
+        """ Observation Julian date of the image (from header) """
+        return self.get_headerkey("OBSJD", None)
+
+# -------------- #
+#                #
+#   QUADRANT     #
+#                #
+# -------------- #
+class Quadrant(Image):
+    SHAPE = (3080, 3072)
+    
+
+    
 # -------------- #
 #                #
 #     CCD        #
 #                #
 # -------------- #
 
-class CCD(_Image_):
+class CCD(Image):
     # Basically a Quadrant collection
     SHAPE = 3080*2, 3072*2
     _QUADRANTCLASS = Quadrant
@@ -767,7 +1017,7 @@ class CCD(_Image_):
 #  Focal Plane   #
 #                #
 # -------------- #
-class FocalPlane(_Image_):
+class FocalPlane(Image):
     _CCDCLASS = CCD
 
     # Basically a CCD collection

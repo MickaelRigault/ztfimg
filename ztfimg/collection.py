@@ -8,7 +8,7 @@ import warnings
 
 import numpy as np
 from .science import ScienceQuadrant
-from .base import _Image_, Quadrant, CCD
+from .base import Image, Quadrant, CCD
 from .raw import RawCCD
 from astropy.utils.decorators import classproperty
 
@@ -35,8 +35,8 @@ def _headers_to_headerdf_(headers, persist=False):
 
 
 
-class _ImageCollection_( object ):
-    COLLECTION_OF = _Image_
+class ImageCollection( object ):
+    COLLECTION_OF = Image
     QUADRANT_SHAPE = Quadrant.SHAPE
     
     def __init__(self, images, use_dask=True, **kwargs):
@@ -281,11 +281,11 @@ class _ImageCollection_( object ):
         return cls.COLLECTION_OF.SHAPE
     
 # Collection of Quadrant    
-class QuadrantCollection( _ImageCollection_ ):
+class QuadrantCollection( ImageCollection ):
     COLLECTION_OF = Quadrant
 
 # Collection of CCD    
-class CCDCollection( _ImageCollection_ ):
+class CCDCollection( ImageCollection ):
     COLLECTION_OF = CCD
 
 # Collection of Science Quadrant

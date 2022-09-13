@@ -26,7 +26,6 @@ for x in os.walk(f'../{project}'):
   sys.path.insert(0, x[0])
 
 
-
 from ztfimg import *
 
 
@@ -60,6 +59,7 @@ extensions = [
     'sphinx.ext.viewcode',
     'matplotlib.sphinxext.plot_directive',
     # extra
+    "numpydoc",
     'myst_nb',
     "nbsphinx",
     'sphinx_copybutton'
