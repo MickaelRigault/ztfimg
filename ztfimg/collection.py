@@ -8,7 +8,7 @@ import warnings
 
 import numpy as np
 from .science import ScienceQuadrant
-from .base import Image, Quadrant, CCD
+from .base import Image, Quadrant, CCD, _Collection_
 from .raw import RawCCD
 from astropy.utils.decorators import classproperty
 
@@ -34,8 +34,7 @@ def _headers_to_headerdf_(headers, persist=False):
     return daskdf.persist() if persist else daskdf
 
 
-
-class ImageCollection( object ):
+class ImageCollection( _Collection_ ):
     COLLECTION_OF = Image
     QUADRANT_SHAPE = Quadrant.SHAPE
     
@@ -45,29 +44,36 @@ class ImageCollection( object ):
         self.set_images(images, **kwargs)
         
     @classmethod
-    def from_images(cls, images, use_dask=True, **kwargs):
-        """ """
+    def from_images(cls, images, **kwargs):
+        """ load the instance given a list of image
+        
+        Parameters
+        ----------
+        images: list
+            list of image (or inheritance of) or list of delayed version of them.
+            use_dask will be automatically detected given the images.
+
+        Returns
+        -------
+        class instance
+
+        See also
+        --------
+        from_filenames: loads the instance given a list of files.
+        """
+        images = np.atleast_1d(images)
+        use_dask = "dask" in str( type(images[0]) )
         return cls(images, use_dask=use_dask, **kwargs)
 
     @classmethod
-    def from_filenames(cls, filenames, use_dask=True, imgkwargs={},
+    def from_filenames(cls, filenames, use_dask=True, 
                            as_path=False, persist=False, **kwargs):
         """ """
-        filenames = np.atleast_1d(filenames).tolist()
-        imgkwargs["as_path"] = as_path # pass this to .from_filename
-        
-        if use_dask:
-            images = [dask.delayed(cls.COLLECTION_OF.from_filename)(filename, use_dask=False,
-                                                                      **imgkwargs)
-                     for filename in filenames]
-            if persist:
-                images = [i.persist() for i in images]
-                
-        else:
-            images = [cls.COLLECTION_OF.from_filename(filename, use_dask=False, **imgkwargs)
-                          for filename in filenames]
+        images, filenames = cls._read_filenames(filenames, use_dask=use_dask, 
+                                                as_path=as_path, persist=persist,
+                                                **kwargs)
             
-        this= cls.from_images(images, use_dask=use_dask, **kwargs)
+        this= cls.from_images(images, use_dask=use_dask)
         this._filenames = filenames
         return this
     
@@ -78,8 +84,20 @@ class ImageCollection( object ):
     # GETTER  #
     # ------- #
     def get_filenames(self, computed=False):
-        """ """
-        filenames = self.call_down("filename", False)
+        """ get the file of filenames for this collection 
+
+        Paramters
+        ---------
+        computed: bool
+            if dask is used, do you want to compute 
+            to get the filename (True) or the list of delayed (False)
+
+        Returns
+        -------
+        list
+            list of filename (or delayed)
+        """
+        filenames = self._call_down("filename", False)
         if self.use_dask and computed:
             # Tricks to avoid compute and gather
             return dask.delayed(list)(filenames).compute()
@@ -87,8 +105,7 @@ class ImageCollection( object ):
         return filenames
 
     def get_singleheader(self, index, as_serie=True, use_dask=False):
-        """ call the fits.getheader function from the
-        filenames[index]. 
+        """ call the fits.getheader function from the filenames[index]. 
         
         Parameters
         ----------
@@ -127,19 +144,25 @@ class ImageCollection( object ):
     def get_headerdf(self, persist=True, rebuild=False):
         """ """
         if rebuild or not hasattr(self, "_headerdf"):
-            return _headers_to_headerdf_(self.call_down("header", False), persist=True)
+            return _headers_to_headerdf_(self._call_down("header", False), persist=True)
         
         return self.headerdf
 
     def get_data(self, **kwargs):
-        """ """
-        datas = self.call_down("get_data",True, **kwargs)
-        if self.use_dask:
-            return da.stack([da.from_delayed(f_, shape=self.SHAPE, dtype="float")
-                                     for f_ in datas])
-        return np.stack(datas)
+        """ get a stack of the collection_of data 
+        
+        Parameters
+        ----------
+        **kwargs goes to the collection_of.get_data(**kwargs)
 
-    def get_data_mean(self, chunkreduction=2,
+        Returns
+        -------
+        3d-array
+            numpy or dask array.
+        """
+        return self._get_subdata(**kwargs)
+
+    def get_meandata(self, chunkreduction=2,
                           weights=1,
                           clipping=False,
                           sigma=3, sigma_lower=None, sigma_upper=None, maxiters=5,
@@ -210,20 +233,7 @@ class ImageCollection( object ):
         """ """
         self._images = np.atleast_1d(images).tolist()
         self._filenames = None
-    # -------- #
-    # INTERNAL #
-    # -------- #
-    def map_down(self, what, margs, *args, **kwargs):
-        """ """
-        return [getattr(img, what)(marg, *args, **kwargs)
-                for img, marg in zip(self.images, margs)]
-    
-    def call_down(self, what, isfunc, *args, **kwargs):
-        """ """
-        if isfunc:
-            return [getattr(img,what)(*args, **kwargs) for img in self.images]
-        return [getattr(img,what) for img in self.images]
-
+        
     # ---------- #
     #  DASK      #
     # ---------- #
@@ -256,7 +266,7 @@ class ImageCollection( object ):
     def filenames(self):
         """ """
         if not hasattr(self,"_filenames") or self._filenames is None:
-            self._filenames = dask.delayed(list)(self.call_down("filename", False)).compute()
+            self._filenames = dask.delayed(list)(self._call_down("filename", False)).compute()
             
         return self._filenames
     
@@ -347,7 +357,7 @@ class ScienceQuadrantCollection( QuadrantCollection ):
         propdown = {**dict( calibrators=calibrators, extra=extra,
                             isolation=isolation, seplimit=seplimit),
                     **kwargs}
-        return self.call_down("get_catalog", True, **propdown)
+        return self._call_down("get_catalog", True, **propdown)
     
     def get_calibrators(self, which="gaia",
                             setxy=True, drop_outside=True, drop_namag=True,
@@ -358,7 +368,7 @@ class ScienceQuadrantCollection( QuadrantCollection ):
                             pixelbuffer=pixelbuffer, isolation=isolation, mergehow=mergehow),
                     **kwargs}
         
-        return self.call_down("get_calibrators", True, **propdown)
+        return self._call_down("get_calibrators", True, **propdown)
     
     def get_calibrator_aperture(self, radius, which="gaia", xykeys=["x","y"],
                                     calkwargs={}, system="xy", whichdata="dataclean",
@@ -367,7 +377,7 @@ class ScienceQuadrantCollection( QuadrantCollection ):
         """
         cals = self.get_calibrators(which=which, **calkwargs)
         dataprop = {**dict(which=whichdata), **dataprop}
-        return self.map_down("getcat_aperture", cals, radius, xykeys=xykeys,
+        return self._map_down("getcat_aperture", cals, radius, xykeys=xykeys,
                                  system=system, dataprop=dataprop, **kwargs)
     
     # =============== #

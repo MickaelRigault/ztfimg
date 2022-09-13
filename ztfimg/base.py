@@ -756,6 +756,56 @@ class Image( object ):
 
 # -------------- #
 #                #
+#   Virtual      #
+#                #
+# -------------- #
+class _Collection_( object ):
+    COLLECTION_OF = Image
+
+    @classmethod
+    def _read_filenames(cls, filenames, use_dask=True, 
+                           as_path=False, persist=False, **kwargs):
+        """ """
+        filenames = np.atleast_1d(filenames).tolist()
+        # it's the whole COLLECTION_OF that is dask, not inside it.
+        prop = {**dict(as_path=as_path, use_dask=False), **kwargs}
+
+        # what is called
+        from_filenames_func = cls.COLLECTION_OF.from_filename
+        if use_dask:
+            from_filenames_func = dask.delayed(from_filenames_func)
+
+        images = [from_filenames_func(filename, **prop) for filename in filenames]
+        if persist and use_dask:
+            images = [i.persist() for i in images]
+            
+        return images, filenames
+
+    def _get_subdata(self, **kwargs):
+        """ get a stack of the data from get_data collection of """
+        datas = self._call_down("get_data",True, **kwargs)
+        if self.use_dask:
+            return da.stack([da.from_delayed(f_, shape=self.COLLECTION_OF.shape,
+                                                 dtype="float")
+                                     for f_ in datas])
+        return np.stack(datas)
+
+    # -------- #
+    # INTERNAL #
+    # -------- #
+    def _map_down(self, what, margs, *args, **kwargs):
+        """ """
+        return [getattr(img, what)(marg, *args, **kwargs)
+                for img, marg in zip(self._images, margs)]
+    
+    def _call_down(self, what, isfunc, *args, **kwargs):
+        """ """
+        if isfunc:
+            return [getattr(img, what)(*args, **kwargs) for img in self._images]
+        return [getattr(img, what) for img in self._images]
+    
+# -------------- #
+#                #
 #   QUADRANT     #
 #                #
 # -------------- #
@@ -783,9 +833,11 @@ class Quadrant(Image):
 #                #
 # -------------- #
 
-class CCD(Image):
+class CCD( Image, _Collection_):
     # Basically a Quadrant collection
+
     SHAPE = (3080*2, 3072*2)
+    COLLECTION_OF = Quadrant    
     _QUADRANTCLASS = Quadrant
     _POS_INVERTED = True
 
@@ -867,12 +919,9 @@ class CCD(Image):
         """
         import re
         qids = range(1, 5)
-        quadrants = [cls._QUADRANTCLASS.from_filename(re.sub(r"_o_q[1-5]*", f"_o_q{i}", filename),
-                                                      as_path=as_path,
-                                                      use_dask=use_dask, persist=persist,
-                                                      **kwargs)
-                 for i in qids]
-        return cls.from_quadrants(quadrants=quadrants, qids=qids, use_dask=use_dask)
+        filenames = [re.sub(r"_o_q[1-5]*", f"_o_q{i}", filename) for i in qids]
+        return cls.from_filenames(filenames, qids=qids, as_path=as_path,
+                                      use_dask=use_dask, persist=persist, **kwargs)
 
     @classmethod
     def from_quadrants(cls, quadrants, qids=None, use_dask=True, **kwargs):
@@ -936,9 +985,10 @@ class CCD(Image):
         -------
         class instance
         """
-        quadrants = [cls._QUADRANTCLASS.from_filename(file_, use_dask=use_dask, persist=persist,
-                                                        as_path=as_path, **kwargs)
-                 for file_ in filenames]
+        # _read_filenames is a _Collection_ internal method. handle dask
+        quadrants, filenames = cls._read_filenames(filenames,
+                                                       as_path=as_path, use_dask=use_dask,
+                                                       persist=persist, **kwargs)
         return cls(quadrants=quadrants, qids=qids, use_dask=use_dask)
 
     def to_fits(self, fileout, as_quadrants=False, overwrite=True,
@@ -1167,8 +1217,7 @@ class CCD(Image):
             return None
 
         if self.has_quadrants() and not from_data:
-            qdata = [self.get_quadrant(i).get_data(rebin=rebin, **kwargs)
-                    for i in [1, 2, 3, 4]]
+            qdata = self._get_subdata(rebin=rebin, **kwargs) # internal method of _Collection_
         else:
             q4 = self.data[:self.qshape[0],self.qshape[1]:]
             q1 = self.data[self.qshape[0]:,self.qshape[1]:]
@@ -1301,6 +1350,11 @@ class CCD(Image):
             self._quadrants = {k: None for k in [1, 2, 3, 4]}
         return self._quadrants
 
+    @property
+    def _images(self):
+        """ Internal property for _Collection_ methods """
+        return list( self.quadrants.values() )
+    
     def has_quadrants(self, logic="all"):
         """ are (all/any, see option) quadrant loaded ? """
         is_none = [v is not None for v in self.quadrants.values()]
@@ -1321,8 +1375,9 @@ class CCD(Image):
 #  Focal Plane   #
 #                #
 # -------------- #
-class FocalPlane(Image):
+class FocalPlane(Image, _Collection_):
     _CCDCLASS = CCD
+    COLLECTION_OF = CCD
 
     # Basically a CCD collection
     def __init__(self, ccds=None, ccdids=None, use_dask=True,
@@ -1393,7 +1448,9 @@ class FocalPlane(Image):
         ccdidlist = data.sort_values("qid").groupby("ccdid")[
                                      "path"].apply(list)
 
-        ccds = [cls._CCDCLASS.from_filenames(qfiles, qids=[1, 2, 3, 4],as_path=as_path,
+        ccds, filenames = cls._read_filenames(ccdidlist.values, as_path=as_path,
+                                                 use_dask=use_dask, persist=persist, **kwargs)
+        ccds = [cls._CCDCLASS.from_filenames(qfiles, qids=[1, 2, 3, 4], as_path=as_path,
                                                  use_dask=use_dask, persist=persist, **kwargs)
                 for qfiles in ccdidlist.values]
         return cls(ccds, np.asarray(ccdidlist.index, dtype="int"),
