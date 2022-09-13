@@ -20,7 +20,7 @@ pyton setup.py install
 
 ***
 # Read the doc:
-It is here: https://readthedocs.org/projects/ztfimg/
+It is here: https://ztfimg.readthedocs.io/en/latest/
 
 ***
 # Tutorials
