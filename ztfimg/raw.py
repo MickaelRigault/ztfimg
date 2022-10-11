@@ -177,7 +177,25 @@ class RawQuadrant( Quadrant ):
     
     @staticmethod
     def read_rawfile_header(filename, qid, grab_imgkeys=True):
-        """ """
+        """ reads the filename's header and returns it as a pandas.DataFrame
+
+        Parameters
+        ----------
+        filename: str
+            path of the data file.
+
+        qid: int
+            quadrant id for the header you want.
+
+        grab_imgkeys: bool
+            should the gobal image header data also be included
+            (i.e. header from both ext=0 and ext=qid
+
+        Returns
+        -------
+        `pandas.DataFrame`
+            the header
+        """
         imgkeys = ["EXPTIME", "IMGTYPE", "PIXSCALE", "THETA_X", "THETA_Y", "INST_ROT", 
                    "FILTER", "OBSJD", "RAD", "DECD", "TELRA","TELDEC", "AZIMUTH","ELVATION",
                    ]
@@ -290,6 +308,7 @@ class RawQuadrant( Quadrant ):
         ```
         data_corr = data/(a*data**2 + b*data +1)
         ```
+
         Return
         ------
         data
@@ -305,14 +324,12 @@ class RawQuadrant( Quadrant ):
         ----------
         which: [string] 
             could be:
-            - 'raw': as stored
-            - 'data': raw within userange 
-            - 'spec': vertical or horizontal profile of the overscan
-                      see stackstat
-                      (see specaxis)
-                      clipping is applied at that time (if clipping=True)
-
-            - 'model': polynomial model of spec
+            
+              - 'raw': as stored
+              - 'data': raw within userange 
+              - 'spec': vertical or horizontal profile of the overscan
+              see stackstat (see specaxis). Clipping is applied at that time (if clipping=True)
+              - 'model': polynomial model of spec
             
         clipping: [bool]:
             Should clipping be applied to remove the obvious flux excess.

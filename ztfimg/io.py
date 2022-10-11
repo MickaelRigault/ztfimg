@@ -1,11 +1,12 @@
-""" """
+
+""" I/O for ztfimg data. """
 import os
 import warnings
 import pandas
 import numpy as np
 import time
 
-LOCALSOURCE   = os.getenv('ZTFDATA',"./Data/")
+LOCALSOURCE = os.getenv('ZTFDATA',"./Data/")
 CALIBRATOR_PATH = os.path.join(LOCALSOURCE,"calibrator")
 PACKAGE_PATH = os.path.dirname(os.path.realpath(__file__))
 NONLINEARITY_FILE = os.path.join(PACKAGE_PATH, "data/ccd_amp_coeff_v2.txt")
@@ -23,24 +24,26 @@ def get_ps1_catalog(ra, dec, radius, source="ccin2p3"):
     raise NotImplementedError("Only query to CC-IN2P3 implemented")
 
 def get_catalog_from_ccin2p3(ra, dec, radius, which, enrich=True):
-    """ 
-    ra, dec: [float]
+    """  fetch an catalog stored at the ccin2p3.
+
+    Parameters
+    ----------
+    ra, dec: float
         central point coordinates in decimal degrees or sexagesimal
     
-    radius: [float]
+    radius: float
         radius of circle in degrees
 
-    which: [string]
-        Name of the catalog. Implemented:
+    which: str
+        Name of the catalog:
         - ps1
         - gaia_dr2
         - sdss
     
-    enrich: [bool]
+    enrich: bool
         IN2P3 catalog have ra,dec coordinates stored in radian
         as coord_ra/dec and flux in nJy
         Shall this add the ra, dec keys coords (in deg) in degree and the magnitude ?
-
 
     Returns
     -------
@@ -122,7 +125,7 @@ class _CatCalibrator_( object ):
 
         Parameters
         ----------
-        rcid, field: [int or list of]
+        rcid, field: int or list of int
             rcid(s) and field(s) of the data you are looking for.
             for instance: 
             - this returns a multi-index dataframe 
@@ -152,15 +155,13 @@ class _CatCalibrator_( object ):
             data = pandas.concat([cls.fetch_data(rcid, field_, radec=radec, squeeze=squeeze, **kwargs)
                                       for field_ in field], keys=field)
             return data if not drop_duplicate else data.drop_duplicates(keep="first")
-
-
-
         
         if kwargs.get("test_input", True):
             rcid, field, radec = parse_input(rcid, field, radec)
         
         data = [cls(rcid_, field_, radec=radec_, load=True).data
                 for rcid_, field_, radec_ in zip(rcid, field, radec)]
+            
         if squeeze and len(data)==1:
             return data[0]
         
@@ -208,8 +209,8 @@ class _CatCalibrator_( object ):
             
         Returns
         -------
-        list (or delayed, futures, None)
-        (see as_dask)
+        list 
+            of delayed, futures, None ; see as_dask)
         """
         from dask import delayed, bag
         
@@ -241,7 +242,7 @@ class _CatCalibrator_( object ):
     @classmethod
     def bulk_download_data(cls, radecs, npartitions=20, 
                             client=None, as_dask=None):
-        """ Uses Dask to download catalog data associated to the coordinates
+        """ Uses dask to download catalog data associated to the coordinates
         
         Parameters
         ----------
