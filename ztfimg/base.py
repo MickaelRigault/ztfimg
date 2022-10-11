@@ -824,7 +824,7 @@ class Quadrant(Image):
 
     @property
     def rcid(self):
-        """ rdic (from header) """
+        """ rcid (from header) """
         return self.get_headerkey("RCID", None)
         
 # -------------- #

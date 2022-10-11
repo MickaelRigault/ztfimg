@@ -220,7 +220,9 @@ class RawQuadrant( Quadrant ):
     def get_data(self, corr_overscan=False, corr_nl=False,
                      rebin=None, rebin_stat="nanmean", reorder=True,
                      overscan_prop={}, **kwargs):
-        """ 
+        """ get the image data. 
+
+        returned data can be affected by different effects.
         
         Parameters
         ----------
@@ -381,7 +383,15 @@ class RawQuadrant( Quadrant ):
     # -------- #
     def show_overscan(self, ax=None, axs=None, axm=None, 
                       colorbar=False, cax=None, **kwargs):
-        """ """
+        """ display the overscan image.
+
+        Parameters
+        ----------
+
+        Returns
+        -------
+        fig
+        """
         import matplotlib.pyplot as mpl
         
         if ax is None:
@@ -412,7 +422,7 @@ class RawQuadrant( Quadrant ):
         if colorbar:
             fig.colorbar(im, cax=cax, ax=ax)
             
-        return ax
+        return fig
         
     # =============== #
     #  Properties     #
@@ -436,27 +446,27 @@ class RawQuadrant( Quadrant ):
         
     @property
     def qid(self):
-        """ """
+        """ quadrant (amplifier of the ccd) id (1->4) """
         return self._qid if hasattr(self, "_qid") else (self.get_headerkey("AMP_ID")+1)
     
     @property
     def rcid(self):
-        """ """
+        """ quadrant (within the focal plane) id (0->63) """
         return 4*(self.ccdid - 1) + self.qid - 1
     
     @property
     def gain(self):
-        """ """
+        """ gain [adu/e-] """
         return self.get_headerkey("GAIN", np.NaN)
 
     @property
     def darkcurrent(self):
-        """ """
+        """ Dark current [e-/s]"""
         return self.get_headerkey("DARKCUR", None)
     
     @property
     def readnoise(self):
-        """ """
+        """ read-out noise [e-] """
         return self.get_headerkey("READNOI", None)
         
         

@@ -17,6 +17,8 @@ __all__ = ["ScienceQuadrant", "ScienceCCD", "ScienceFocalPlane"]
 
 class ScienceQuadrant(Quadrant, WCSHolder):
 
+    _QUADRANT_OF = ScienceCCD
+    
     BITMASK_KEY = ["tracks", "sexsources", "lowresponsivity", "highresponsivity",
                    "noisy", "ghosts", "spillage", "spikes", "saturated",
                    "dead", "nan", "psfsources", "brightstarhalo"]
@@ -44,10 +46,37 @@ class ScienceQuadrant(Quadrant, WCSHolder):
         """
         Parameters
         ----------
-        download: [bool] -optional-
-             Downloads the maskfile if necessary.
+        filename: str
+            name of the file. 
+            This could be a full path or a ztf filename. 
+            (see as_path option)
+            
+        filename_mask: str
+            name of the file containing the mask. 
+            This could be a full path or a ztf filename. 
+            (see as_path option).
+            If None, filename_mask will be built based on filename.
 
-        **kwargs goes to ztfquery.io.get_file()
+        download: bool
+             Downloads the file (filename or filename_masl) if necessary.
+
+        as_path: bool
+            Set to True if the filename [filename_mask] are path and not just ztf filename, 
+            hence bypassing ``filename = ztfquery.io.get_file(filename)``
+
+        use_dask: bool
+            Shall this use dask to load the image data ?
+
+        persist: bool
+            = ignored if use_dask=False = 
+            shall this run .persist() on data ?
+
+        **kwargs goes to ztfquery.io.get_file() = ignored if as_path=True =
+            
+
+        Returns
+        -------
+        instance
         """
         from ztfquery import io
         from astropy.io import fits
@@ -101,11 +130,26 @@ class ScienceQuadrant(Quadrant, WCSHolder):
         return this
 
     def set_mask(self, mask):
-        """ """
+        """ set the mask to this instance.
+
+        = most likely you do not want to use this method =
+
+        Parameters
+        ----------
+        mask: 2d array
+            numpy or dask array.
+        """
         self._mask = mask
 
     def load_wcs(self, header=None):
-        """ """
+        """ loads the wcs solution from the header
+        
+        Parameters
+        ----------
+        header: fits.Header
+            header containing the wcs information. 
+            If None, self.header will be used.
+        """
         if header is None:
             header = self.header
 
@@ -119,7 +163,22 @@ class ScienceQuadrant(Quadrant, WCSHolder):
     #  GETTER  #
     # -------- #
     def get_center(self, system="xy"):
-        """ x and y or RA, Dec coordinates of the centroid. (shape[::-1]) """
+        """ x and y or RA, Dec coordinates of the centroid. (shape[::-1]) 
+
+        Parameters
+        ----------
+        system: str
+            system you want to get the center:
+            - 'xy': ccd pixel coordinates
+            - 'uv': projecting plane coordinates (center on focal plane center)
+            - 'radec': RA, Dec sky coordinates.
+
+        Returns
+        -------
+        (float, float)
+            requested center.
+            
+        """
         if system in ["xy", "pixel", "pixels", "pxl"]:
             return (np.asarray(self.shape[::-1])+1)/2
 
@@ -133,12 +192,16 @@ class ScienceQuadrant(Quadrant, WCSHolder):
             f"cannot parse the given system {system}, use xy, radec or uv")
 
     def get_ccd(self, use_dask=True, **kwargs):
-        """ """
-        return ScienceCCD.from_single_filename(self.filename, use_dask=use_dask, **kwargs)
+        """ ScienceCCD object containing this quadrant. """
+        return self._QUADRANT_OF.from_single_filename(self.filename,
+                                                      use_dask=use_dask,
+                                                      **kwargs)
 
     def get_focalplane(self, use_dask=True, **kwargs):
-        """ fetchs the whole focal plan image (64 quadrants making 16 CCDs) and returns a ScienceFocalPlane object """
-        return ScienceFocalPlane.from_single_filename(self.filename, use_dask=use_dask, **kwargs)
+        """ FocalPlane (64 quadrants making 16 CCDs) containing this quadrant """
+        return self._QUADRANT_OF._CCD_OF.from_single_filename(self.filename,
+                                                              use_dask=use_dask,
+                                                              **kwargs)
 
     def get_data(self, which=None,
                  applymask=False, maskvalue=np.NaN,
@@ -149,7 +212,10 @@ class ScienceQuadrant(Quadrant, WCSHolder):
 
         Parameters
         ---------
-        which:
+        which: str
+            shortcut to acces the data. This will format the rest of the input.
+            - data: copy of the data.
+            - 
 
 
         rebin:
@@ -253,7 +319,7 @@ class ScienceQuadrant(Quadrant, WCSHolder):
         Parameters
         ----------
 
-        from_source: [None/bool/DataFrame] -optional-
+        from_source: bool or DataFrame
             A mask will be extracted from the given source.
             (This uses, sep.mask_ellipse)
             Accepted format:
@@ -271,17 +337,17 @@ class ScienceQuadrant(Quadrant, WCSHolder):
         // These corresponds to the bitmasking definition for the IPAC pipeline //
 
         Special parameters
-        alltrue: [bool] -optional-
+        alltrue: bool
             Short cut to set everything to true. Supposedly only background left
 
-        flip_bits: [bool] -optional-
+        flip_bits: bool
             This should be True to have the aforementioned masking proceedure.
             See astropy.nddata.bitmask.bitfield_to_boolean_mask
 
-        verbose: [bool] -optional-
+        verbose: bool
             Shall this print what you requested ?
 
-        getflags: [bool]
+        getflags: bool
             Get the bitmask power of 2 you requested instead of the actual masking.
 
         Returns
@@ -304,7 +370,8 @@ class ScienceQuadrant(Quadrant, WCSHolder):
 
         if self._use_dask:
             mask_ = dask.delayed(bitmask.bitfield_to_boolean_mask)(self.mask,
-                                                                   ignore_flags=flags, flip_bits=flip_bits)
+                                                                   ignore_flags=flags,
+                                                                   flip_bits=flip_bits)
             mask = da.from_delayed(mask_, self.shape, dtype="bool")
         else:
             mask = bitmask.bitfield_to_boolean_mask(self.mask,
@@ -422,52 +489,68 @@ class ScienceQuadrant(Quadrant, WCSHolder):
                      **kwargs):
         """
 
-        x0, y0, radius: [array]
+
+        Parameters
+        ----------
+        x0, y0, radius: 1d-array
             Center coordinates and radius (radii) of aperture(s).
             (could be x,y, ra,dec or u,v ; see system)
 
-        bkgann: [None/2D array] -optional-
+        imgdata: 2d-array
+            2d image the aperture will be applied on. 
+            (self.data otherwise, see also `which` and `dataprop`)
+
+        bkgann: 2d-array
             Length 2 tuple giving the inner and outer radius of a “background annulus”.
             If supplied, the background is estimated by averaging unmasked pixels in this annulus.
 
-        subpix: [int] -optional-
+        subpix: int
             Subpixel sampling factor. If 0, exact overlap is calculated. 5 is acceptable.
 
-        system: [string] -optional-
+        system: str
             In which system are the input x0, y0:
             - xy (ccd )
             - radec (in deg, sky)
             - uv (focalplane)
 
-        data: [string] -optional-
-            the aperture will be applied on self.`data`
+        which: str
+            = ignored if imgdata is given =
+            shortcut for the kind of data you want 
+            using ``data = self.get_data(which, **dataprop)``
+            
+        dataprop: dict
+            = ignored if imgdata is given =
+            kwargs for the get_data method
+            using ``data = self.get_data(which, **dataprop)``
 
-        unit: [string] -optional-
-            unit of the output | counts, flux and mag are accepted.
-
-        clean_flagout: [bool] -optional-
-            remove entries that are masked or partially masked
-            (remove sum_circle flag!=0)
-            = Careful, this does not affects the returned flags, len(flag) remains len(x0)=len(y0) =
-
-        get_flag: [bool]  -optional-
-            shall this also return the sum_circle flags
-
-        maskprop, noiseprop:[dict] -optional-
-            options entering self.get_mask() and self.get_noise() for `mask` and `err`
-            attribute of the sep.sum_circle function.
+        mask: 2d-array
+            mask image. ``mask=self.get_mask(**maskprop)`` used if None
+            
+        maskprop: dict
+            = ignored if mask is given =
+            kwargs for the get_mask method
+            using ``mask = self.get_mask(**maskprop)``
+        
+        err: 2d-array
+            error image. ``mask=self.get_noise(**noiseprop)`` used if None
+        
+        noiseprop: dict
+            = ignored if mask is given =
+            kwargs for the get_noise method
+            using ``mask = self.get_noise(**noiseprop)``
 
         as_dataframe: [bool]
-            return format.
-            If As DataFrame, this will be a dataframe with
+            set the returned format.
+            If as_dataFrame=True, this will be a dataframe with
             3xn-radius columns (f_0...f_i, f_0_e..f_i_e, f_0_f...f_i_f)
             standing for fluxes, errors, flags.
 
-
+        **kwargs goes to super().get_aperture(**kwargs)
+        
         Returns
         -------
-        2D array (see unit: (counts, dcounts) | (flux, dflux) | (mag, dmag))
-           + flag (see get_flag option)
+        2d-array or `pandas.DataFrame`
+           (see unit: (counts, dcounts) | (flux, dflux) | (mag, dmag)) + flag (see get_flag option)
         """
 
         if system == "radec":
@@ -500,9 +583,21 @@ class ScienceQuadrant(Quadrant, WCSHolder):
     # - ZTFCATS
 
     def get_psfcat(self, show_progress=False, use_dask=None, **kwargs):
-        """
-        psf-fit photometry catalog generated by the ztf-pipeline
+        """ get the psf photometry catalog generated by the ztf-pipeline
+        
+        Parameters
+        ----------
+        show_progress: bool
+            option of io.get_file to display progress while downloading the data.
 
+        use_dask: bool
+            should the catalog dataframe be as dask.dataframe ?
+        
+        **kwargs goes to io.get_file()
+
+        Returns
+        -------
+        `pandas.DataFrame`
         """
         if use_dask is None:
             use_dask = self._use_dask
@@ -511,7 +606,8 @@ class ScienceQuadrant(Quadrant, WCSHolder):
             columns = ['x', 'y', 'ra', 'dec', 'flux', 'sigflux', 'mag',
                        'sigmag', 'snr', 'chi', 'sharp', 'flags']
             meta = pandas.DataFrame(columns=columns, dtype="float")
-            return dd.from_delayed(dask.delayed(self.get_psfcat)(use_dask=False, show_progress=False, **kwargs),
+            return dd.from_delayed(dask.delayed(self.get_psfcat)(use_dask=False,
+                                                                  show_progress=False, **kwargs),
                                    meta=meta)
 
         from ztfquery import io
@@ -525,12 +621,28 @@ class ScienceQuadrant(Quadrant, WCSHolder):
         data[["xpos", "ypos"]] -= 1
         return data.rename({"xpos": "x", "ypos": "y"}, axis=1)
 
-    def get_sexcat(self, show_progress=False, astable=False, use_dask=None, **kwargs):
-        """
-        nested-aperture photometry catalog generated by the ztf-pipeline
+    def get_sexcat(self, as_table=False, show_progress=False, use_dask=None, **kwargs):
+        """ get the sextractor photometry catalog generated by the ztf-pipeline
+        (nested-aperture photometry catalog)
+        
+        
 
-        careful, nested apertures (MAG_APER, FLUX_APER and associated errors are droped to pandas.)
+        Parameters
+        ----------
+        as_table: bool
+            should the returned table be a pandas dataframe or an astropy table.
+            careful, nested apertures (MAG_APER, FLUX_APER and 
+            associated errors are droped when using pandas.)
+        
+        show_progress: bool
+            option of io.get_file to display progress while downloading the data.
 
+        use_dask: bool
+            should the catalog dataframe be as dask.dataframe ?
+            
+        Returns
+        -------
+        `pandas.DataFrame` or `astropy.Table`
         """
         if use_dask is None:
             use_dask = self._use_dask
@@ -554,8 +666,10 @@ class ScienceQuadrant(Quadrant, WCSHolder):
                        'A_WORLD', 'ERRA_WORLD', 'B_WORLD', 'ERRB_WORLD', 'ERRTHETA_IMAGE',
                        'ERRX2_IMAGE', 'ERRY2_IMAGE', 'ERRXY_IMAGE', 'AWIN_IMAGE', 'BWIN_IMAGE',
                        'FLUX_PETRO', 'FLUXERR_PETRO']
+                
             meta = pandas.DataFrame(columns=columns, dtype="float")
-            return dd.from_delayed(dask.delayed(self.get_sexcat)(use_dask=False, show_progress=False, astable=False,
+            return dd.from_delayed(dask.delayed(self.get_sexcat)(use_dask=False, show_progress=False,
+                                                                 as_table=False,
                                                                  **kwargs), meta=meta)
 
         from ztfquery import io
@@ -565,16 +679,40 @@ class ScienceQuadrant(Quadrant, WCSHolder):
             self.filename, suffix="sexcat.fits", show_progress=show_progress, **kwargs)
         # .to_pandas().set_index("sourceid")
         tbl = Table(fits.open(psffilename)[1].data)
-        if astable:
+        if as_table:
             return tbl
 
         names = [name for name in tbl.colnames if len(tbl[name].shape) <= 1]
         return tbl[names].to_pandas().set_index("NUMBER")
 
     # - ZTFCATS
-    def get_ps1_catalog(self, setxy=True, drop_outside=True, pixelbuffer=10, rmag_limit=22.5,
-                        use_dask=None):
-        """ """
+    def get_ps1_catalog(self, setxy=True, drop_outside=True,
+                            pixelbuffer=10, rmag_limit=22.5,
+                            use_dask=None):
+        """ get the panstarrs catalog.
+
+        Parameters
+        ----------
+        setxy: bool
+            should the x,y columns be added to the dataframe using the instance's wcs solution.
+
+        drop_outside: bool
+            should object fetched online that happen to be outside the instance footprint be droped ?
+
+        pixelbuffer: int
+            = ignored if drop_outside=False =
+            how many edge pixels are removed (considered as if 'not in the field of view')
+            
+        rmag_limit: float
+            deepest r-band magnitude fetched.
+
+        use_dask: bool
+            should the catalog dataframe be as dask.dataframe ?
+            
+        Returns
+        -------
+        `pandas.DataFrame`
+        """
         if use_dask is None:
             use_dask = self._use_dask
 
@@ -590,8 +728,10 @@ class ScienceQuadrant(Quadrant, WCSHolder):
 
             meta = pandas.DataFrame(columns=columns, dtype="float")
             return dd.from_delayed(dask.delayed(self.get_ps1_catalog)(use_dask=False,
-                                                                      setxy=setxy, drop_outside=drop_outside,
-                                                                      pixelbuffer=pixelbuffer, rmag_limit=rmag_limit),
+                                                                      setxy=setxy,
+                                                                      drop_outside=drop_outside,
+                                                                      pixelbuffer=pixelbuffer,
+                                                                      rmag_limit=rmag_limit),
                                    meta=meta)
 
         from .io import get_ps1_catalog
@@ -611,7 +751,10 @@ class ScienceQuadrant(Quadrant, WCSHolder):
                     extra=["psfcat", "ps1"],
                     isolation=20, seplimit=0.5,
                     use_dask=None, **kwargs):
-        """
+        """ high level catalog access method
+
+
+
 
         calibrators could be "gaia" and or "ps1"
         extra could be ["psfcat", "ps1"],
@@ -647,16 +790,55 @@ class ScienceQuadrant(Quadrant, WCSHolder):
     # - CALIBRATORS
     def get_calibrators(self, which=["gaia", "ps1"],
                         setxy=True, drop_outside=True, drop_namag=True,
-                        pixelbuffer=10, isolation=None, mergehow="inner", seplimit=0.5,
-                        use_dask=None, **kwargs):
+                        pixelbuffer=10, isolation=None, seplimit=0.5,
+                        mergehow="inner", use_dask=None, **kwargs):
         """ get a DataFrame containing the requested calibrator catalog(s).
         If several catalog are given, a matching will be made and the dataframe merged (in)
 
         = implemented: gaia, ps1 =
 
+        Parameters
+        ----------
+        which: str or list of str
+            which calibrator catalog you want to use.
+
+        setxy: bool
+            should the x,y columns be added to the dataframe using the instance's wcs solution.
+
+        drop_outside: bool
+            should object fetched online that happen to be outside the instance footprint be droped ?
+
+        drop_namag: bool
+            should magnitude rows containing NaN be removed ?
+
+        pixelbuffer: int
+            = ignored if drop_outside=False =
+            how many edge pixels are removed (considered as if 'not in the field of view')
+
+        isolation: float 
+            self isolation limit (in arcsec). A True / False flag will be added to the catalog
+            if isolation is not None.
+            
+        rmag_limit: float
+            deepest r-band magnitude fetched.
+
+        seplimit: float
+            if two catalog are requested (`which` is a list) seplimit defines the 
+            maximum matching distance.
+
+        mergehow: str
+            `how` option of pandas.merge
+
+        use_dask: bool
+            should the catalog dataframe be as dask.dataframe ?
+            
         Returns
-        ------
-        DataFrame
+        -------
+        `pandas.DataFrame`
+
+        See also
+        --------
+        get_catalog: get catalog (any, not especially calibrator)
         """
         which = np.atleast_1d(which)
         if len(which) == 0:
@@ -712,8 +894,32 @@ class ScienceQuadrant(Quadrant, WCSHolder):
             raise ValueError(
                 f"Only single or pair or catalog (ps1 and/or gaia) been implemented, {which} given.")
 
-    def get_ps1_calibrators(self, setxy=True, drop_outside=True, pixelbuffer=10, use_dask=None, **kwargs):
-        """ """
+    def _get_ps1_calibrators(self, setxy=True, drop_outside=True, pixelbuffer=10, use_dask=None, **kwargs):
+        """ Internal method to get access to ps1 calibrator
+        
+        Parameters
+        ----------
+        setxy: bool
+            should the x,y columns be added to the dataframe using the instance's wcs solution.
+
+        drop_outside: bool
+            should object fetched online that happen to be outside the instance footprint be droped ?
+
+        pixelbuffer: int
+            = ignored if drop_outside=False =
+            how many edge pixels are removed (considered as if 'not in the field of view')
+
+        use_dask: bool
+            should the catalog dataframe be as dask.dataframe ?
+            
+        Returns
+        -------
+        `pandas.DataFrame`
+
+        See also
+        --------
+        get_calibrators: get the calibrator catalog (use get_calibrators("ps1"))
+        """
         from .io import PS1Calibrators
         if use_dask is None:
             use_dask = self._use_dask
@@ -746,16 +952,43 @@ class ScienceQuadrant(Quadrant, WCSHolder):
 
         return ps1cat
 
-    def get_gaia_calibrators(self, setxy=True, drop_namag=True, drop_outside=True, pixelbuffer=10,
-                             isolation=None, use_dask=None, **kwargs):
+    def _get_gaia_calibrators(self, setxy=True, drop_namag=True, drop_outside=True,
+                                  pixelbuffer=10,
+                                  isolation=None, use_dask=None, **kwargs):
         """ **kwargs goes to GaiaCalibrators (dl_wait for instance)
 
-        isolation: [None or positive float] -optional-
+        isolation: None, float 
             self isolation limit (in arcsec). A True / False flag will be added to the catalog
 
+        Parameters
+        ----------
+        setxy: bool
+            should the x,y columns be added to the dataframe using the instance's wcs solution.
+
+        drop_namag: bool
+            should magnitude rows containing NaN be removed ?
+
+        drop_outside: bool
+            should object fetched online that happen to be outside the instance footprint be droped ?
+
+        pixelbuffer: int
+            = ignored if drop_outside=False =
+            how many edge pixels are removed (considered as if 'not in the field of view')
+            
+        isolation: float 
+            self isolation limit (in arcsec). A True / False flag will be added to the catalog
+            if isolation is not None.
+
+        use_dask: bool
+            should the catalog dataframe be as dask.dataframe ?
+            
         Returns
         -------
         DataFrame
+
+        See also
+        --------
+        get_calibrators: get the calibrator catalog (use get_calibrators("gaia"))
         """
         from .io import GaiaCalibrators
         if use_dask is None:
@@ -852,17 +1085,17 @@ class ScienceQuadrant(Quadrant, WCSHolder):
 
     @property
     def meta(self):
-        """ """
+        """ meta data for the instance, from the filename. """
         return self._meta
 
     @property
     def mask(self):
-        """ """
+        """ mask image. """
         return self._mask
 
     @property
     def wcs(self):
-        """ Astropy WCS solution loaded from the header """
+        """ astropy wcs solution loaded from the header """
         if not hasattr(self, "_wcs"):
             self.load_wcs()
         return self._wcs
@@ -871,7 +1104,7 @@ class ScienceQuadrant(Quadrant, WCSHolder):
     # // shortcut
     @property
     def filtername(self):
-        """ """
+        """ name of the filter (from self.meta) """
         return self.meta.filtercode
 
     @property
@@ -881,37 +1114,40 @@ class ScienceQuadrant(Quadrant, WCSHolder):
 
     @property
     def rcid(self):
-        """ """
+        """ id of the quadrant in the focal plane (from meta) (0->63) """
         return self.meta.rcid
 
     @property
     def ccdid(self):
-        """ """
+        """ id of the ccd (1->16) """
         return self.meta.ccdid
 
     @property
     def qid(self):
-        """ """
+        """ id of the quadrant (1->4) """
         return self.meta.qid
 
     @property
     def fieldid(self):
-        """ """
+        """ number of the field (from meta) """
         return self.meta.field
 
     @property
     def filefracday(self):
-        """ """
+        """ id corresponding to the 'fraction of the day' (from meta) """
         return self.meta.filefracday
 
     @property
     def obsdate(self):
-        """ YYYY-MM-DD"""
+        """ observing date with the yyyy-mm-dd format. """
         return "-".join(self.meta[["year", "month", "day"]].values)
 
 
 class ScienceCCD(CCD):
     SHAPE = 3080*2, 3072*2
+
+    _CCD_OF = ScienceFocalPlane
+    
     _QUADRANTCLASS = ScienceQuadrant
     _POS_INVERTED = True  # How the list of quandrants -> ccd data
 
@@ -920,16 +1156,7 @@ class ScienceCCD(CCD):
     # =============== #
     @property
     def meta(self):
-        """ """
-        if not hasattr(self, "_meta") or self._meta is None:
-            self._meta = pandas.concat(
-                {i: q.meta for i, q in self.quadrants.items()}, axis=1).T
-
-        return self._meta
-
-    @property
-    def meta(self):
-        """ """
+        """ pandas.dataframe concatenating meta data from the quadrants. """
         if not hasattr(self, "_meta") or self._meta is None:
             self._meta = pandas.concat(
                 {i: q.meta for i, q in self.quadrants.items()}, axis=1).T
@@ -938,7 +1165,7 @@ class ScienceCCD(CCD):
 
     @property
     def filenames(self):
-        """ """
+        """ list of the filename of the different quadrants constituing the data. """
         return [q.filenames for q in self.quandrants]
 
 
@@ -946,15 +1173,33 @@ class ScienceFocalPlane(FocalPlane):
     """ """
     _CCDCLASS = ScienceCCD
 
-    def get_files(self, client, suffix=["sciimg.fits", "mskimg.fits"], as_dask="futures"):
-        """ """
+    def get_files(self, client=None, suffix=["sciimg.fits", "mskimg.fits"], as_dask="futures"):
+        """ fetch the files of the focal plane (using ztfquery.io.bulk_get_file) 
+
+        Parameters
+        ----------
+        client: `dask.distributed.Client`
+            client to use to run the bulk downloading
+
+        suffix: str or list of str
+            suffix corresponding to the image to download.
+
+        as_dask: str
+            kind of dask object to get 
+            - delayed or futures (download started)
+            
+        Returns
+        -------
+        list
+            list of files
+        """
         from ztfquery import io
         return io.bulk_get_file(self.filenames, client=client,
                                 suffix=suffix, as_dask=as_dask)
 
     @property
     def meta(self):
-        """ """
+        """ pandas.dataframe concatenating meta data from the quadrants. """
         if not hasattr(self, "_meta") or self._meta is None:
             self._meta = pandas.concat({i: ccd.meta for i, ccd in self.ccds.items()}
                                        ).set_index("rcid")
@@ -963,5 +1208,5 @@ class ScienceFocalPlane(FocalPlane):
 
     @property
     def filenames(self):
-        """ """
+        """ list of the filename of the different quadrants constituing the data. """
         return [q.filename for ccdid, ccd in self.ccds.items() for qid, q in ccd.quadrants.items()]
