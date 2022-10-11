@@ -16,8 +16,6 @@ __all__ = ["ScienceQuadrant", "ScienceCCD", "ScienceFocalPlane"]
 
 
 class ScienceQuadrant(Quadrant, WCSHolder):
-
-    _QUADRANT_OF = ScienceCCD
     
     BITMASK_KEY = ["tracks", "sexsources", "lowresponsivity", "highresponsivity",
                    "noisy", "ghosts", "spillage", "spikes", "saturated",
@@ -193,13 +191,13 @@ class ScienceQuadrant(Quadrant, WCSHolder):
 
     def get_ccd(self, use_dask=True, **kwargs):
         """ ScienceCCD object containing this quadrant. """
-        return self._QUADRANT_OF.from_single_filename(self.filename,
+        return ScienceCCD.from_single_filename(self.filename,
                                                       use_dask=use_dask,
                                                       **kwargs)
 
     def get_focalplane(self, use_dask=True, **kwargs):
         """ FocalPlane (64 quadrants making 16 CCDs) containing this quadrant """
-        return self._QUADRANT_OF._CCD_OF.from_single_filename(self.filename,
+        return ScienceFocalPlane.from_single_filename(self.filename,
                                                               use_dask=use_dask,
                                                               **kwargs)
 
@@ -1145,8 +1143,6 @@ class ScienceQuadrant(Quadrant, WCSHolder):
 
 class ScienceCCD(CCD):
     SHAPE = 3080*2, 3072*2
-
-    _CCD_OF = ScienceFocalPlane
     
     _QUADRANTCLASS = ScienceQuadrant
     _POS_INVERTED = True  # How the list of quandrants -> ccd data
