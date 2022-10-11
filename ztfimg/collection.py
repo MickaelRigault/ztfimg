@@ -15,11 +15,32 @@ from astropy.utils.decorators import classproperty
 # -------------- #
 #
 # -------------- #
-def build_headerdf(files, persist=False):
-    """ """
-    delayed_files = io.bulk_get_file(files)   
-    headers = [dask.delayed(fits.getheader)(f_) for f_ in delayed_files]
-    return _headers_to_headerdf_(headers, persist=persist)
+def build_headerdf(files, as_path=False, persist=False):
+    """ build a dask.dataframe files's header
+
+    Paramters
+    ---------
+    files: list of str
+        list of filenames. Could be path or ztf filename
+
+    as_path: bool
+        Set to True if the filename [filename_mask] are path and not just ztf filename, 
+        hence bypassing ``files = ztfquery.io.bulk_get_file(files)``
+        
+    persist: bool
+        shall this run .persist() on data ?
+
+    Returns
+    -------
+    dask.DataFrame
+        column as file-number.
+    """
+    if not as_path:
+        files = io.bulk_get_file(files)
+        
+    headers = [dask.delayed(fits.getheader)(f_) for f_ in files]
+    dask_df = _headers_to_headerdf_(headers, persist=persist)
+    return dask_df
 
 def _headers_to_headerdf_(headers, persist=False):
     """ """
@@ -35,6 +56,7 @@ def _headers_to_headerdf_(headers, persist=False):
 
 
 class ImageCollection( _Collection_ ):
+    
     COLLECTION_OF = Image
     QUADRANT_SHAPE = Quadrant.SHAPE
     
@@ -45,7 +67,7 @@ class ImageCollection( _Collection_ ):
         
     @classmethod
     def from_images(cls, images, **kwargs):
-        """ load the instance given a list of image
+        """ load the instance given a list of images
         
         Parameters
         ----------
@@ -53,9 +75,11 @@ class ImageCollection( _Collection_ ):
             list of image (or inheritance of) or list of delayed version of them.
             use_dask will be automatically detected given the images.
 
+        **kwargs goes to __init__() -> set_images()
+
         Returns
         -------
-        class instance
+        instance
 
         See also
         --------
@@ -66,9 +90,37 @@ class ImageCollection( _Collection_ ):
         return cls(images, use_dask=use_dask, **kwargs)
 
     @classmethod
-    def from_filenames(cls, filenames, use_dask=True, 
-                           as_path=False, persist=False, **kwargs):
-        """ """
+    def from_filenames(cls, filenames, as_path=False,
+                           use_dask=True, persist=False, **kwargs):
+        """ loads the instance from a list of filenames
+
+        Parameters
+        ----------
+        filenames: list
+            list of filenames. Could be pathes or ztf filenames
+
+        as_path: bool
+            Set to True if the filename [filename_mask] are path and not just ztf filename, 
+            hence bypassing ``files = ztfquery.io.get_file(files)``
+
+        use_dask: bool
+            Should dask be used ? The data will not be loaded but delayed 
+            (dask.array)
+
+        persist: bool
+            = only applied if use_dask=True =
+            should we use dask's persist() on data ?
+            
+        **kwargs will be to individual from_filename()
+
+        Returns
+        -------
+        instance
+        
+        See also
+        --------
+        from_images: load the instance given a list of images.
+        """
         images, filenames = cls._read_filenames(filenames, use_dask=use_dask, 
                                                 as_path=as_path, persist=persist,
                                                 **kwargs)
@@ -121,7 +173,7 @@ class ImageCollection( _Collection_ ):
         Returns
         -------
         Serie (pandas or dask) or header 
-        (see as_serie)
+            (see as_serie)
         """
         from astropy.io import fits
         if use_dask is None:
@@ -141,13 +193,6 @@ class ImageCollection( _Collection_ ):
         
         return pandas.Series( dict(header_) )
             
-    def get_headerdf(self, persist=True, rebuild=False):
-        """ """
-        if rebuild or not hasattr(self, "_headerdf"):
-            return _headers_to_headerdf_(self._call_down("header", False), persist=True)
-        
-        return self.headerdf
-
     def get_data(self, **kwargs):
         """ get a stack of the collection_of data 
         
@@ -178,9 +223,6 @@ class ImageCollection( _Collection_ ):
             datas = self.get_data(**kwargs)
             weights = np.asarray(np.atleast_1d(weights))[:,None,None] # broadcast
             datas *=weights
-
-            
-
 
         chunkreduction: [int or None]
             rechunk and split of the image. 2 or 4 is best.
@@ -230,7 +272,20 @@ class ImageCollection( _Collection_ ):
     # SETTER  #
     # ------- #
     def set_images(self, images):
-        """ """
+        """ set the images based on which the instance works
+        
+        = It is unlikely you need to call that directly = 
+
+        Parameters
+        ----------
+        images: list
+            list of image (or inheritance of) or list of delayed version.
+
+        See also
+        --------
+        from_images: load the instance given a list of images.
+        from_filenames: loads the instance given a list of files.
+        """
         self._images = np.atleast_1d(images).tolist()
         self._filenames = None
         
@@ -238,33 +293,41 @@ class ImageCollection( _Collection_ ):
     #  DASK      #
     # ---------- #
     def gather_images(self, client):
-        """ gather the self._images (works for delayed only) """
+        """ gather the self._images (works for delayed only) 
+        
+        this will change the type of self.images from dask.delayed to actual images.
+        Parameters
+        ----------
+        client: dask.delayed.Client
+            client to be used to gather the dask.delayed images.
+            
+        """
         self._images = client.gather(self._images)
         
     # ---------- #
     #  INTERNAL  #
     # ---------- #
-    
     # =============== #
     #  Properties     #
     # =============== #
     @property
     def headerdf(self):
-        """ """
+        """ images header as dask.dataframe. """
         if not hasattr(self, "_headerdf") or self._headerdf is None:
-            self._headerdf = self.get_headerdf(rebuild=True)
+            self._headerdf = _headers_to_headerdf_(self._call_down("header", False), persist=True)
             
         return self._headerdf
+    
     @property
     def images(self):
-        """ """
+        """ list of images defining the instance """
         if not hasattr(self,"_images"):
             return None
         return self._images
 
     @property
     def filenames(self):
-        """ """
+        """ list of image filenames. """
         if not hasattr(self,"_filenames") or self._filenames is None:
             self._filenames = dask.delayed(list)(self._call_down("filename", False)).compute()
             
@@ -272,14 +335,14 @@ class ImageCollection( _Collection_ ):
     
     @property
     def nimages(self):
-        """ """
+        """ number of images. """
         if not hasattr(self,"_images"):
             return None
         return len(self.images)
 
     @property
     def use_dask(self):
-        """ """
+        """ is this instance using dask. """
         return self._use_dask
 
     # --------------- #
@@ -304,32 +367,32 @@ class ScienceQuadrantCollection( QuadrantCollection ):
 
     # =============== #
     #  Methods        #
-    # =============== #            
+    # =============== #
     # ------- #
     # GETTER  #
     # ------- #
-    def get_data(self, which=None, applymask=True,
-                     rmbkgd=True, whichbkgd="default",
-                     **kwargs):
-        """ """
-        return super().get_data(applymask=applymask, rmbkgd=rmbkgd,
-                               whichbkgd=whichbkgd, which=which, **kwargs)
-        
-
     def get_aperture(self, x0s, y0s, radius, bkgann=None, system="xy",
                          whichdata="dataclean", dataprop={},
                          **kwargs):
-        """ 
+        """ run get_aperture on all images.
+
+        documentation to be detailed.
+
+        Parameters
+        ----------
+
         x0, y0: [2d-array, 2d-array]
            x and y positions where you want your stamp for each images.
            len(x0) and len(y0) must be equal to self.nimages.
            for instance: if you have N images and M positions to stamps for each.
            Note: M does not need to be the same for all images.
+           ```
            x0 = [[x0_0, x0_1,...,x0_M], 
                  [x1_0, x1_1, ..., x1_M], 
                  ... 
                  [xN_0, xN_1, ..., xN_M]
                  ]
+            ```
             same for y0
 
         system: [string] -optional-
@@ -342,18 +405,28 @@ class ScienceQuadrantCollection( QuadrantCollection ):
             version of the image data to use for the aperture:
             - data (as stored in science images)
             - clean/dataclean (best version| masked and source background removed)
-            (
 
-        **kwargs goes to each individual image's get_aperture """
+        **kwargs goes to each individual image's get_aperture 
+
+        Returns
+        -------
+        list of dataframe
+        
+        """
         dataprop = {**dict(which=whichdata), **dataprop}
-        propdown = {**dict( bkgann=bkgann, system=system, dataprop=dataprop),
+        propdown = {**dict(bkgann=bkgann, system=system, dataprop=dataprop),
                     **kwargs}
         return [img.get_aperture(x0_, y0_, radius, **propdown)
                     for img, x0_, y0_ in zip(self.images, x0s, y0s)]
     
     def get_catalog(self, calibrators="gaia", extra=["ps1","psfcat"],
                         isolation=20, seplimit=0.5, **kwargs):
-        """ """
+        """ short cut to image[:].get_catalog()
+
+        Returns
+        -------
+        list of dataframe
+        """
         propdown = {**dict( calibrators=calibrators, extra=extra,
                             isolation=isolation, seplimit=seplimit),
                     **kwargs}

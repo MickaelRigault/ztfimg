@@ -386,17 +386,17 @@ class ScienceQuadrant(Quadrant, WCSHolder):
 
         Parameters
         ----------
-        method: [string] -optional-
+        method: str
             if None, method ="default"
             - "default": returns the background store as self.background (see set_background)
             - "median": gets the median of the fully masked data (self.get_mask(alltrue=True))
             - "sep": returns the sep estimation of the background image (Sextractor-like)
 
-        rmbkgd: [bool] -optional-
+        rmbkgd: bool
             // ignored if method != median //
             shall the median background estimation be made on default-background subtraced image ?
 
-        backup_default: [string] -optional-
+        backup_default: str
             If no background has been set yet, which method should be the default backgroud.
             If no background set and backup_default is None an AttributeError is raised.
 
