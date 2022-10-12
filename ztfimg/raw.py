@@ -43,7 +43,7 @@ class RawQuadrant( Quadrant ):
             overscan = da.from_delayed(dask.delayed(getdata)(filename, ext=ext+4),
                                             shape=cls.SHAPE_OVERSCAN, dtype="float")
             if persist:
-                overscan = overscan.persist()
+                overscan = overscan.persist()rawimg
         else:
             overscan = getdata(filename, ext=ext+4)
             
@@ -360,6 +360,12 @@ class RawQuadrant( Quadrant ):
 
 
         """
+        try:
+            from scipy.stats import median_abs_deviation # scipy>1.9
+        except:
+            from scipy.stats import median_absolute_deviation # scipy<1.9
+            
+        
         # = Raw as given
         if which == "raw" or (which=="data" and userange is None):
             return self.overscan
@@ -375,7 +381,7 @@ class RawQuadrant( Quadrant ):
             spec = func_to_apply(data , axis=specaxis)
             if clipping:
                 med_ = np.median( spec )
-                mad_  = stats.median_absolute_deviation( spec )
+                mad_  = median_absolute_deviation( spec )
                 # Symetric to avoid bias, even though only positive outlier are expected.
                 flag_out = (spec>(med_+3*mad_)) +(spec<(med_-3*mad_))
                 spec[flag_out] = np.NaN
