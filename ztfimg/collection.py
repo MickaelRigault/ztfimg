@@ -87,6 +87,7 @@ class ImageCollection( _Collection_ ):
         """
         images = np.atleast_1d(images)
         use_dask = "dask" in str( type(images[0]) )
+        _ = kwargs.pop("use_dask") # remove it if provided.
         return cls(images, use_dask=use_dask, **kwargs)
 
     @classmethod
@@ -375,6 +376,7 @@ class ScienceQuadrantCollection( QuadrantCollection ):
                          whichdata="dataclean", dataprop={},
                          **kwargs):
         """ run get_aperture on all images.
+
 
         documentation to be detailed.
 
