@@ -200,7 +200,33 @@ class ScienceQuadrant(Quadrant, WCSHolder):
         return ScienceFocalPlane.from_single_filename(self.filename,
                                                               use_dask=use_dask,
                                                               **kwargs)
+    
+    def get_rawimage(self, use_dask=True, which="quadrant", **kwargs):
+        """ get the raw image of the given science quadrant
+        
+        This uses ztfquery to fetch the raw image path 
+        and inputs it to RawQuadrant or RawCCD .from_filename method
+        (see which)
 
+        Parameters
+        ----------
+
+        Returns
+        -------
+        """
+        from . import raw        
+        from ztfquery.buildurl import get_rawfile_of_filename
+        rawfile = get_rawfile_of_filename(self.filename)
+        
+        if which == "quadrant":
+            rawimg = raw.RawQuadrant.from_filename(rawfile, qid= self.qid, use_dask=use_dask, **kwargs)
+        elif which == "ccd":
+            rawimg = raw.RawCCD.from_filename(rawfile, use_dask=use_dask, **kwargs)
+        else:
+            raise ValueError(f"Cannot parse input which {which} (quadrant or ccd implemented)")
+
+        return rawimg
+    
     def get_data(self, which=None,
                  applymask=False, maskvalue=np.NaN,
                  rmbkgd=False, whichbkgd="median",

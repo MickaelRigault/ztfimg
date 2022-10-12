@@ -34,8 +34,8 @@ class RawQuadrant( Quadrant ):
             self.set_overscan(overscan)
 
 
-    @staticmethod
-    def _read_overscan(filename, ext, use_dask=True, persist=False):
+    @classmethod
+    def _read_overscan(cls, filename, ext, use_dask=True, persist=False):
         """ assuming fits format. """
         from astropy.io.fits import getdata
         
