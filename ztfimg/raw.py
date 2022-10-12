@@ -361,9 +361,9 @@ class RawQuadrant( Quadrant ):
 
         """
         try:
-            from scipy.stats import median_abs_deviation # scipy>1.9
+            from scipy.stats import median_abs_deviation as nmad # scipy>1.9
         except:
-            from scipy.stats import median_absolute_deviation # scipy<1.9
+            from scipy.stats import median_absolute_deviation as nmad # scipy<1.9
             
         
         # = Raw as given
@@ -381,7 +381,7 @@ class RawQuadrant( Quadrant ):
             spec = func_to_apply(data , axis=specaxis)
             if clipping:
                 med_ = np.median( spec )
-                mad_  = median_absolute_deviation( spec )
+                mad_  = nmad( spec )
                 # Symetric to avoid bias, even though only positive outlier are expected.
                 flag_out = (spec>(med_+3*mad_)) +(spec<(med_-3*mad_))
                 spec[flag_out] = np.NaN
