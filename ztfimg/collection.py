@@ -113,6 +113,7 @@ class ImageCollection( _Collection_ ):
         ----------
         filenames: list
             list of filenames. Could be pathes or ztf filenames
+            (see as_path)
 
         as_path: bool
             Set to True if the filename [filename_mask] are path and not just ztf filename, 

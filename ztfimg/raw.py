@@ -250,7 +250,7 @@ class RawQuadrant( Quadrant ):
             nl is applied first)
 
         corr_nl: bool
-            Should the data be corrected for non-linearity
+            Should data be corrected for non-linearity
             
         rebin: int, None
             Shall the data be rebinned by square of size `rebin` ?
