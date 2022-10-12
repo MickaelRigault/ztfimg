@@ -60,9 +60,23 @@ class ImageCollection( _Collection_ ):
     COLLECTION_OF = Image
     QUADRANT_SHAPE = Quadrant.SHAPE
     
-    def __init__(self, images, use_dask=True, **kwargs):
-        """ """
-        self._use_dask = use_dask
+    def __init__(self, images, **kwargs):
+        """  Image collection handles multi-images
+
+        Parameters
+        ----------
+        images: list
+            list of images. Images could be numpy or dask arrays 
+            as well as dask.delayed object. 
+            self.use_dask will be set automatically accordingly.
+
+        **kwargs goes to self.set_images()
+        
+        Returns
+        -------
+        instance
+        """
+        self._use_dask = "dask" in str( type(images[0]) )
         self.set_images(images, **kwargs)
         
     @classmethod
@@ -72,8 +86,10 @@ class ImageCollection( _Collection_ ):
         Parameters
         ----------
         images: list
-            list of image (or inheritance of) or list of delayed version of them.
-            use_dask will be automatically detected given the images.
+            list of images. Images could be numpy or dask arrays 
+            as well as dask.delayed object. 
+            self.use_dask will be set automatically accordingly.
+
 
         **kwargs goes to __init__() -> set_images()
 
@@ -86,9 +102,7 @@ class ImageCollection( _Collection_ ):
         from_filenames: loads the instance given a list of files.
         """
         images = np.atleast_1d(images)
-        use_dask = "dask" in str( type(images[0]) )
-        _ = kwargs.pop("use_dask") # remove it if provided.
-        return cls(images, use_dask=use_dask, **kwargs)
+        return cls(images, **kwargs)
 
     @classmethod
     def from_filenames(cls, filenames, as_path=False,
@@ -105,8 +119,8 @@ class ImageCollection( _Collection_ ):
             hence bypassing ``files = ztfquery.io.get_file(files)``
 
         use_dask: bool
-            Should dask be used ? The data will not be loaded but delayed 
-            (dask.array)
+            Should dask be used ?
+            The data will not be loaded but delayed  (dask.array).
 
         persist: bool
             = only applied if use_dask=True =
@@ -208,65 +222,86 @@ class ImageCollection( _Collection_ ):
         """
         return self._get_subdata(**kwargs)
 
-    def get_meandata(self, chunkreduction=2,
-                          weights=1,
-                          clipping=False,
-                          sigma=3, sigma_lower=None, sigma_upper=None, maxiters=5,
-                          cenfunc='median', stdfunc='std', axis=0, **kwargs):
-        """ 
-        weights: [string, float or array]
-            If you want to apply a multiplicative weighting coef to the individual
-            images before getting there mean.
+    def get_meandata(self, axis=0,
+                         chunkreduction=2,
+                         weights=1,  sigma_clip=None, clipping_prop={},
+                         **kwargs):
+        """ get a the mean 2d-array of the images [nimages, N, M]->[N, M]
+
+        Parameters
+        ----------
+        chunkreduction: int
+            rechunk and split of the image.
+            If None, no rechunk
+
+        weights: str, float or array
+            multiplicative weighting coef for individual images.
             If string, this will be understood as a functuon to apply on data.
             (ie. mean, median, std etc.) | any np.{weights}(data, axis=(1,2) will work.
-
-            if not None, this happens:
+            otherwise this happens:
+            ```
             datas = self.get_data(**kwargs)
-            weights = np.asarray(np.atleast_1d(weights))[:,None,None] # broadcast
+            weights = np.asarray(np.atleast_1d(weights))[:, None, None] # broadcast
             datas *=weights
-
-        chunkreduction: [int or None]
-            rechunk and split of the image. 2 or 4 is best.
-            If None, no rechunk
+            ```
         
-        clipping: [bool] -optional-
-            shall sigma clipping along the axis=0 be applied ?
+        sigma_clip: float or None
+            sigma clipping to be applied to the data (along the stacking axis by default)
+            None means, no clipping.
 
-            
-                          
+        clipping_prop: dict
+            kwargs entering scipy.stats.sigma_clip()
+
+        **kwargs goes to self.get_data()
+
+        Returns
+        -------
+        2d-array
+            mean image (dask or numpy)
+
+        See also
+        --------
+        get_data: get the stack images [nimages, N, M]
         """
         npda = da if self.use_dask else np
-        
         datas = self.get_data(**kwargs)
+        
+        # Should you apply weight on the data ?
         if weights is not None:
             if type(weights) == str:
-                weights = getattr(npda,weights)(data, axis=(1,2))[:,None,None]
+                weights = getattr(npda,weights)(data, axis=(1,2))[:, None, None]
             else:
-                weights = np.asarray(np.atleast_1d(weights))[:,None,None] # broadcast
+                weights = np.asarray(np.atleast_1d(weights))[:, None, None] # broadcast
                 
             datas *=weights
 
-        if self.use_dask:
-            if axis==0 and chunkreduction is not None:
+        # If dasked, should you change the chunkredshuct n?
+        if self.use_dask and chunkreduction is not None:
+            if axis==0:
                 chunk_merging_axis0 = np.asarray(np.asarray(datas.shape)/(1, 
                                                                   chunkreduction, 
                                                                   chunkreduction), dtype="int")
                 datas = datas.rechunk( list(chunk_merging_axis0) )
             
-            elif chunkreduction is not None:
-                warnings.warn(f"chunkreduction only implemented for axis=0 (axis={axis} given)")
-            
-        if clipping:
-            from astropy.stats import sigma_clip
-            clipping_prop = dict(axis=axis, 
-                                 sigma=sigma, sigma_lower=sigma_lower, sigma_upper=sigma_upper, 
-                                 maxiters=maxiters, cenfunc=cenfunc,
-                                 stdfunc=stdfunc, masked=False)
-            if self.use_dask:
-                datas = datas.map_blocks(sigma_clip, **clipping_prop)
             else:
-                datas = sigma_clip(datas, **clipping_prop)
-            
+                warnings.warn(f"chunkreduction only implemented for axis=0 (axis={axis} given)")
+
+        # Is sigma clipping applied ?
+        if sigma_clip is not None and sigma_clip>0:
+            from astropy.stats import sigma_clip as scipy_clipping # sigma_clip is the sigma option
+            clipping_prop = {**dict(sigma=sigma_clip, # how many sigma clipping
+                                    axis=axis,
+                                    sigma_lower=None, sigma_upper=None, maxiters=5,
+                                    cenfunc='median', stdfunc='std', 
+                                    masked=False),
+                             **clipping_prop}
+                
+            if self.use_dask:
+                datas = datas.map_blocks(scipy_clipping, **clipping_prop)
+            else:
+                datas = scipy_clipping(datas, **clipping_prop)
+
+        # Let's go.
         return npda.mean(datas, axis=axis)
 
     # ------- #
@@ -297,11 +332,17 @@ class ImageCollection( _Collection_ ):
         """ gather the self._images (works for delayed only) 
         
         this will change the type of self.images from dask.delayed to actual images.
+
+
         Parameters
         ----------
         client: dask.delayed.Client
             client to be used to gather the dask.delayed images.
             
+        Returns
+        -------
+        None
+            updates self.images
         """
         self._images = client.gather(self._images)
         
