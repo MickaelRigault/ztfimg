@@ -43,7 +43,7 @@ class RawQuadrant( Quadrant ):
             overscan = da.from_delayed(dask.delayed(getdata)(filename, ext=ext+4),
                                             shape=cls.SHAPE_OVERSCAN, dtype="float")
             if persist:
-                overscan = overscan.persist()rawimg
+                overscan = overscan.persist()
         else:
             overscan = getdata(filename, ext=ext+4)
             
