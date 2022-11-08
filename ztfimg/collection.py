@@ -141,7 +141,7 @@ class ImageCollection( _Collection_ ):
                                                 as_path=as_path, persist=persist,
                                                 **kwargs)
             
-        this= cls.from_images(images, use_dask=use_dask)
+        this= cls.from_images(images)
         this._filenames = filenames
         return this
     
