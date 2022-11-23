@@ -295,7 +295,7 @@ class Image( object ):
 
         # This is the normal case
         if self.has_data() and rebin is None and data=="data":
-            data_ = self.data.copy()
+            data_ = self.data#.copy()
         
         else:
             if type(data) == str:
