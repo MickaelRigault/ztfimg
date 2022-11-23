@@ -140,7 +140,7 @@ class ImageCollection( _Collection_ ):
         images, filenames = cls._read_filenames(filenames, use_dask=use_dask, 
                                                 as_path=as_path, persist=persist,
                                                 **kwargs)
-            
+        
         this= cls.from_images(images)
         this._filenames = filenames
         return this
@@ -268,7 +268,7 @@ class ImageCollection( _Collection_ ):
         datas = self.get_data(**kwargs)
         
         # Should you apply weight on the data ?
-        if weights is not None:
+        if weights is not None and weights != 1:
             if type(weights) == str:
                 weights = getattr(npda,weights)(data, axis=(1,2))[:, None, None]
             else:

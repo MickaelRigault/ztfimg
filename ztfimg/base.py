@@ -768,14 +768,10 @@ class _Collection_( object ):
         """ """
         filenames = np.atleast_1d(filenames).tolist()
         # it's the whole COLLECTION_OF that is dask, not inside it.
-        prop = {**dict(as_path=as_path, use_dask=False), **kwargs}
+        prop = {**dict(as_path=as_path, use_dask=use_dask), **kwargs}
 
-        # what is called
-        from_filenames_func = cls.COLLECTION_OF.from_filename
-        if use_dask:
-            from_filenames_func = dask.delayed(from_filenames_func)
-
-        images = [from_filenames_func(filename, **prop) for filename in filenames]
+        # dask is called inside this.
+        images = [cls.COLLECTION_OF.from_filename(filename, **prop) for filename in filenames]
         if persist and use_dask:
             images = [i.persist() for i in images]
             
@@ -1453,6 +1449,7 @@ class FocalPlane(Image, _Collection_):
         ccds = [cls._CCDCLASS.from_filenames(qfiles, qids=[1, 2, 3, 4], as_path=as_path,
                                                  use_dask=use_dask, persist=persist, **kwargs)
                 for qfiles in ccdidlist.values]
+            
         return cls(ccds, np.asarray(ccdidlist.index, dtype="int"),
                    use_dask=use_dask)
 
