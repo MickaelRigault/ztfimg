@@ -37,7 +37,7 @@ class Image( object ):
         if use_dask:
             # - Data
             data = da.from_delayed( dask.delayed( getdata) (filename, ext=ext),
-                                   shape=cls.SHAPE, dtype="float")
+                                   shape=cls.SHAPE, dtype="float32")
             if persist:
                 data = data.persist()
 
@@ -782,7 +782,7 @@ class _Collection_( object ):
         datas = self._call_down("get_data",True, **kwargs)
         if self.use_dask:
             return da.stack([da.from_delayed(f_, shape=self.COLLECTION_OF.shape,
-                                                 dtype="float")
+                                                 dtype="float32")
                                      for f_ in datas])
         return np.stack(datas)
 

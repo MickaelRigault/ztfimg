@@ -98,11 +98,11 @@ class ScienceQuadrant(Quadrant, WCSHolder):
             # Getting the filenames
             # - Data
             data = da.from_delayed(dask.delayed(fits.getdata)(filename),
-                                   shape=cls.SHAPE, dtype="float")
+                                   shape=cls.SHAPE, dtype="float32")
             header = dask.delayed(fits.getheader)(filename)
             # - Mask
             mask = da.from_delayed(dask.delayed(fits.getdata)(filename_mask),
-                                   shape=cls.SHAPE, dtype="float")
+                                   shape=cls.SHAPE, dtype="int16")
             if persist:
                 data = data.persist()
                 header = header.persist()
@@ -467,7 +467,7 @@ class ScienceQuadrant(Quadrant, WCSHolder):
                 self._load_background_()
             if self._use_dask:
                 return da.from_delayed(self._back.rms(),
-                                       shape=self.shape, dtype="float")
+                                       shape=self.shape, dtype="float32")
             return self._back.rms()
 
         raise ValueError(
@@ -495,7 +495,7 @@ class ScienceQuadrant(Quadrant, WCSHolder):
                 self._load_background_()
             if self._use_dask:
                 self._source_background = da.from_delayed(self._back.back(),
-                                                          shape=self.shape, dtype="float")
+                                                          shape=self.shape, dtype="float32")
             else:
                 self._source_background = self._back.back()
 
