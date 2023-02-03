@@ -231,7 +231,7 @@ class ImageCollection( _Collection_ ):
 
         Parameters
         ----------
-        chunkreduction: int
+        chunkreduction: int or None
             rechunk and split of the image.
             If None, no rechunk
 
