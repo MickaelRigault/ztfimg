@@ -41,7 +41,7 @@ class RawQuadrant( Quadrant ):
         
         if use_dask:
             overscan = da.from_delayed(dask.delayed(getdata)(filename, ext=ext+4),
-                                            shape=cls.SHAPE_OVERSCAN, dtype="float")
+                                            shape=cls.SHAPE_OVERSCAN, dtype="float32")
             if persist:
                 overscan = overscan.persist()
         else:
@@ -395,7 +395,7 @@ class RawQuadrant( Quadrant ):
             # dask
             if self._use_dask:                
                 d_ = dask.delayed(fit_polynome)(np.arange( len(spec) ), spec, degree=modeldegree)
-                return da.from_delayed(d_, shape=spec.shape, dtype="float")
+                return da.from_delayed(d_, shape=spec.shape, dtype="float32")
             # numpy
             return fit_polynome(np.arange(len(spec)), spec, degree=modeldegree)
         
