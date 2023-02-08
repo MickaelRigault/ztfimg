@@ -131,6 +131,7 @@ class RawQuadrant( Quadrant ):
         
         this = cls(data, header=header, overscan=overscan, use_dask=use_dask, **kwargs)
         this._qid = qid
+        this._filename = filename
         return this
 
     @classmethod
@@ -400,7 +401,11 @@ class RawQuadrant( Quadrant ):
             return fit_polynome(np.arange(len(spec)), spec, degree=modeldegree)
         
         raise ValueError(f'which should be "raw", "data", "spec", "model", {which} given')    
-        
+
+
+    def get_sciimage(self, use_dask=None):
+        """ """
+        raise NotImplementedError("ongoing... ")
     # -------- #
     # PLOTTER  #
     # -------- #
@@ -547,7 +552,9 @@ class RawCCD( CCD ):
         if persist and use_dask:
             quadrants = [q.persist() for q in quadrants]
             
-        return cls.from_quadrants(quadrants, qids=qids, use_dask=use_dask)
+        this = cls.from_quadrants(quadrants, qids=qids, use_dask=use_dask)
+        this._filename = filename
+        return this
 
     @classmethod
     def from_single_filename(cls, *args, **kwargs):
