@@ -21,7 +21,7 @@ __all__ = ["RawQuadrant", "RawCCD", "RawFocalPlane"]
 class RawQuadrant( Quadrant ):
 
     SHAPE_OVERSCAN = 3080, 30
-    def __init__(self, data=None, header=None, overscan=None, use_dask=False):
+    def __init__(self, data=None, header=None, overscan=None):
         """ 
         See also
         --------
@@ -29,7 +29,7 @@ class RawQuadrant( Quadrant ):
         from_data: load the instance given its data (and header)
         """
         # Add the overscan to the __init__
-        _ = super().__init__(data=data, header=header, use_dask=use_dask)
+        _ = super().__init__(data=data, header=header)
         if overscan is not None:
             self.set_overscan(overscan)
 
@@ -74,7 +74,7 @@ class RawQuadrant( Quadrant ):
         # the super knows overscan thanks to the kwargs passed to __init__
         use_dask = "dask" in str( type(data))
         return super().from_data(data, header=header, overscan=overscan,
-                                     use_dask=use_dask, **kwargs)
+                                 **kwargs)
     
     @classmethod
     def from_filename(cls, filename, qid,

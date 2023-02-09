@@ -181,8 +181,7 @@ class Image( object ):
         class instance
         
         """
-        use_dask = "dask" in str(type(data))
-        return cls(data=data, header=header, use_dask=use_dask, **kwargs)
+        return cls(data=data, header=header, **kwargs)
 
     def to_fits(self, fileout, overwrite=True, **kwargs):
         """ writes the image (data and header) into a fits file.
@@ -855,7 +854,7 @@ class CCD( Image, _Collection_):
             raise ValueError("both quadrants and data given. This is confusing. Use only one.")
         
         # - Ok good to go
-        _ = super().__init__(use_dask=use_dask)
+        _ = super().__init__()
 
         if data is not None:
             # this updates use_dask
