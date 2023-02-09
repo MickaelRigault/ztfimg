@@ -95,7 +95,7 @@ class Image( object ):
         if as_path:
             return filename
         
-       from ztfquery import io
+        from ztfquery import io
         # Look for it
         prop = dict(show_progress=False, maxnprocess=1)
         if use_dask:
