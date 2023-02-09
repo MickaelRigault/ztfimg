@@ -241,7 +241,7 @@ class Image( object ):
 
         # Check dask compatibility
         used_dask = "dask" in str(type(data))
-        if self.use_dask is None and used_dask != self.use_dask:
+        if self.use_dask is not None and used_dask != self.use_dask:
             warnings.warn(f"Input data and self.use_dask are not compatible. Now: use_dask={used_dask}")
             
         self._use_dask = used_dask

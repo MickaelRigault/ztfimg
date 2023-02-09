@@ -21,7 +21,7 @@ class ScienceQuadrant(Quadrant, WCSHolder):
                    "noisy", "ghosts", "spillage", "spikes", "saturated",
                    "dead", "nan", "psfsources", "brightstarhalo"]
 
-    def __init__(self, data=None, mask=None, header=None, use_dask=True, meta=None):
+    def __init__(self, data=None, mask=None, header=None, meta=None):
         """ Science Quadrant. You most likely want to load it using from_* class method
 
         See also
@@ -30,7 +30,7 @@ class ScienceQuadrant(Quadrant, WCSHolder):
         
         
         """
-        _ = super().__init__(data=data, header=header, use_dask=use_dask)
+        _ = super().__init__(data=data, header=header)
 
         if mask is not None:
             self.set_mask(mask)
@@ -320,8 +320,8 @@ class ScienceQuadrant(Quadrant, WCSHolder):
                 data_ -= self.get_background(method=whichbkgd, rmbkgd=False)
 
         if rebin is not None:
-            data_ = getattr(da if self._use_dask else np, rebin_stat)(
-                rebin_arr(data_, (rebin, rebin), use_dask=self._use_dask), axis=(-2, -1))
+            data_ = getattr(da if self.use_dask else np, rebin_stat)(
+                rebin_arr(data_, (rebin, rebin), use_dask=self.use_dask), axis=(-2, -1))
 
         return data_
 
@@ -385,7 +385,7 @@ class ScienceQuadrant(Quadrant, WCSHolder):
         boolean mask (or list of int, see getflags)
         """
         # // BitMasking
-        npda = da if self._use_dask else np
+        npda = da if self.use_dask else np
         if alltrue and not getflags:
             return self.mask > 0
 
@@ -398,7 +398,7 @@ class ScienceQuadrant(Quadrant, WCSHolder):
         if getflags:
             return flags
 
-        if self._use_dask:
+        if self.use_dask:
             mask_ = dask.delayed(bitmask.bitfield_to_boolean_mask)(self.mask,
                                                                    ignore_flags=flags,
                                                                    flip_bits=flip_bits)
@@ -408,8 +408,8 @@ class ScienceQuadrant(Quadrant, WCSHolder):
                                                     ignore_flags=flags, flip_bits=flip_bits)
         # Rebin
         if rebin is not None:
-            mask = getattr(da if self._use_dask else np, rebin_stat)(
-                rebin_arr(mask, (rebin, rebin), use_dask=self._use_dask), axis=(-2, -1))
+            mask = getattr(da if self.use_dask else np, rebin_stat)(
+                rebin_arr(mask, (rebin, rebin), use_dask=self.use_dask), axis=(-2, -1))
 
         return mask
 
@@ -440,7 +440,7 @@ class ScienceQuadrant(Quadrant, WCSHolder):
             raise NotImplementedError("Only median background implemented")
 
         if method in ["median"]:
-            if self._use_dask:
+            if self.use_dask:
                 # median no easy to massively //
                 return self.get_data(rmbkgd=rmbkgd, applymask=True, alltrue=True
                                      ).map_blocks(np.nanmedian)
@@ -458,7 +458,7 @@ class ScienceQuadrant(Quadrant, WCSHolder):
     def get_noise(self, which="nanstd"):
         """ """
         if which == "nanstd":
-            npda = da if self._use_dask else np
+            npda = da if self.use_dask else np
             datamasked = self.get_data(
                 applymask=True, rmbkgd=True, whichbkgd="median", alltrue=True)
             return npda.nanstd(datamasked)
@@ -471,7 +471,7 @@ class ScienceQuadrant(Quadrant, WCSHolder):
         if which in ["backgroundrms", "rms"]:
             if not hasattr(self, "_back"):
                 self._load_background_()
-            if self._use_dask:
+            if self.use_dask:
                 return da.from_delayed(self._back.rms(),
                                        shape=self.shape, dtype="float32")
             return self._back.rms()
@@ -488,9 +488,9 @@ class ScienceQuadrant(Quadrant, WCSHolder):
             mask = self.get_mask()
             noise = self.get_noise(which="nanstd")
             sources = extract_sources(
-                data, thresh_=thresh, err=noise, mask=mask, use_dask=self._use_dask)
+                data, thresh_=thresh, err=noise, mask=mask, use_dask=self.use_dask)
             self._source_mask = get_source_mask(
-                sources, self.shape, use_dask=self._use_dask, r=r)
+                sources, self.shape, use_dask=self.use_dask, r=r)
 
         return self._source_mask
 
@@ -499,7 +499,8 @@ class ScienceQuadrant(Quadrant, WCSHolder):
         if not hasattr(self, "_source_background"):
             if not hasattr(self, "_back"):
                 self._load_background_()
-            if self._use_dask:
+                
+            if self.use_dask:
                 self._source_background = da.from_delayed(self._back.back(),
                                                           shape=self.shape, dtype="float32")
             else:
@@ -630,7 +631,7 @@ class ScienceQuadrant(Quadrant, WCSHolder):
         `pandas.DataFrame`
         """
         if use_dask is None:
-            use_dask = self._use_dask
+            use_dask = self.use_dask
 
         if use_dask:
             columns = ['x', 'y', 'ra', 'dec', 'flux', 'sigflux', 'mag',
@@ -675,7 +676,7 @@ class ScienceQuadrant(Quadrant, WCSHolder):
         `pandas.DataFrame` or `astropy.Table`
         """
         if use_dask is None:
-            use_dask = self._use_dask
+            use_dask = self.use_dask
 
         if use_dask:
             columns = ['FLAGS', 'XWIN_IMAGE', 'YWIN_IMAGE', 'X_WORLD', 'Y_WORLD',
@@ -744,7 +745,7 @@ class ScienceQuadrant(Quadrant, WCSHolder):
         `pandas.DataFrame`
         """
         if use_dask is None:
-            use_dask = self._use_dask
+            use_dask = self.use_dask
 
         if use_dask:
             columns = ['id', 'coord_ra', 'coord_dec', 'parent', 'g_flux', 'r_flux', 'i_flux',
@@ -796,7 +797,7 @@ class ScienceQuadrant(Quadrant, WCSHolder):
 
         # Now let's add extra catalogs (if any)
         if use_dask is None:
-            use_dask = self._use_dask
+            use_dask = self.use_dask
 
         extra = np.atleast_1d(extra).tolist()
         for extra_ in extra:
@@ -924,7 +925,8 @@ class ScienceQuadrant(Quadrant, WCSHolder):
             raise ValueError(
                 f"Only single or pair or catalog (ps1 and/or gaia) been implemented, {which} given.")
 
-    def _get_ps1_calibrators(self, setxy=True, drop_outside=True, pixelbuffer=10, use_dask=None, **kwargs):
+    def _get_ps1_calibrators(self, setxy=True, drop_outside=True, pixelbuffer=10,
+                                 use_dask=None, **kwargs):
         """ Internal method to get access to ps1 calibrator
         
         Parameters
@@ -952,7 +954,7 @@ class ScienceQuadrant(Quadrant, WCSHolder):
         """
         from .io import PS1Calibrators
         if use_dask is None:
-            use_dask = self._use_dask
+            use_dask = self.use_dask
 
         columns = ['ra', 'dec', 'gmag', 'e_gmag',
                    'rmag', 'e_rmag', 'imag', 'e_imag',
@@ -1022,7 +1024,7 @@ class ScienceQuadrant(Quadrant, WCSHolder):
         """
         from .io import GaiaCalibrators
         if use_dask is None:
-            use_dask = self._use_dask
+            use_dask = self.use_dask
 
         columns = ['Source', 'ps1_id', 'sdssdr13_id', 'ra', 'dec',
                    'gmag', 'e_gmag', 'gmagcorr', 'rpmag', 'e_rpmag', 'bpmag', 'e_bpmag',
@@ -1085,7 +1087,7 @@ class ScienceQuadrant(Quadrant, WCSHolder):
         data = self.data.copy()
         smask = self.get_source_mask()
         data[smask] = np.NaN
-        if self._use_dask:
+        if self.use_dask:
             self._back = dask.delayed(Background)(data)
         else:
             self._back = Background(data.astype("float32"))
