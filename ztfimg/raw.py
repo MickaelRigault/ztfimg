@@ -129,7 +129,7 @@ class RawQuadrant( Quadrant ):
         # and overscan
         overscan = cls._read_overscan(filename, ext=qid, use_dask=use_dask, persist=persist)
         
-        this = cls(data, header=header, overscan=overscan, use_dask=use_dask, **kwargs)
+        this = cls(data, header=header, overscan=overscan, **kwargs)
         this._qid = qid
         this._filename = filename
         return this
