@@ -661,7 +661,8 @@ class RawCCD( CCD ):
         """
         if use_dask is None:
             use_dask = self.use_dask
-            
+
+        from .science import ScienceQuadrant            
         from ztfquery.buildurl import get_scifile_of_filename
         
         # no quadrant given -> 4 filenames (qid = 1,2,3,4)
@@ -674,8 +675,7 @@ class RawCCD( CCD ):
             return ScienceCCD.from_quadrants(quadrants, qids=[1,2,3,4], **kwargs)
         
         # If not, then list of science quadrants
-        from .science import ScienceQuadrant
-        return 
+        return quadrants
 
     
 class RawFocalPlane( FocalPlane ):
