@@ -575,7 +575,7 @@ class RawCCD( CCD ):
         if persist and use_dask:
             quadrants = [q.persist() for q in quadrants]
             
-        this = cls.from_quadrants(quadrants, qids=qids, use_dask=use_dask)
+        this = cls.from_quadrants(quadrants, qids=qids)
         this._filename = filename
         return this
 
