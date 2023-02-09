@@ -671,8 +671,7 @@ class RawCCD( CCD ):
         
         if as_ccd:
             from .science import ScienceCCD
-            return ScienceCCD.from_quadrants(quadrants, qids=[1,2,3,4],
-                                            use_dask=use_dask, **kwargs)
+            return ScienceCCD.from_quadrants(quadrants, qids=[1,2,3,4], **kwargs)
         
         # If not, then list of science quadrants
         from .science import ScienceQuadrant

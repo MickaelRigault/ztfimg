@@ -201,7 +201,7 @@ class ScienceQuadrant(Quadrant, WCSHolder):
                                                               use_dask=use_dask,
                                                               **kwargs)
     
-    def get_rawimage(self, use_dask=True, which="quadrant", **kwargs):
+    def get_rawimage(self, use_dask=None, which="quadrant", **kwargs):
         """ get the raw image of the given science quadrant
         
         This uses ztfquery to fetch the raw image path 
@@ -217,11 +217,17 @@ class ScienceQuadrant(Quadrant, WCSHolder):
         from . import raw        
         from ztfquery.buildurl import get_rawfile_of_filename
         rawfile = get_rawfile_of_filename(self.filename)
+
+        if use_dask is None:
+            use_dask = self._use_dask
         
         if which == "quadrant":
-            rawimg = raw.RawQuadrant.from_filename(rawfile, qid= self.qid, use_dask=use_dask, **kwargs)
+            rawimg = raw.RawQuadrant.from_filename(rawfile, qid=self.qid,
+                                                    use_dask=use_dask, **kwargs)
+            
         elif which == "ccd":
             rawimg = raw.RawCCD.from_filename(rawfile, use_dask=use_dask, **kwargs)
+            
         else:
             raise ValueError(f"Cannot parse input which {which} (quadrant or ccd implemented)")
 
