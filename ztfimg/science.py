@@ -122,7 +122,6 @@ class ScienceQuadrant(Quadrant, WCSHolder):
         # self
         meta = io.parse_filename(filename)
         this = cls(data=data, header=header,
-                  use_dask=use_dask,
                    mask=mask, meta=meta)
         this._filename = filename
         return this

@@ -711,14 +711,13 @@ class RawFocalPlane( FocalPlane ):
             should we use dask's persist() on data ?
 
         **kwargs: goes to _CCDCLASS.from_filename
-
         
         Returns
         -------
         class instance 
         
         """
-        this = cls(use_dask=use_dask)
+        this = cls()
         for file_ in ccd_filenames:
             ccd_ = cls._CCDCLASS.from_filename(file_, as_path=as_path,
                                                    use_dask=use_dask, persist=persist,
