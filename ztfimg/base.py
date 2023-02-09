@@ -14,7 +14,7 @@ class Image( object ):
     SHAPE = None
     # Could be any type (raw, science)
 
-    def __init__(self, data=None, header=None, use_dask=True):
+    def __init__(self, data=None, header=None):
         """  
         See also
         --------
@@ -22,9 +22,8 @@ class Image( object ):
         from_data: load the instance given its data (and header)
         
         """
-        self._use_dask = use_dask
-        
         if data is not None:
+            # this updates use_dask
             self.set_data(data)
             
         if header is not None:
@@ -96,7 +95,7 @@ class Image( object ):
         if as_path:
             return filename
         
-        from ztfquery import io
+       from ztfquery import io
         # Look for it
         prop = dict(show_progress=False, maxnprocess=1)
         if use_dask:
@@ -703,6 +702,9 @@ class Image( object ):
     @property
     def use_dask(self):
         """ are the data dasked (did you set use_dask=True) """
+        if not hasattr(self, "_use_dask"): # means set_data never called
+            return None
+        
         return self._use_dask
     
     @property
@@ -837,7 +839,7 @@ class CCD( Image, _Collection_):
     _QUADRANTCLASS = Quadrant
     _POS_INVERTED = True
 
-    def __init__(self, quadrants=None, qids=None, use_dask=True,
+    def __init__(self, quadrants=None, qids=None,
                      data=None, header=None,
                      pos_inverted=None, **kwargs):
         """ CCD are collections for quadrants except if loaded from whole CCD data.
@@ -856,6 +858,7 @@ class CCD( Image, _Collection_):
         _ = super().__init__(use_dask=use_dask)
 
         if data is not None:
+            # this updates use_dask
             self.set_data(data)
             
         if header is not None:
@@ -864,11 +867,13 @@ class CCD( Image, _Collection_):
         if quadrants is not None:
             if qids is None:
                 qids = [None]*len(quadrants)
+                
             elif len(quadrants) != len(qids):
                 raise ValueError("quadrants and qids must have the same size.")
-
-            [self.set_quadrant(quad_, qid=qid, **kwargs)
-             for quad_, qid in zip(quadrants, qids)]
+            
+            # this updates use_dask
+            _ = [self.set_quadrant(quad_, qid=qid, **kwargs)
+                     for quad_, qid in zip(quadrants, qids)]
 
         self._hpos_inverted = pos_inverted # if None, falls back to self._POS_INVERTED
         
@@ -920,7 +925,7 @@ class CCD( Image, _Collection_):
                                       use_dask=use_dask, persist=persist, **kwargs)
 
     @classmethod
-    def from_quadrants(cls, quadrants, qids=None, use_dask=True, **kwargs):
+    def from_quadrants(cls, quadrants, qids=None, **kwargs):
         """ loads the instance given a list of four quadrants.
 
         Parameters
@@ -931,10 +936,6 @@ class CCD( Image, _Collection_):
         qids: None, list of int
             the quadrants idea (otherise taken from the quadrants)
             
-        use_dask: bool
-            Should dask be used ? The data will not be loaded but delayed 
-            (dask.array)
-
         Returns
         -------
         class instance
@@ -946,8 +947,9 @@ class CCD( Image, _Collection_):
         """
         if (nquad:=len(quadrants)) !=4:
             raise ValueError(f"You must provide exactly 4 quadrants, {nquad} given")
-        
-        return cls(quadrants=quadrants, qids=qids, use_dask=use_dask, **kwargs)
+
+        # use_dask will be determined by the quadrants data (np or da ?)
+        return cls(quadrants=quadrants, qids=qids, **kwargs)
 
     @classmethod
     def from_filenames(cls, filenames, as_path=True,
@@ -1138,11 +1140,19 @@ class CCD( Image, _Collection_):
         from_single_filename: build and load the instance given the filename of a single quadrant.
  
         """
-        if qid is None:
-            qid = quadrant.qid
-
-        self.quadrants[qid] = quadrant
         self._meta = None
+        # dasked quadrants
+        if "dask" in str( type(quadrant) ):
+            self._use_dask = True
+            self.quadrants[qid] = quadrant
+            
+        # quadrants
+        else:
+            if qid is None:
+                qid = quadrant.qid
+
+            self.quadrants[qid] = quadrant
+            self._use_dask = quadrant.use_dask # updates
 
     # --------- #
     #  GETTER   #
@@ -1376,7 +1386,7 @@ class FocalPlane(Image, _Collection_):
     COLLECTION_OF = CCD
 
     # Basically a CCD collection
-    def __init__(self, ccds=None, ccdids=None, use_dask=True,
+    def __init__(self, ccds=None, ccdids=None,
                      data=None, header=None, **kwargs):
         """ 
 
@@ -1386,16 +1396,17 @@ class FocalPlane(Image, _Collection_):
         from_filenames: load the image given the list of its quadrant filenames
         from_single_filename: build and load the instance given the filename of a single quadrant.
         """
-        _ = super().__init__(data=data, header=header, use_dask=use_dask)
+        _ = super().__init__(data=data, header=header)
         
         if ccds is not None:
             if ccdids is None:
                 ccdids = [None]*len(ccds)
+                
             elif len(ccds) != len(ccdids):
                 raise ValueError("ccds and ccdids must have the same size.")
 
-            [self.set_ccd(ccd_, ccdid=ccdid_, **kwargs)
-             for ccd_, ccdid_ in zip(ccds, ccdids)]
+            _ = [self.set_ccd(ccd_, ccdid=ccdid_, **kwargs)
+                     for ccd_, ccdid_ in zip(ccds, ccdids)]
 
     # =============== #
     #  I/O            #
@@ -1498,13 +1509,35 @@ class FocalPlane(Image, _Collection_):
     #   Methods       #
     # =============== #
     def set_ccd(self, ccd, ccdid=None):
-        """ attach ccd images to the instance. """
-        if ccdid is None:
-            ccdid = ccd.qid
+        """ attach ccd images to the instance. 
 
-        self.ccds[ccdid] = ccd
+        Parameters
+        ----------
+        ccd: CCD
+            CCD (or child of) object to be attached.
+            Could be a delayed
+           
+        ccdid: int or None
+            id of the ccd.
+        
+        Returns
+        -------
+        None
+            sets self.ccds
+        """
+
         self._meta = None
-
+        if "dask" in str( type(ccd) ):
+            self._use_dask = True
+            self.ccds[ccdid] = ccd
+            
+        else:
+            if ccdid is None:
+                ccdid = ccd.qid
+                
+            self.ccds[ccdid] = ccd
+            self._use_dask  = ccd.use_dask
+        
     def get_ccd(self, ccdid):
         """ get the ccd (self.ccds[ccdid])"""
         return self.ccds[ccdid]
@@ -1526,9 +1559,7 @@ class FocalPlane(Image, _Collection_):
 
     @staticmethod
     def _get_datagap(which, rebin=None, fillna=np.NaN):
-        """
-        horizontal (or row) = between rows
-        """
+        """ horizontal (or row) = between rows """
         # recall: CCD.SHAPE 3080*2, 3072*2
         if which in ["horizontal", "row", "rows"]:
             hpixels = 672

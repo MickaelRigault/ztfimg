@@ -426,7 +426,7 @@ class RawQuadrant( Quadrant ):
         from .science import ScienceQuadrant
         from ztfquery.buildurl import get_scifile_of_filename
         # 
-        filename = get_scifile_of_filename(self.filename, qid=self.qid)
+        filename = get_scifile_of_filename(self.filename, qid=self.qid, source="local")
         return ScienceQuadrant.from_filename(filename, use_dask=use_dask, **kwargs)
     
     # -------- #
@@ -635,6 +635,48 @@ class RawCCD( CCD ):
             raise IOError(f"Very strange: several local raw data found for filefracday: {filefracday} and ccdid: {ccdid}", filename)
         
         return cls.from_filename(filename[0], use_dask=use_dask, **kwargs)
+
+
+
+    def get_sciimage(self, use_dask=None, as_ccd=True, **kwargs):
+        """ get the Science image corresponding to this raw image
+        
+        This uses ztfquery to parse the filename and set up the correct 
+        science image filename path.
+
+        Parameters
+        ----------
+        use_dask: bool or None
+            if None, this will use self.use_dask.
+            
+        as_ccd: bool
+            should this return a list of science quadrant (False)
+            or a ScienceCCD (True) ?
+
+        **kwargs goes to ScienceQuadrant.from_filename
+
+        Returns
+        -------
+        ScienceQuadrant
+        """
+        if use_dask is None:
+            use_dask = self.use_dask
+            
+        from ztfquery.buildurl import get_scifile_of_filename
+        
+        # no quadrant given -> 4 filenames (qid = 1,2,3,4)
+        filenames = get_scifile_of_filename(self.filename, source="local")
+        quadrants = [ScienceQuadrant.from_filename(filename, use_dask=use_dask, **kwargs)
+                    for filename in filenames]
+        
+        if as_ccd:
+            from .science import ScienceCCD
+            return ScienceCCD.from_quadrants(quadrants, qids=[1,2,3,4],
+                                            use_dask=use_dask, **kwargs)
+        
+        # If not, then list of science quadrants
+        from .science import ScienceQuadrant
+        return 
 
     
 class RawFocalPlane( FocalPlane ):
