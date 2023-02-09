@@ -403,9 +403,32 @@ class RawQuadrant( Quadrant ):
         raise ValueError(f'which should be "raw", "data", "spec", "model", {which} given')    
 
 
-    def get_sciimage(self, use_dask=None):
-        """ """
-        raise NotImplementedError("ongoing... ")
+    def get_sciimage(self, use_dask=None, **kwargs):
+        """ get the Science image corresponding to this raw image
+        
+        This uses ztfquery to parse the filename and set up the correct 
+        science image filename path.
+
+        Parameters
+        ----------
+        use_dask: bool or None
+            if None, this will use self.use_dask.
+
+        **kwargs goes to ScienceQuadrant.from_filename
+
+        Returns
+        -------
+        ScienceQuadrant
+        """
+        if use_dask is None:
+            use_dask = self.use_dask
+            
+        from .science import ScienceQuadrant
+        from ztfquery.buildurl import get_scifile_of_filename
+        # 
+        filename = get_scifile_of_filename(self.filename, qid=self.qid)
+        return ScienceQuadrant.from_filename(filename, use_dask=use_dask, **kwargs)
+    
     # -------- #
     # PLOTTER  #
     # -------- #
