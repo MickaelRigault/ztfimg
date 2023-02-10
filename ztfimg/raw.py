@@ -638,7 +638,7 @@ class RawCCD( CCD ):
 
 
 
-    def get_sciimage(self, use_dask=None, as_ccd=True, **kwargs):
+    def get_sciimage(self, use_dask=None, qid=None, as_ccd=True, **kwargs):
         """ get the Science image corresponding to this raw image
         
         This uses ztfquery to parse the filename and set up the correct 
@@ -649,7 +649,11 @@ class RawCCD( CCD ):
         use_dask: bool or None
             if None, this will use self.use_dask.
             
+        qid: int or None
+            do you want a specific quadrant ?
+            
         as_ccd: bool
+            = ignored if qid is not None =
             should this return a list of science quadrant (False)
             or a ScienceCCD (True) ?
 
@@ -664,7 +668,11 @@ class RawCCD( CCD ):
 
         from .science import ScienceQuadrant            
         from ztfquery.buildurl import get_scifile_of_filename
-        
+        # Specific quadrant
+        if qid is not None:
+            filename = get_scifile_of_filename(self.filename, qid=qid, source="local")
+            return [ScienceQuadrant.from_filename(filename, use_dask=use_dask, **kwargs)
+
         # no quadrant given -> 4 filenames (qid = 1,2,3,4)
         filenames = get_scifile_of_filename(self.filename, source="local")
         quadrants = [ScienceQuadrant.from_filename(filename, use_dask=use_dask, **kwargs)
