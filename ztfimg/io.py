@@ -121,6 +121,7 @@ class _CatCalibrator_( object ):
     @classmethod
     def fetch_data(cls, rcid, field, radec=None, squeeze=True, drop_duplicate=True, **kwargs):
         """ Direct access to the data.
+
         **kwargs goes to load_data
 
         Parameters

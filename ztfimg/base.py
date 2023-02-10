@@ -755,6 +755,14 @@ class Image( object ):
         """ Observation Julian date of the image (from header) """
         return self.get_headerkey("OBSJD", None)
 
+    @property
+    def meta(self):
+        """ meta data for the instance, from the filename. """
+        if not hasattr(self, "_meta"):
+            return None
+        return self._meta
+
+    
 # -------------- #
 #                #
 #   Virtual      #

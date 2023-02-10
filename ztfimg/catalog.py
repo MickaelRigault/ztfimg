@@ -41,9 +41,9 @@ def get_isolated(catdf, catdf_ref=None, xkey="ra", ykey="dec", keyunit="deg",
     return iso
 
 def match_and_merge(left, right,
-                        radeckey1=["ra","dec"], radeckey2=["ra","dec"], seplimit=0.5,
-                        mergehow="inner", suffixes=('_l', '_r'),
-                        reset_index=False, **kwargs):
+                    radeckey1=["ra","dec"], radeckey2=["ra","dec"], seplimit=0.5,
+                    mergehow="inner", suffixes=('_l', '_r'),
+                    reset_index=False, **kwargs):
     """     
     Parameters
     ----------
@@ -67,7 +67,9 @@ def match_and_merge(left, right,
                         suffixes=suffixes, how=mergehow, **kwargs).drop(columns="index_left")
     if reset_index:
         mcat = mcat.reset_index(drop=True)
+        
     return mcat
+
 def get_coordmatching_indexes(left, right, radeckeyl=["ra","dec"], radeckeyr=["ra","dec"], seplimit=0.5):
     """ get the dataframe indexes corresponding to the matching rows
 
@@ -102,10 +104,8 @@ def get_coordmatching_indexes(left, right, radeckeyl=["ra","dec"], radeckeyr=["r
 
 
 class CatalogCollection():
-    """ """
-    def __init__(self):
-        """ """
-        
+
+    
     # ============== #
     #  METHODS       #
     # ============== #

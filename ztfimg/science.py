@@ -1115,11 +1115,6 @@ class ScienceQuadrant(Quadrant, WCSHolder):
         return self.get_dataclean()
 
     @property
-    def meta(self):
-        """ meta data for the instance, from the filename. """
-        return self._meta
-
-    @property
     def mask(self):
         """ mask image. """
         return self._mask

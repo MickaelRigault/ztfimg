@@ -132,6 +132,7 @@ class RawQuadrant( Quadrant ):
         this = cls(data, header=header, overscan=overscan, **kwargs)
         this._qid = qid
         this._filename = filename
+        this._meta = io.parse_filename(filename)
         return this
 
     @classmethod
@@ -577,6 +578,7 @@ class RawCCD( CCD ):
             
         this = cls.from_quadrants(quadrants, qids=qids)
         this._filename = filename
+        this._meta = io.parse_filename(filename)        
         return this
 
     @classmethod
