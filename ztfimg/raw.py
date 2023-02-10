@@ -671,7 +671,7 @@ class RawCCD( CCD ):
         # Specific quadrant
         if qid is not None:
             filename = get_scifile_of_filename(self.filename, qid=qid, source="local")
-            return [ScienceQuadrant.from_filename(filename, use_dask=use_dask, **kwargs)
+            return ScienceQuadrant.from_filename(filename, use_dask=use_dask, **kwargs)
 
         # no quadrant given -> 4 filenames (qid = 1,2,3,4)
         filenames = get_scifile_of_filename(self.filename, source="local")
