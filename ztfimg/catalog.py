@@ -1,29 +1,94 @@
 """ Tools to match catalogs """
 
-import warnings
-import numpy as np
 import pandas
-from astropy.io import fits
+import numpy as np
+
 from astropy import coordinates, units
 
 
-"""
-usage:
+__all__ = ["get_field_catalog",
+           "get_isolated",
+           "match_and_merge"]
 
-refpsffile = "../example/fromirsa/ztf_000519_zr_c09_q3_refpsfcat.fits"
-scipsffile = "../example/fromirsa/ztf_20180216349352_000519_zr_c09_o_q3_psfcat.fits"
-pmatch = matching.PSFCatMatch(scipsffile,refpsffile)
+# -------------- #
+#                #
+#  Access        #
+#                #
+# -------------- # 
+def get_field_catalog(which, fieldid, rcid=None, ccdid=None, **kwargs):
+    """ get a catalog stored a field catalog
+    
+    Parameters
+    ----------
+    which: str
+        name of the catalog
+        - ps1
+        
+    fieldid: int or list
+        ztf id of the field
+        
+    rcid: int or list
+        id of the quadrant (0->63)
+        = requested if ccdid is None = 
+        
+    ccdid: int or list
+        id of the ccd (1->16)
+        = ignored if rcid is not None =
+        
+    Returns
+    -------
+    DataFrame
+        catalog 
+    """
+    # Tests if the field catalog exists.
+    if which not in ["ps1"]:
+        raise NotImplementedError(f"{which} field catalog is not implemented.")
+        
+    # directory where the catalogs are stored
+    dircat = os.path.join(CALIBRATOR_PATH, which)
+    
+    # RCID
+    # is rcid given
+    if rcid is None:
+        if ccdid is None:
+            raise ValueError("you must input either rcid or ccdid. Both are None")
+            
+        # converts ccdid into rcid
+        from ztfimg.utils.tools import ccdid_qid_to_rcid
+        rcid = ccdid_qid_to_rcid(ccdid, np.arange(1,5)) # array
+    else:
+        rcid = np.atleast_1d(rcid)  # array
+        
+    # FIELD        
+    fieldid = np.atleast_1d(fieldid) # array
+    
+    # double for loops because IO structures
+    cats = []
+    for rcid_ in rcid: # usually a few
+        for fieldid_ in fieldid: # usually a few
+            catfile_ = os.path.join( dircat, f"{rcid_:02d}", 
+                                    f"{which}_rc{rcid_:02d}_{fieldid_:06d}.parquet")
+            cat = pandas.read_parquet(catfile_, **kwargs)
+            cat["fieldid"] = fieldid_
+            cat["rcid"] = rcid_
+            cats.append(cat)
+            
+    # get the dataframes
+    return pandas.concat(cats)
 
-pmatch.match() # run the matching, but done automatically if you forgot
-pmatch.get_matched_entries(["ra","dec", "mag","sigmag","snr"]) # any self.scipsf.columns
 
-"""
+
+
+# -------------- #
+#                #
+#  Application   #
+#                #
+# -------------- # 
 
 def get_isolated(catdf, catdf_ref=None, xkey="ra", ykey="dec", keyunit="deg", 
                 seplimit=10, sepunits="arcsec"):
     """ """
-    import pandas
-    from astropy import coordinates, units
+    
     if catdf_ref is None:
         catdf_ref = catdf
         
@@ -41,17 +106,17 @@ def get_isolated(catdf, catdf_ref=None, xkey="ra", ykey="dec", keyunit="deg",
     return iso
 
 def match_and_merge(left, right,
-                    radeckey1=["ra","dec"], radeckey2=["ra","dec"], seplimit=0.5,
+                    radec_key1=["ra","dec"], radec_key2=["ra","dec"], seplimit=0.5,
                     mergehow="inner", suffixes=('_l', '_r'),
                     reset_index=False, **kwargs):
     """     
     Parameters
     ----------
     cat1, cat2: [DataFrames]
-        pandas.DataFrame containing, at miminum, the radeckey1/2.
-        ra and dec entries (see radeckey1) must by in deg.
+        pandas.DataFrame containing, at miminum, the radec_key1/2.
+        ra and dec entries (see radec_key1) must by in deg.
         
-    radeckey1,radeckey2: [string,string] -optional-
+    radec_key1,radec_key2: [string,string] -optional-
         name of the ra and dec coordinates for catalog 1 and 2, respectively.
         
     seplimit: [float] -optional-
@@ -60,7 +125,19 @@ def match_and_merge(left, right,
     Returns
     -------
     DataFrame
+
+
+    Example
+    -------
+    refpsffile = "../example/fromirsa/ztf_000519_zr_c09_q3_refpsfcat.fits"
+    scipsffile = "../example/fromirsa/ztf_20180216349352_000519_zr_c09_o_q3_psfcat.fits"
+    pmatch = matching.PSFCatMatch(scipsffile,refpsffile)
+    
+    pmatch.match() # run the matching, but done automatically if you forgot
+    pmatch.get_matched_entries(["ra","dec", "mag","sigmag","snr"]) # any self.scipsf.columns
+
     """
+    
     indexl, indexr = get_coordmatching_indexes(left, right, seplimit=seplimit)
     right.loc[indexr, "index_left"] = indexl
     mcat =  pandas.merge(left, right, left_index=True, right_on="index_left",
@@ -70,16 +147,19 @@ def match_and_merge(left, right,
         
     return mcat
 
-def get_coordmatching_indexes(left, right, radeckeyl=["ra","dec"], radeckeyr=["ra","dec"], seplimit=0.5):
+def get_coordmatching_indexes(left, right,
+                              radec_keyl=["ra","dec"],
+                              radec_keyr=["ra","dec"],
+                              seplimit=0.5):
     """ get the dataframe indexes corresponding to the matching rows
 
     Parameters
     ----------
     left, right: [DataFrames]
-        pandas.DataFrame containing, at miminum, the radeckey l or r.
-        ra and dec entries (see radeckey1) must by in deg.
+        pandas.DataFrame containing, at miminum, the radec_key l or r.
+        ra and dec entries (see radec_key1) must by in deg.
         
-    radeckeyl,radeckeyr: [string,string] -optional-
+    radec_keyl,radec_keyr: [string,string] -optional-
         name of the ra and dec coordinates for catalog left or right, respectively.
         
     seplimit: [float] -optional-
@@ -87,11 +167,12 @@ def get_coordmatching_indexes(left, right, radeckeyl=["ra","dec"], radeckeyr=["r
         
     Returns
     -------
-    index, index
+    list:
+        index, index
     """
     # SkyCoord construction
-    skyl = coordinates.SkyCoord(left[radeckeyl].values, unit="deg")
-    skyr = coordinates.SkyCoord(right[radeckeyr].values, unit="deg")
+    skyl = coordinates.SkyCoord(left[radec_keyl].values, unit="deg")
+    skyr = coordinates.SkyCoord(right[radec_keyr].values, unit="deg")
     # Matching by distance
     idx, d2d, d3d = skyl.match_to_catalog_sky(skyr)
     # remove targets too far
@@ -100,249 +181,3 @@ def get_coordmatching_indexes(left, right, radeckeyl=["ra","dec"], radeckeyr=["r
     indexr = right.iloc[idx[sep_constraint]].index    
     # get indexes
     return indexl, indexr
-
-
-
-class CatalogCollection():
-
-    
-    # ============== #
-    #  METHODS       #
-    # ============== #
-    def set_catalog(self, dataframe, label, clearmatches=True):
-        """ """
-        self.catalogs[label] = dataframe
-        if clearmatches:
-            for catmatched in self.catmatch.keys():
-                if label in catmatched:
-                    _ = self.catmatch.pop(catmatched)
-            
-    def match(self, catin, catref, seplimit=1*units.arcsec):
-        """ """
-        catmatch = CatMatch.from_dataframe(self.catalogs[catin], self.catalogs[catref])
-        catmatch.match(seplimit=seplimit)
-        self.catmatch[f'{catin}_{catref}'] = catmatch
-
-    def get_matched_entries(self, key, catin, catref, allowinversed=True):
-        """ """
-        matchedref = f'{catin}_{catref}'
-        if matchedref not in self.catmatch:
-            if allowinversed and f'{catref}_{catin}' in self.catmatch:
-                return self.get_matched_entries(key,catref, catin, allowinversed=False)
-
-            self.match(catin, catref)
-                
-        return self.catmatch[matchedref].get_matched_entries(key, catinlabel=catin, catreflabel=catref)
-
-    def get_matched_index(self, index, catin, catref, allowinverted=True):
-        """ """
-        if f'{catin}_{catref}' in self.catmatch:
-            return self.catmatch[f'{catin}_{catref}'].get_matched_catinindex(index)
-        if allowinverted and f'{catref}_{catin}' in self.catmatch:
-            return self.catmatch[f'{catin}_{catref}'].get_matched_refindex(index)
-        raise ValueError("Unmatched catalogs. See self.match()")
-
-    def get_isolated(self, cat, isolation=20*units.arcsec):
-        """ get an isolated version of the given catalog.
-        
-        Isolated means that, inside the same catalog, there is no other sources with `isolation`
-        Parameters
-        ----------
-        cat: [string]
-            Name of the catalog 
-            
-        isolation: [astropy.Quantity] -optional-
-            distance around which not other sources should exist within the same catalog.
-        
-        Returns
-        -------
-        Pandas.DataFrame (filter `cat`)
-        """
-        self.match(cat, cat, seplimit=isolation)
-        matcharray = self.catmatch[f'{cat}_{cat}'].matchdict['catrefidx']
-        unique, counts = np.unique(matcharray, return_counts=True)
-        return self.catalogs[cat][counts==1]
-    
-    # ============== #
-    #  Properties    #
-    # ============== #
-    @property
-    def catalogs(self):
-        """ Dictionary containing the loaded catalogs """
-        if not hasattr(self,"_catalogs") or self._catalogs is None:
-            self._catalogs = {}
-        return self._catalogs
-
-    @property
-    def ncatalogs(self):
-        """ number of stored catalogs """
-        
-    @property
-    def labels(self):
-        """ """
-        return self.catalogs.keys()
-
-    @property
-    def catmatch(self):
-        """ Matching between catalogs """
-        if not hasattr(self,"_catmatch") or self._catmatch is None:
-            self._catmatch = {}
-        return self._catmatch
-
-
-class CatMatch( object ):
-    """ """
-    def __init__(self, catin_fitsfile=None, catref_fitsfile=None):
-        """ """
-        self.load_file(catin_fitsfile, catref_fitsfile)
-
-    @classmethod
-    def from_dataframe(cls, catin, catref):
-        """ """
-        this = cls()
-        this._set_dataframe_("catin", catin)
-        this._set_dataframe_("catref", catref)
-        return this
-    
-    # ============== #
-    #  METHODS       #
-    # ============== #
-    # -------- #
-    #  I/O     #
-    # -------- #
-    def load_file(self, catin_fitsfile,  catref_fitsfile):
-        """ """
-        if catin_fitsfile is not None:
-            self._set_dataframe_("catin",pandas.DataFrame(fits.open(catin_fitsfile)[1].data))
-            
-        if catref_fitsfile is not None:
-            self._set_dataframe_("catref",pandas.DataFrame(fits.open(catref_fitsfile)[1].data))
-            
-    def _set_dataframe_(self, which, dataframe):
-        """ """
-        setattr(self, f'_{which}', dataframe.astype("f8"))#pandas.DataFrame(fits.open(catin_fitsfile)[1].data)
-        setattr(self, f'_{which}sky', None)
-        
-    # -------- #
-    #  Main    #
-    # -------- #
-    def match(self, seplimit=1*units.arcsec):
-        """ run the catalog matching of the catin and catref. 
-        This is based on their RA and Dec coordinates with maximum separation of `seplimit`
-        """
-        catrefidx, catinidx, d2d, d3d = self.catinsky.search_around_sky(self.catrefsky, seplimit=seplimit)
-        self._matchdict = {"catrefidx":self.catref.index[catrefidx].values,
-                          "catinidx":self.catin.index[catinidx].values,
-                          "angsep":d2d}
-    # -------- #
-    #  GETTER  #
-    # -------- #
-    def get_matched_entries(self, columns, catinlabel="catin", catreflabel="catref"):
-        """ """
-        catrefindex, catindex = self.get_matched_catrefindex( self.matchdict["catinidx"])
-        bool_used = np.in1d(self.matchdict["catinidx"],catrefindex)
-        dict_ = {f"{catreflabel}_index":catrefindex,
-                 f"{catinlabel}_index":catindex,
-                "angsep_arcsec":self.matchdict["angsep"].to("arcsec")
-                }
-        for k in np.atleast_1d(columns):
-            dict_[f"{catreflabel}_{k}"] = self.catref.loc[catrefindex, k].values
-            dict_[f"{catinlabel}_{k}"] = self.catin.loc[catindex, k].values
-            
-        return pandas.DataFrame(dict_)
-    
-    def get_matched_catinindex(self, catrefindex):
-        """  Provide a catin index (or list of) and get the associated match refpsf index (list of)
-        If several entries did match the same refindex, this raises a warning and only the nearest is returned. 
-        """
-        catrefindex = np.asarray(np.atleast_1d(catrefindex))
-        bool_ = np.in1d(catrefindex, self.matchdict["catrefidx"])
-        indexmask =  np.argwhere(np.in1d(self.matchdict["catrefidx"], catrefindex[bool_])).flatten()
-        if len(indexmask)>len(catrefindex[bool_]):
-            warnings.warn("At least one catalogue entry has several index matched. Nearest used")
-            return np.asarray([self.matchdict["catinidx"][np.argwhere(self.matchdict["catrefidx"]==i)[
-                                  np.argmin(self.matchdict["angsep"][self.matchdict["catrefidx"]==i])]][0]
-                for i in catrefindex[bool_]])
-
-        return self.matchdict["catinidx"][indexmask].flatten(), catrefindex[bool_]
-    
-    def get_matched_catrefindex(self, catinindex):
-        """  Provide a catin index (or list of) and get the associated match refpsf index (list of) 
-        If several entries did match the same refindex, this raises a warning and only the nearest is returned. 
-        """
-        catinindex = np.asarray(np.atleast_1d(catinindex))
-        bool_ = np.in1d(catinindex, self.matchdict["catinidx"])
-        indexmask =  np.argwhere(np.in1d(self.matchdict["catinidx"], catinindex[bool_])).flatten()
-        if len(indexmask)>len(catinindex[bool_]):
-            warnings.warn("At least one catalogue entry has several index matched. Nearest used")
-            return np.asarray([self.matchdict["catrefidx"][np.argwhere(self.matchdict["catinidx"]==i)[
-                                  np.argmin(self.matchdict["angsep"][self.matchdict["catinidx"]==i])]][0]
-                for i in catinindex[bool_]])
-
-        return self.matchdict["catrefidx"][indexmask].flatten(), catinindex[bool_]
-    
-    # ============== #
-    #  Properties    #
-    # ============== #
-    # // Ref PSF
-    @property
-    def catref(self):
-        """ Reference input catalog (DataFrame) """
-        if not hasattr(self,"_catref"):
-            return None
-        return self._catref
-    
-    def has_catref(self):
-        """ """
-        return self.catref is not None
-    
-    @property
-    def ncatref_entries(self):
-        """ number of entry of the catref catalog """
-        return len(self.catref) if self.has_catref() else None
-    
-    @property
-    def catrefsky(self):
-        """ astropy.coordinates.SkyCoord for the catref RA and Dec """
-        if not hasattr(self,"_catrefsky") or self._catrefsky is None:
-            if self.has_catref():
-                self._catrefsky = coordinates.SkyCoord(self.catref["ra"]*units.deg, self.catref["dec"]*units.deg)
-            else:
-                self._catrefsky = None
-        return self._catrefsky
-    
-    # // Science PSF
-    @property
-    def catin(self):
-        """ Input catalog (DataFrame) """
-        if not hasattr(self,"_catin"):
-            return None
-        return self._catin
-    
-    def has_catin(self):
-        """ """
-        return self.catin is not None
-    
-    @property
-    def ncatin_entries(self):
-        """ number of entry of the catin catalog """
-        return len(self.catref) if self.has_catref() else None
-    
-    @property
-    def catinsky(self):
-        """ astropy.coordinates.SkyCoord for the catin RA and Dec """
-        if not hasattr(self,"_catinsky") or self._catinsky is None:
-            if self.has_catin():
-                self._catinsky = coordinates.SkyCoord(self.catin["ra"]*units.deg, self.catin["dec"]*units.deg)
-            else:
-                self._catinsky = None
-        return self._catinsky
-        
-                
-    # // Matching
-    @property
-    def matchdict(self):
-        """ """
-        if not hasattr(self,"_matchdict"):
-            self.match()
-        return self._matchdict
