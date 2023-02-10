@@ -1,9 +1,13 @@
 """ Tools to match catalogs """
 
+import os
 import pandas
 import numpy as np
 
 from astropy import coordinates, units
+from ztfquery.io import LOCALSOURCE
+CALIBRATOR_PATH = os.path.join(LOCALSOURCE, "calibrator")
+
 
 
 __all__ = ["get_field_catalog",
@@ -40,6 +44,9 @@ def get_field_catalog(which, fieldid, rcid=None, ccdid=None, **kwargs):
     DataFrame
         catalog 
     """
+
+
+    
     # Tests if the field catalog exists.
     if which not in ["ps1"]:
         raise NotImplementedError(f"{which} field catalog is not implemented.")

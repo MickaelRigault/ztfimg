@@ -290,8 +290,8 @@ class RawQuadrant( Quadrant ):
             data_ /= (a*data_**2 + b*data_ + 1)
         
         if corr_overscan:
-            osmodel = self.get_overscan(**{**dict(which="model"),**overscan_prop})
-            data_ -= osmodel[:,None]            
+            os_model = self.get_overscan(**{**dict(which="model"),**overscan_prop})
+            data_ -= os_model[:,None]            
 
         if rebin is not None:
             data_ = getattr(da if self._use_dask else np, rebin_stat)(
@@ -404,6 +404,29 @@ class RawQuadrant( Quadrant ):
         raise ValueError(f'which should be "raw", "data", "spec", "model", {which} given')    
 
 
+    def get_lastdata_firstoverscan(self, **kwargs):
+        """ get the last data and the first overscan columns
+        
+        Parameters
+        ----------
+        **kwargs goes to get_data
+
+        Returns
+        -------
+        list 
+            (2, n-row) data (last_data, first_overscan)
+        """
+        data = self.get_data(**kwargs)
+        overscan = self.get_overscan("raw")
+        if self.qid in [1,4]:
+            last_data = data[:,-1]
+            first_overscan = overscan[:,0]
+        else:
+            last_data = data[:,0]
+            first_overscan = overscan[:,-1]
+        return last_data, first_overscan
+
+    
     def get_sciimage(self, use_dask=None, **kwargs):
         """ get the Science image corresponding to this raw image
         
@@ -494,12 +517,12 @@ class RawQuadrant( Quadrant ):
     @property
     def ccdid(self):
         """ """
-        return self.get_headerkey("CCD_ID")
+        return self.get_value("CCD_ID", attr_ok=False) # avoid loop
         
     @property
     def qid(self):
         """ quadrant (amplifier of the ccd) id (1->4) """
-        return self._qid if hasattr(self, "_qid") else (self.get_headerkey("AMP_ID")+1)
+        return self._qid if hasattr(self, "_qid") else (self.get_value("AMP_ID")+1)
     
     @property
     def rcid(self):
@@ -509,17 +532,17 @@ class RawQuadrant( Quadrant ):
     @property
     def gain(self):
         """ gain [adu/e-] """
-        return self.get_headerkey("GAIN", np.NaN)
+        return self.get_value("GAIN", np.NaN, attr_ok=False) # avoid loop
 
     @property
     def darkcurrent(self):
         """ Dark current [e-/s]"""
-        return self.get_headerkey("DARKCUR", None)
+        return self.get_value("DARKCUR", None, attr_ok=False) # avoid loop
     
     @property
     def readnoise(self):
         """ read-out noise [e-] """
-        return self.get_headerkey("READNOI", None)
+        return self.get_value("READNOI", None, attr_ok=False) # avoid loop
         
         
 class RawCCD( CCD ):
