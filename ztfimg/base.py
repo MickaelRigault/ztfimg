@@ -328,8 +328,13 @@ class Image( object ):
         """
         return self.header
 
-    def get_headerkey(self, key, default=None):
-        """ get a key from the header. 
+    def get_value(self, key, default=None, attr_ok=True):
+        """ quick access to an image value.
+        
+        This method looks for this key in:
+        1. image's attributes
+        2. image's meta
+        3. image's header (using upper case).
         
         Parameters
         ----------
@@ -338,6 +343,9 @@ class Image( object ):
 
         default: None, float, str
             what is returned if the entry cannot be found in the header.
+
+        attr_ok: bool
+            allows to look for self.key.
 
         Returns
         -------
@@ -349,11 +357,36 @@ class Image( object ):
         AttributeError 
             If no header is set this returns is returned
         """
+        key_ = key.lower()
+        # Is that a local attribute ?
+        if attr_ok and hasattr(self, key_):
+            return getattr(self, key_)
+        
+        # Look for meta then
+        key_ = key.lower()
+        _CONVERTION = {"fieldid":"field",
+                       "filter": "filtercode",
+                       "filtername": "filtercode",
+                        }
+        key_ = _CONVERTION.get(key_,key_)
+        
+        meta = self.meta
+        if meta is not None and key_ in meta:
+            return meta[key_]
+
+        # Look for header next
         if self.header is None:
-            raise AttributeError("No header set. see the set_header() method")
+            return default
 
-        return self.header.get(key, default)
-
+        # header so upper case:
+        key_ = key.upper()
+        
+        # keep all in upper case
+        _HEADER_KEY = {"CCDID": "CCD_ID",
+                        "FILTERCODE": "FILTER"}
+        key_ = _HEADER_KEY.get(key_, key_) # update
+        
+        return self.header.get(key_, default)
 
     def get_aperture(self, x, y, radius,
                      imgdata=None, dataprop={},
@@ -431,9 +464,6 @@ class Image( object ):
                                   err=err, mask=mask,
                                   as_dataframe=as_dataframe,
                                   **kwargs)
-
-                                 
-
 
     @staticmethod
     def _get_aperture(imgdata,
@@ -516,7 +546,6 @@ class Image( object ):
 
         return pandas.DataFrame(dic)
                 
-    
     def getcat_aperture(self, catdf, radius,
                             imgdata=None, dataprop={},
                             xykeys=["x", "y"], join=True,
@@ -593,7 +622,48 @@ class Image( object ):
             return catdf.reset_index().join(fdata)
 
         return fdata
-    
+
+    def get_catalog(self, which="ps1", fieldcat=False, **kwargs):
+        """ get a catalog for the image
+        
+        Parameters
+        ----------
+        which: str
+            name of a the catalog.
+
+        fieldcat: bool
+            is the catalog you are looking for a "field catalog" ?
+            (see catalog.py)
+
+        Returns
+        -------
+        DataFrame
+            catalog dataframe. The image x, y coordinates columns will be added
+            using the radec_to_xy method. If not available, NaN will be set.
+            
+        """
+        if fieldcat:
+            from .catalog import get_field_catalog
+            cat = get_field_catalog(which,
+                                    fieldid=self.get_value("fieldid"),
+                                    rcid=self.get_value("rcid", None), 
+                                    ccdid=self.get_value("ccdid", None), # ignored if rcid is not None
+                                    **kwargs)
+        else:
+            raise NotImplementedError("Only fieldcat have been implemented.")
+
+        # Adding x, y coordinates
+        # convertion available ?
+        if hasattr(self, "radec_to_xy"):
+            x, y = self.radec_to_xy(*cat[["ra","dec"]].values.T)
+        else:
+            x, y = np.NaN, np.NaN
+
+        cat["x"] = x
+        cat["y"] = y
+        
+        return cat
+        
     # -------- #
     # PLOTTER  #
     # -------- #
@@ -664,6 +734,7 @@ class Image( object ):
 
         if imgdata is None:
             imgdata = self.get_data(rebin=rebin, **dataprop)
+            
         if "dask" in str(type(imgdata)):
             imgdata = imgdata.compute()
 
@@ -743,17 +814,17 @@ class Image( object ):
     @property
     def filtername(self):
         """ Name of the image's filter (from header) """
-        return self.get_headerkey("FILTER", "unknown")
+        return self.get_value("filtercode", "unknown", attr_ok=False) # avoid loop
 
     @property
     def exptime(self):
         """ Exposure time of the image (from header) """
-        return self.get_headerkey("EXPTIME", np.NaN)
+        return self.get_value("EXPTIME", np.NaN, attr_ok=False) # avoid loop
 
     @property
     def obsjd(self):
         """ Observation Julian date of the image (from header) """
-        return self.get_headerkey("OBSJD", None)
+        return self.get_value("OBSJD", None, attr_ok=False) # avoid loop
 
     @property
     def meta(self):
@@ -820,17 +891,17 @@ class Quadrant(Image):
     @property
     def qid(self):
         """ quadrant id (from header) """
-        return self.get_headerkey("QID", None)
+        return self.get_value("QID", None, attr_ok=False) # avoid loop
         
     @property
     def ccdid(self):
         """ ccd id (from header) """
-        return self.get_headerkey("CCDID", None)
+        return self.get_value("CCDID", None, attr_ok=False) # avoid loop
 
     @property
     def rcid(self):
         """ rcid (from header) """
-        return self.get_headerkey("RCID", None)
+        return self.get_value("RCID", None, attr_ok=False) # avoid loop
         
 # -------------- #
 #                #
@@ -1381,7 +1452,7 @@ class CCD( Image, _Collection_):
     @property
     def ccdid(self):
         """ ccd id (from header) """
-        return self.get_headerkey("CCDID", None)
+        return self.get_value("CCDID", None, attr_ok=False) # avoid loop
         
 # -------------- #
 #                #
