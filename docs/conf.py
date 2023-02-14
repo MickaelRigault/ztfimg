@@ -60,8 +60,8 @@ extensions = [
     'matplotlib.sphinxext.plot_directive',
     # extra
     "numpydoc",
-    'myst_nb',
-    "nbsphinx",
+#    'myst_nb',
+#    "nbsphinx",
     'sphinx_copybutton'
     ]
     
