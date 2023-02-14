@@ -11,7 +11,7 @@ of ZTF image processing through dask.
    :caption: Getting Starting
 	     
    notebooks/quickstart	   
-
+   notebooks/ztfimg_rawccd_rawquadrant
 
 .. toctree::
    :maxdepth: 2
