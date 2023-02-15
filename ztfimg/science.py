@@ -233,8 +233,8 @@ class ScienceQuadrant(Quadrant, WCSHolder):
         return rawimg
     
     def get_data(self, which=None,
-                 applymask=False, maskvalue=np.NaN,
-                 rmbkgd=False, whichbkgd="median",
+                 apply_mask=False, maskvalue=np.NaN,
+                 rm_bkgd=False, whichbkgd="median",
                  rebin=None, rebin_stat="nanmean",
                  **kwargs):
         """ get a copy of the data affected by background and/or masking.
@@ -261,17 +261,17 @@ class ScienceQuadrant(Quadrant, WCSHolder):
             shortcut to get_dataclean()
             // rest is ignored //
 
-        applymask: [bool] -optional-
+        apply_mask: [bool] -optional-
             Shall a default masking be applied (i.e. all bad pixels to nan)
 
         maskvalue: [float] -optional-
             Whick values should the masked out data have ?
 
-        rmbkgd: [bool] -optional-
+        rm_bkgd: [bool] -optional-
             Should the data be background subtracted ?
 
         whichbkgd: [bool] -optional-
-            // ignored if rmbkgd=False //
+            // ignored if rm_bkgd=False //
             which background should this use (see self.get_background())
 
         **kwargs goes to self.get_mask()
@@ -312,11 +312,11 @@ class ScienceQuadrant(Quadrant, WCSHolder):
         else:
             data_ = self.data.copy()
 
-            if applymask:
+            if apply_mask:
                 data_[self.get_mask(**kwargs)] = maskvalue  # OK
 
-            if rmbkgd:
-                data_ -= self.get_background(method=whichbkgd, rmbkgd=False)
+            if rm_bkgd:
+                data_ -= self.get_background(method=whichbkgd, rm_bkgd=False)
 
         if rebin is not None:
             data_ = getattr(da if self.use_dask else np, rebin_stat)(
@@ -412,7 +412,7 @@ class ScienceQuadrant(Quadrant, WCSHolder):
 
         return mask
 
-    def get_background(self, method="median", rmbkgd=False, backup_default="sep"):
+    def get_background(self, method="median", rm_bkgd=False, backup_default="sep"):
         """ get an estimation of the image's background
 
         Parameters
@@ -423,7 +423,7 @@ class ScienceQuadrant(Quadrant, WCSHolder):
             - "median": gets the median of the fully masked data (self.get_mask(alltrue=True))
             - "sep": returns the sep estimation of the background image (Sextractor-like)
 
-        rmbkgd: bool
+        rm_bkgd: bool
             // ignored if method != median //
             shall the median background estimation be made on default-background subtraced image ?
 
@@ -441,16 +441,16 @@ class ScienceQuadrant(Quadrant, WCSHolder):
         if method in ["median"]:
             if self.use_dask:
                 # median no easy to massively //
-                return self.get_data(rmbkgd=rmbkgd, applymask=True, alltrue=True
+                return self.get_data(rm_bkgd=rm_bkgd, apply_mask=True, alltrue=True
                                      ).map_blocks(np.nanmedian)
 
-            return np.nanmedian(self.get_data(rmbkgd=rmbkgd, applymask=True, alltrue=True))
+            return np.nanmedian(self.get_data(rm_bkgd=rm_bkgd, apply_mask=True, alltrue=True))
 
     def get_dataclean(self):
         """ """
         if not hasattr(self, "_dataclean"):
             self._dataclean = self.get_data(
-                applymask=True, rmbkgd=False) - self.get_source_background()
+                apply_mask=True, rm_bkgd=False) - self.get_source_background()
 
         return self._dataclean
 
@@ -459,7 +459,7 @@ class ScienceQuadrant(Quadrant, WCSHolder):
         if which == "nanstd":
             npda = da if self.use_dask else np
             datamasked = self.get_data(
-                applymask=True, rmbkgd=True, whichbkgd="median", alltrue=True)
+                apply_mask=True, rm_bkgd=True, whichbkgd="median", alltrue=True)
             return npda.nanstd(datamasked)
 
         if which in ["sep", "sextractor", "globalrms"]:
@@ -483,7 +483,8 @@ class ScienceQuadrant(Quadrant, WCSHolder):
         if not hasattr(self, "_source_mask"):
             from .utils.tools import extract_sources, get_source_mask
             data = self.get_data(
-                applymask=True, rmbkgd=True, whichbkgd="median")
+                apply_mask=True, rm_bkgd
+                =True, whichbkgd="median")
             mask = self.get_mask()
             noise = self.get_noise(which="nanstd")
             sources = extract_sources(
@@ -508,7 +509,7 @@ class ScienceQuadrant(Quadrant, WCSHolder):
         return self._source_background
 
     def get_aperture(self, x0, y0, radius,
-                     imgdata=None,
+                     data=None,
                      bkgann=None, subpix=0,
                      system="xy",
                      which="dataclean",
@@ -526,7 +527,7 @@ class ScienceQuadrant(Quadrant, WCSHolder):
             Center coordinates and radius (radii) of aperture(s).
             (could be x,y, ra,dec or u,v ; see system)
 
-        imgdata: 2d-array
+        data: 2d-array
             2d image the aperture will be applied on. 
             (self.data otherwise, see also `which` and `dataprop`)
 
@@ -544,12 +545,12 @@ class ScienceQuadrant(Quadrant, WCSHolder):
             - uv (focalplane)
 
         which: str
-            = ignored if imgdata is given =
+            = ignored if data is given =
             shortcut for the kind of data you want 
             using ``data = self.get_data(which, **dataprop)``
             
         dataprop: dict
-            = ignored if imgdata is given =
+            = ignored if data is given =
             kwargs for the get_data method
             using ``data = self.get_data(which, **dataprop)``
 
@@ -597,12 +598,12 @@ class ScienceQuadrant(Quadrant, WCSHolder):
         if mask is None:
             mask = self.get_mask(**maskprop)
 
-        if imgdata is None:
-            imgdata = self.get_data(**{**{"which": which}, **dataprop})
+        if data is None:
+            data = self.get_data(**{**{"which": which}, **dataprop})
 
         # calling back base.get_aperture()
         return super().get_aperture(x0, y0, radius,
-                                    imgdata=imgdata,
+                                    data=data,
                                     err=err,
                                     bkgann=bkgann, subpix=subpix,
                                     as_dataframe=as_dataframe,

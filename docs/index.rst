@@ -21,6 +21,11 @@ not mandatory) to have a running ztfquery_ environment.
 
 Sharp start
 ============
+
+.. toctree::
+   :maxdepth: 2
+   :caption: Sharp Start
+	     
 ..  code-block:: python
 
     from ztfimg import io
@@ -28,11 +33,12 @@ Sharp start
 
     import ztfimg
     sci = ztfimg.ScienceQuadrant.from_filename(sciimg_path, maskimg_path)
+    data = sci.get_data(apply_mask=True) # see also e.g. rm_bkgd
+    fig = sci.show(data=data) # if data not provided, this will plot get_data()
+    
+.. image:: _static/sciimg_show.png
+  :alt: Science image
 
-    data = sci.get_data()
-    fig = sci.show()
-    
-    
 
 
 
@@ -40,17 +46,21 @@ Documentation
 ===============
     
 .. toctree::
-   :maxdepth: 1
+   :maxdepth: 2
    :caption: Getting Starting
 	     
    notebooks/quickstart	   
    notebooks/ztfimg_rawccd_rawquadrant
 
+API
+===============
+    
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 3
    :caption: Package	      
   ztfimg
- 
+
+  
   
 Indices and tables
 ==================

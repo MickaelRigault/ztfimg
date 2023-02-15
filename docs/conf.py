@@ -79,7 +79,6 @@ exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store']
 # copies of each notebook, and myst will choose which to convert based on
 # the order in the source_suffix list. Notebooks which are not executed have
 # outputs stored in ipynb but not in md, so we must convert the ipynb.
-
 #source_suffix = ['.rst', '.ipynb', '.md']
 
 
