@@ -32,36 +32,18 @@ from ztfimg import *
 
 # -- General configuration ---------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration
-"""
-extensions = [# Standard extensions
-    "numpydoc",
-    'sphinx.ext.autodoc',
-    'sphinx.ext.napoleon',
-    'sphinx.ext.autosummary',
-    'sphinx.ext.intersphinx',
-    'sphinx.ext.todo',
-    'sphinx.ext.mathjax',       # or pngmath
-    'sphinx.ext.viewcode',
-    'sphinx.ext.inheritance_diagram',
-    'sphinx.ext.graphviz',
-    'sphinx.ext.extlinks',
-    # 'sphinx.ext.doctest',
-    # 'sphinx.ext.coverage',
-    # Other extensions  
-]
-"""
 extensions = [
     'sphinx.ext.autodoc',
     'sphinx.ext.autosummary',
     'sphinx.ext.intersphinx',
     'sphinx.ext.mathjax',
-    'sphinx.ext.napoleon',
-    'sphinx.ext.viewcode',
-    'matplotlib.sphinxext.plot_directive',
+    'sphinx.ext.napoleon', # numpy or google docstring
+#    'sphinx.ext.viewcode',
+    'matplotlib.sphinxext.plot_directive', # matplotlib plotting in the doc
     # extra
     "numpydoc",
 #    'myst_nb',
-#    "nbsphinx",
+    "nbsphinx",
     'sphinx_copybutton'
     ]
     
@@ -71,6 +53,9 @@ inheritance_node_attrs = dict(shape='ellipse', fontsize=13, height=0.75,
                               color='sienna', style='filled', imagepos='tc')
 
 inheritance_graph_attrs = dict(rankdir="LR", size='""')
+
+
+nbsphinx_execute = 'never'
 
 
 autoclass_content = "both"              # Insert class and __init__ docstrings
@@ -94,7 +79,8 @@ exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store']
 # copies of each notebook, and myst will choose which to convert based on
 # the order in the source_suffix list. Notebooks which are not executed have
 # outputs stored in ipynb but not in md, so we must convert the ipynb.
-source_suffix = ['.rst', '.ipynb', '.md']
+
+#source_suffix = ['.rst', '.ipynb', '.md']
 
 
 # -- Options for HTML output -------------------------------------------------

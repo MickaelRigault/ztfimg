@@ -40,7 +40,7 @@ class ScienceQuadrant(Quadrant, WCSHolder):
     @classmethod
     def from_filename(cls, filename, filename_mask=None,
                           download=True, as_path=False,
-                          use_dask=True, persist=True, **kwargs):
+                          use_dask=False, persist=True, **kwargs):
         """
         Parameters
         ----------
@@ -188,13 +188,13 @@ class ScienceQuadrant(Quadrant, WCSHolder):
         raise ValueError(
             f"cannot parse the given system {system}, use xy, radec or uv")
 
-    def get_ccd(self, use_dask=True, **kwargs):
+    def get_ccd(self, use_dask=False, **kwargs):
         """ ScienceCCD object containing this quadrant. """
         return ScienceCCD.from_single_filename(self.filename,
                                                       use_dask=use_dask,
                                                       **kwargs)
 
-    def get_focalplane(self, use_dask=True, **kwargs):
+    def get_focalplane(self, use_dask=False, **kwargs):
         """ FocalPlane (64 quadrants making 16 CCDs) containing this quadrant """
         return ScienceFocalPlane.from_single_filename(self.filename,
                                                               use_dask=use_dask,

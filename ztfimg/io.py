@@ -11,6 +11,13 @@ CALIBRATOR_PATH = os.path.join(LOCALSOURCE,"calibrator")
 PACKAGE_PATH = os.path.dirname(os.path.realpath(__file__))
 NONLINEARITY_FILE = os.path.join(PACKAGE_PATH, "data/ccd_amp_coeff_v2.txt")
 
+
+def get_test_image():
+    """ returns the path to the test image and its mask. """
+    sciimg = os.path.join(PACKAGE_PATH, "data/ztf_20200924431759_000655_zr_c13_o_q3_sciimg.fits")
+    maskimg = os.path.join(PACKAGE_PATH, "data/ztf_20200924431759_000655_zr_c13_o_q3_mskimg.fits")
+    return sciimg, maskimg
+
 # ========================= #
 #                           #
 #  IN2P3 CATALOGS           #

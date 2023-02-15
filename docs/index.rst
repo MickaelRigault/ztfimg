@@ -1,11 +1,44 @@
 
-
+====================
 ztfimg reference documentation
 ====================
 
-ztfimg is a generic object-oriented API to enable cluster discussion
-of ZTF image processing through dask.
+ztfimg is a generic object-oriented API to enable to interact with
+Zwicky Transient Facility (ZTF) images. The dask_ cluster computing
+library is natively incorporated within the API such that one can use
+numpy or dask.array as smoothly as doing `use_dask=True`. 
 
+Objects
+========
+
+The ZTF camera (focalplane) is divided into 16 ccds themselves divided
+into 4 quadrants. `ztfimg` enables you to interact with the data at
+all levels and both for the raw data and the science images.
+
+The data I/O is based on ztfquery_. It is strongly recommended (but
+not mandatory) to have a running ztfquery_ environment.
+
+
+Sharp start
+============
+..  code-block:: python
+
+    from ztfimg import io
+    sciimg_path, maskimg_path = io.get_test_image() # load default images
+
+    import ztfimg
+    sci = ztfimg.ScienceQuadrant.from_filename(sciimg_path, maskimg_path)
+
+    data = sci.get_data()
+    fig = sci.show()
+    
+    
+
+
+
+Documentation
+===============
+    
 .. toctree::
    :maxdepth: 1
    :caption: Getting Starting
@@ -26,3 +59,6 @@ Indices and tables
 * :ref:`modindex`
 * :ref:`search`
 
+
+.. _dask: https://www.dask.org/
+.. _ztfquery: https://github.com/MickaelRigault/ztfquery/
