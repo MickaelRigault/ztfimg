@@ -49,7 +49,8 @@ Documentation
    :maxdepth: 2
    :caption: Getting Starting
 	     
-   notebooks/quickstart	   
+   notebooks/quickstart
+   notebooks/ztfimgdask   
    notebooks/ztfimg_rawccd_rawquadrant
 
 API

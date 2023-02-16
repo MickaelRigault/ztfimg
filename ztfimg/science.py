@@ -40,7 +40,7 @@ class ScienceQuadrant(Quadrant, WCSHolder):
     @classmethod
     def from_filename(cls, filename, filename_mask=None,
                           download=True, as_path=False,
-                          use_dask=False, persist=True, **kwargs):
+                          use_dask=False, persist=False, **kwargs):
         """
         Parameters
         ----------
@@ -82,6 +82,8 @@ class ScienceQuadrant(Quadrant, WCSHolder):
         if filename_mask is None:
             filename_mask = filename
 
+        meta = io.parse_filename(filename)
+        
         if use_dask:
             # Getting the filenames, download if needed
             if not as_path:
@@ -120,7 +122,7 @@ class ScienceQuadrant(Quadrant, WCSHolder):
             mask = fits.getdata(filename_mask)
 
         # self
-        meta = io.parse_filename(filename)
+
         this = cls(data=data, header=header,
                    mask=mask, meta=meta)
         this._filename = filename

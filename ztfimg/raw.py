@@ -121,7 +121,8 @@ class RawQuadrant( Quadrant ):
 
         if not use_dask:
             dask_header = False
-        
+
+        meta = io.parse_filename(filename)
         filename = cls._get_filename(filename, as_path=as_path, use_dask=use_dask)
         # data
         data = cls._read_data(filename, ext=qid, use_dask=use_dask, persist=persist)
@@ -132,7 +133,7 @@ class RawQuadrant( Quadrant ):
         this = cls(data, header=header, overscan=overscan, **kwargs)
         this._qid = qid
         this._filename = filename
-        this._meta = io.parse_filename(filename)
+        this._meta = meta
         return this
 
     @classmethod
@@ -601,7 +602,7 @@ class RawCCD( CCD ):
             
         this = cls.from_quadrants(quadrants, qids=qids)
         this._filename = filename
-        this._meta = io.parse_filename(filename)        
+        this._meta = io.parse_filename(filename)
         return this
 
     @classmethod
