@@ -125,6 +125,7 @@ class ScienceQuadrant(Quadrant, WCSHolder):
 
         this = cls(data=data, header=header,
                    mask=mask, meta=meta)
+        
         this._filename = filename
         return this
 
@@ -234,11 +235,11 @@ class ScienceQuadrant(Quadrant, WCSHolder):
 
         return rawimg
     
-    def get_data(self, which=None,
-                 apply_mask=False, maskvalue=np.NaN,
-                 rm_bkgd=False, whichbkgd="median",
-                 rebin=None, rebin_stat="nanmean",
-                 **kwargs):
+    def get_data(self, apply_mask=False, maskvalue=np.NaN,
+                     rm_bkgd=False, whichbkgd="median",
+                     rebin=None, rebin_stat="nanmean",
+                     reorder=True,
+                     **kwargs):
         """ get a copy of the data affected by background and/or masking.
 
         Parameters
@@ -283,42 +284,13 @@ class ScienceQuadrant(Quadrant, WCSHolder):
         2d array (data)
 
         """
-        if which == "data":
-            data_ = self.data.copy()
+        data_ = super().get_data(reorder=reorder, rebin=None, **kwargs)
 
-        elif which in ["clean", "dataclean", "cleandata"]:
-            data_ = self.get_dataclean()
+        if apply_mask:
+            data_[self.get_mask(**kwargs)] = maskvalue  # OK
 
-        elif which == "clean_sourcemasked":
-            data_ = self.get_dataclean().copy()
-            smask = self.get_source_mask()
-            data_[smask] = np.NaN
-
-        elif which == "data_sourcemasked":
-            data_ = self.data.copy()
-            smask = self.get_source_mask()
-            data_[smask] = np.NaN
-
-        elif which == "masked_sourcemasked":
-            data_ = self.data.copy()
-            data_[self.get_mask(alltrue=True)] = np.NaN
-            smask = self.get_source_mask()
-            data_[smask] = np.NaN
-
-        elif which == "sourcemask":
-            data_ = self.get_source_mask()
-
-        elif which is not None:
-            raise ValueError(
-                f"Only which= clean, clean_sourmasked or sourcemask implemented ; {which} given")
-        else:
-            data_ = self.data.copy()
-
-            if apply_mask:
-                data_[self.get_mask(**kwargs)] = maskvalue  # OK
-
-            if rm_bkgd:
-                data_ -= self.get_background(method=whichbkgd, rm_bkgd=False)
+        if rm_bkgd:
+            data_ -= self.get_background(method=whichbkgd, rm_bkgd=False)
 
         if rebin is not None:
             data_ = getattr(da if self.use_dask else np, rebin_stat)(
@@ -813,7 +785,6 @@ class ScienceCCD(CCD):
     SHAPE = 3080*2, 3072*2
     
     _QUADRANTCLASS = ScienceQuadrant
-    _POS_INVERTED = True  # How the list of quandrants -> ccd data
 
     # =============== #
     #  Properties     #

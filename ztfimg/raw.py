@@ -284,7 +284,7 @@ class RawQuadrant( Quadrant ):
             numpy or dask array
         """
         # rebin is made later on.
-        data_ = super().get_data(rebin=None, **kwargs)
+        data_ = super().get_data(rebin=None, reorder=reorder, **kwargs)
         
         if corr_nl:
             a, b = self.get_nonlinearity_corr()
@@ -297,9 +297,6 @@ class RawQuadrant( Quadrant ):
         if rebin is not None:
             data_ = getattr(da if self._use_dask else np, rebin_stat)(
                 rebin_arr(data_, (rebin,rebin), use_dask=True), axis=(-2,-1) )
-
-        if reorder:
-            data_ = data_[::-1,::-1]
             
         return data_
 
@@ -425,6 +422,7 @@ class RawQuadrant( Quadrant ):
         else:
             last_data = data[:,0]
             first_overscan = overscan[:,-1]
+            
         return last_data, first_overscan
 
     
@@ -548,7 +546,6 @@ class RawQuadrant( Quadrant ):
         
 class RawCCD( CCD ):
     _QUADRANTCLASS = RawQuadrant
-    _POS_INVERTED = False
     
     @classmethod
     def from_filename(cls, filename, as_path=True, use_dask=False, persist=False, **kwargs):
@@ -613,7 +610,7 @@ class RawCCD( CCD ):
         --------
         from_filename: load the instance given the raw filename
         """
-        raise NotImplementedError("from_single_filename does not exists. See from_filename")
+        return cls.from_filename(*args, **kwargs)
     
     @classmethod
     def from_filenames(cls, *args, **kwargs):

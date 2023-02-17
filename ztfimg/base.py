@@ -251,8 +251,7 @@ class Image( object ):
     #  GETTER  #
     # -------- #
     def get_data(self, rebin=None, rebin_stat="nanmean", data=None):
-        """  get (a copy of) the data in self.data. You can apply rebining to it.
-        Rebins merge (see rebin_stat) to pixel in a [rebin, rebin] square.
+        """ get image data 
 
         Parameters
         ----------
@@ -888,6 +887,36 @@ class _Collection_( object ):
 class Quadrant(Image):
     SHAPE = (3080, 3072)
 
+    def get_data(self, rebin=None, reorder=True, **kwargs):
+        """ get image data 
+        
+        Parameters
+        ----------
+        rebin: int, None
+            Shall the data be rebinned by square of size `rebin` ?
+            None means no rebinning.
+            (see details in rebin_stat)
+            rebin must be a multiple of the image shape.
+            for instance if the input shape is (6160, 6144)
+            rebin could be 2,4,8 or 16
+
+        reorder: bool
+            Should the data be re-order to match the actual north-up.
+            (leave to True if not sure)
+            
+        **kwargs goes to super.get_data() e.g. rebin_stat
+
+        Returns
+        -------
+        data
+            numpy.array or dask.array
+        """
+        data = super().get_data(rebin=rebin, **kwargs)
+        if reorder:
+            data = data[::-1,::-1]
+            
+        return data
+    
     @property
     def qid(self):
         """ quadrant id (from header) """
@@ -915,7 +944,6 @@ class CCD( Image, _Collection_):
     SHAPE = (3080*2, 3072*2)
     COLLECTION_OF = Quadrant    
     _QUADRANTCLASS = Quadrant
-    _POS_INVERTED = True
 
     def __init__(self, quadrants=None, qids=None,
                      data=None, header=None,
@@ -952,8 +980,6 @@ class CCD( Image, _Collection_):
             # this updates use_dask
             _ = [self.set_quadrant(quad_, qid=qid, **kwargs)
                      for quad_, qid in zip(quadrants, qids)]
-
-        self._hpos_inverted = pos_inverted # if None, falls back to self._POS_INVERTED
         
     # =============== #
     #  I/O            #
@@ -1065,7 +1091,7 @@ class CCD( Image, _Collection_):
         quadrants, filenames = cls._read_filenames(filenames,
                                                        as_path=as_path, use_dask=use_dask,
                                                        persist=persist, **kwargs)
-        return cls(quadrants=quadrants, qids=qids, use_dask=use_dask)
+        return cls(quadrants=quadrants, qids=qids)
 
     def to_fits(self, fileout, as_quadrants=False, overwrite=True,
                     **kwargs):
@@ -1394,14 +1420,11 @@ class CCD( Image, _Collection_):
         npda = da if self.use_dask else np
         
         d = self.get_quadrantdata(rebin=rebin, **kwargs)
-
-        if not self._POS_INVERTED:
-            ccd_up = npda.concatenate([d[1], d[0]], axis=1)
-            ccd_down = npda.concatenate([d[2], d[3]], axis=1)
-        else:
-            ccd_up = npda.concatenate([d[3], d[2]], axis=1)
-            ccd_down = npda.concatenate([d[0], d[1]], axis=1)
-
+        # ccd structure
+        # q2 | q1
+        # q3 | q4
+        ccd_up = npda.concatenate([d[1], d[0]], axis=1)
+        ccd_down = npda.concatenate([d[2], d[3]], axis=1)
         ccd = npda.concatenate([ccd_down, ccd_up], axis=0)
         return ccd
     
@@ -1420,12 +1443,6 @@ class CCD( Image, _Collection_):
 
         return self._data
 
-    @property
-    def _pos_inverted(self):
-        """ are the quadants position inverted (like in raw data) """
-        if not hasattr(self, "_hpos_inverted") or self._hpos_inverted is None:
-            return self._POS_INVERTED
-        return self._hpos_inverted
         
     @property
     def quadrants(self):
@@ -1581,7 +1598,7 @@ class FocalPlane(Image, _Collection_):
                                                    as_path=as_path, use_dask=use_dask,
                                                    persist=persist, **kwargs)
                 for i in ccdids]
-        return cls(ccds, ccdids, use_dask=use_dask)
+        return cls(ccds, ccdids)
 
     # =============== #
     #   Methods       #
