@@ -284,13 +284,15 @@ class ScienceQuadrant(Quadrant, WCSHolder):
         2d array (data)
 
         """
-        data_ = super().get_data(reorder=reorder, rebin=None, **kwargs)
+        data_ = super().get_data(reorder=reorder, rebin=None)
 
         if apply_mask:
+            data_ = data_.copy() # do not affect current data
             data_[self.get_mask(**kwargs)] = maskvalue  # OK
 
         if rm_bkgd:
-            data_ -= self.get_background(method=whichbkgd, rm_bkgd=False)
+            # not data -= to create a copy.
+            data_ = data_-self.get_background(method=whichbkgd, rm_bkgd=False)
 
         if rebin is not None:
             data_ = getattr(da if self.use_dask else np, rebin_stat)(
@@ -409,16 +411,21 @@ class ScienceQuadrant(Quadrant, WCSHolder):
         -------
         float/array (see method)
         """
-        if method not in ["median"]:
+        # Ready for additional background methods.
+        
+        # Method
+        if method == "median":
+            data_ = self.get_data(rm_bkgd=rm_bkgd, apply_mask=True, alltrue=True)
+            if "dask" in str( type(data_) ):
+                # median no easy to massively //
+                bkgd = data_.map_blocks(np.nanmedian)
+            else:
+                bkgd = np.nanmedian( data_ )
+
+        else:
             raise NotImplementedError("Only median background implemented")
 
-        if method in ["median"]:
-            if self.use_dask:
-                # median no easy to massively //
-                return self.get_data(rm_bkgd=rm_bkgd, apply_mask=True, alltrue=True
-                                     ).map_blocks(np.nanmedian)
-
-            return np.nanmedian(self.get_data(rm_bkgd=rm_bkgd, apply_mask=True, alltrue=True))
+        return bkgd
 
     def get_dataclean(self):
         """ """
@@ -517,16 +524,11 @@ class ScienceQuadrant(Quadrant, WCSHolder):
             - xy (ccd )
             - radec (in deg, sky)
             - uv (focalplane)
-
-        which: str
-            = ignored if data is given =
-            shortcut for the kind of data you want 
-            using ``data = self.get_data(which, **dataprop)``
             
         dataprop: dict
             = ignored if data is given =
             kwargs for the get_data method
-            using ``data = self.get_data(which, **dataprop)``
+            using ``data = self.get_data(**dataprop)``
 
         mask: 2d-array
             mask image. ``mask=self.get_mask(**maskprop)`` used if None
@@ -573,7 +575,7 @@ class ScienceQuadrant(Quadrant, WCSHolder):
             mask = self.get_mask(**maskprop)
 
         if data is None:
-            data = self.get_data(**{**{"which": which}, **dataprop})
+            data = self.get_data(**dataprop)
 
         # calling back base.get_aperture()
         return super().get_aperture(x0, y0, radius,

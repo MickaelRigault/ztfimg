@@ -51,39 +51,48 @@ class WCSHolder( object ):
     # --------- #
     #  GETTER   #
     # --------- #
-    def get_centroid(self, system="xy"):
+    def get_centroid(self, system="xy", reorder=True):
         """ x and y or RA, Dec coordinates of the centroid. (shape[::-1]) """
         shape = np.asarray(self.wcs.pixel_shape)
         if system in ["xy","pixel","pixels","pxl"]:
             return (shape[::-1]+1)/2
 
         if system in ["uv","tangent"]:
-            return np.squeeze(self.xy_to_uv(*self.get_centroid(system="xy")) )
+            return np.squeeze(self.xy_to_uv(*self.get_centroid(system="xy"), reorder=reorder) )
         
         if system in ["radec","coords","worlds"]:
-            return np.squeeze(self.xy_to_radec(*self.get_centroid(system="xy")) )
+            return np.squeeze(self.xy_to_radec(*self.get_centroid(system="xy"), reorder=reorder) )
     # --------- #
     #  Convert  #
     # --------- #
-    def xy_to_radec(self, x, y):
+    def xy_to_radec(self, x, y, reorder=True):
         """ get sky ra, dec [in deg] coordinates given the (x,y) ccd positions  """
+        if reorder and hasattr(self, "shape"):
+            x = self.shape[1] - x
+            y = self.shape[0] - y
+            
         return self.wcs.all_pix2world(np.asarray([np.atleast_1d(x),
                                                   np.atleast_1d(y)]).T,
                                       0).T
     
-    def xy_to_uv(self, x, y):
+    def xy_to_uv(self, x, y, reorder=True):
         """ w,y to u, v tangent plane projection (in arcsec from pointing center). 
         This uses pixels_to_coords->coords_to_uv
         """
-        ra, dec = self.xy_to_radec( x, y)
+        ra, dec = self.xy_to_radec(x, y, reorder=True)
         return self.radec_to_uv(ra, dec)
 
     # coords -> 
-    def radec_to_xy(self, ra, dec):
+    def radec_to_xy(self, ra, dec, reorder=True):
         """ get the (x,y) ccd positions given the sky ra, dec [in deg] corrdinates """
-        return self.wcs.all_world2pix(np.asarray([np.atleast_1d(ra),
+        x, y = self.wcs.all_world2pix(np.asarray([np.atleast_1d(ra),
                                                   np.atleast_1d(dec)]).T,
                                       0).T
+        if reorder and hasattr(self, "shape"):
+            x = self.shape[1]-x
+            y = self.shape[0]-y
+
+        return x, y
     
     def radec_to_uv(self, ra, dec):
         """ radec to u, v (tangent plane projection in arcsec from pointing center) """
