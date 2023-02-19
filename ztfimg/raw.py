@@ -21,6 +21,10 @@ __all__ = ["RawQuadrant", "RawCCD", "RawFocalPlane"]
 class RawQuadrant( Quadrant ):
 
     SHAPE_OVERSCAN = 3080, 30
+    # "family"
+    _CCDCLASS = "RawCCD"
+    _FocalPlaneCLASS = "RawFocalPlane"
+    
     def __init__(self, data=None, header=None, overscan=None):
         """ 
         See also
@@ -545,7 +549,12 @@ class RawQuadrant( Quadrant ):
         
         
 class RawCCD( CCD ):
-    _QUADRANTCLASS = RawQuadrant
+
+    COLLECTION_OF = RawQuadrant
+    # "family"
+    _QUADRANTCLASS = "RawQuadrant"
+    _FocalPlaneCLASS = "RawFocalPlane"    
+    
     
     @classmethod
     def from_filename(cls, filename, as_path=True, use_dask=False, persist=False, **kwargs):
@@ -585,7 +594,7 @@ class RawCCD( CCD ):
         """
         qids = (1,2,3,4)
         
-        quadrant_from_filename = cls._QUADRANTCLASS.from_filename
+        quadrant_from_filename = cls._quadrantclass.from_filename
         if use_dask:
             quadrant_from_filename = dask.delayed(quadrant_from_filename)
             
@@ -714,7 +723,9 @@ class RawFocalPlane( FocalPlane ):
     # 15 µm/arcsec  (ie 1 arcsec/pixel) and using 
     # 7.2973 mm = 487 pixel gap along rows (ie between columns) 
     # and 671 pixels along columns.
-    _CCDCLASS = RawCCD
+    COLLECTION_OF = RawCCD
+    # family
+    _CCDCLASS = "RawCCD"
     
     @classmethod
     def from_filenames(cls, filenames, as_path=True,
@@ -750,7 +761,7 @@ class RawFocalPlane( FocalPlane ):
         """
         this = cls()
         for file_ in ccd_filenames:
-            ccd_ = cls._CCDCLASS.from_filename(file_, as_path=as_path,
+            ccd_ = cls._ccdclass.from_filename(file_, as_path=as_path,
                                                    use_dask=use_dask, persist=persist,
                                                    **kwargs)
             this.set_ccd(ccd_, ccdid=ccd_.ccdid)
@@ -795,14 +806,3 @@ class RawFocalPlane( FocalPlane ):
             warnings.warn(f"Less than 16 local raw data found for filefracday: {filefracday}")
         
         return cls.from_filenames(filenames, use_dask=use_dask, **kwargs)
-            
-    # =============== #
-    #   Methods       #
-    # =============== #
-    # --------- #
-    #  GETTER   #
-    # --------- # 
-        
-
-
-

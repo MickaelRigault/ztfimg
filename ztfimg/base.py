@@ -30,9 +30,13 @@ class Image( object ):
             self.set_header(header)
 
     @classmethod
-    def _read_data(cls, filename, use_dask=True, persist=False, ext=None):
+    def _read_data(cls, filename, use_dask=False, persist=False, ext=None):
         """ assuming fits format."""
         from astropy.io.fits import getdata
+
+        if "dask" in str( type(filename) ):
+            use_dask = True
+    
         if use_dask:
             # - Data
             data = da.from_delayed( dask.delayed( getdata) (filename, ext=ext),
@@ -46,9 +50,12 @@ class Image( object ):
         return data
 
     @staticmethod
-    def _read_header(filename, use_dask=True, persist=False, ext=None):
+    def _read_header(filename, use_dask=False, persist=False, ext=None):
         """ assuming fits format. """
         from astropy.io.fits import getheader
+
+        if "dask" in str( type(filename) ):
+            use_dask = True
         
         if use_dask:
             header = dask.delayed(getheader)(filename, ext=ext)
@@ -842,7 +849,7 @@ class _Collection_( object ):
     COLLECTION_OF = Image
 
     @classmethod
-    def _read_filenames(cls, filenames, use_dask=True, 
+    def _read_filenames(cls, filenames, use_dask=False, 
                            as_path=False, persist=False, **kwargs):
         """ """
         filenames = np.atleast_1d(filenames).tolist()
@@ -858,12 +865,21 @@ class _Collection_( object ):
 
     def _get_subdata(self, **kwargs):
         """ get a stack of the data from get_data collection of """
-        datas = self._call_down("get_data",True, **kwargs)
-        if self.use_dask:
-            return da.stack([da.from_delayed(f_, shape=self.COLLECTION_OF.shape,
+        datas = self._call_down("get_data", True, **kwargs)
+        # This rest assumes all datas types match.
+        use_dask = "dask" in str( type(datas[0]) )
+        if use_dask:
+            if type( datas[0] ) != da.Array: # Dask delayed
+                datas = [da.from_delayed(f_, shape=self.COLLECTION_OF.shape,
                                                  dtype="float32")
-                                     for f_ in datas])
-        return np.stack(datas)
+                                     for f_ in datas]
+            # dask.array stack
+            datas = da.stack(datas)
+        else:
+            # numpy.array stack
+            datas = np.stack(datas)
+            
+        return datas
 
     # -------- #
     # INTERNAL #
@@ -886,7 +902,72 @@ class _Collection_( object ):
 # -------------- #
 class Quadrant(Image):
     SHAPE = (3080, 3072)
+    # "family"
+    _CCDCLASS = "CCD"
+    _FocalPlaneCLASS = "FocalPlane"
 
+    def get_ccd(self, use_dask=None, as_path=False, **kwargs):
+        """ get the ccd object containing this quadrant. 
+        (see self._CCDCLASS)
+
+        Parameters
+        ----------
+        use_dask: bool, None
+            should the ccd object be build using dask ? 
+            if None, the current instance use_dask is used.
+        
+        as_path: bool
+            should this assume that instance self.filename can 
+            be directly transformed ? False should be favored 
+            as it downloads the missing images if need.
+
+        **kwargs goes the self._CCDCLASS.from_single_filename()
+
+        Returns
+        -------
+        CCD
+            instance of self._CCDCLASS.
+        """
+        if use_dask is None:
+            use_dask = self.use_dask
+        
+        return self._ccdclass.from_single_filename(self.filename,
+                                                   use_dask=use_dask,
+                                                   as_path=as_path,
+                                                   **kwargs)
+
+    def get_focalplane(self, use_dask=None, as_path=False, **kwargs):
+        """ get the full focal plane (64 quadrants making 16 CCDs) 
+        containing this quadrant
+
+        (see self._FocalPlaneCLASS)
+
+        Parameters
+        ----------
+        use_dask: bool, None
+            should the ccd object be build using dask ? 
+            if None, the current instance use_dask is used.
+        
+        as_path: bool
+            should this assume that instance self.filename can 
+            be directly transformed ? False should be favored 
+            as it downloads the missing images if need.
+
+        **kwargs goes the self._FocalPlaneCLASS.from_single_filename()
+
+        Returns
+        -------
+        FocalPlane
+            instance of self._FocalPlaneCLASS.
+        """
+        if use_dask is None:
+            use_dask = self.use_dask
+        
+        return self._focalplaneclass.from_single_filename(self.filename,
+                                                          use_dask=use_dask,
+                                                          as_path=as_path,
+                                                          **kwargs)
+    
     def get_data(self, rebin=None, reorder=True, **kwargs):
         """ get image data 
         
@@ -931,7 +1012,33 @@ class Quadrant(Image):
     def rcid(self):
         """ rcid (from header) """
         return self.get_value("RCID", None, attr_ok=False) # avoid loop
+
+    # family
+    @classproperty
+    def _ccdclass(cls):
+        """ """
+        if type(cls._CCDCLASS) is str:
+            try: # from this .py
+                return eval( cls._CCDCLASS )
+            except: # from the library 
+                exec(f"from .__init__ import {cls._CCDCLASS}")
+                return eval( cls._CCDCLASS )
         
+        return cls._CCDCLASS
+
+    @classproperty
+    def _focalplaneclass(cls):
+        """ """
+        if type(cls._FocalPlaneCLASS) is str:
+            try: # from this .py
+                return eval( cls._FocalPlaneCLASS )
+            except: # from the library 
+                exec(f"from .__init__ import {cls._FocalPlaneCLASS}")
+                return eval( cls._FocalPlaneCLASS )
+
+        
+        return cls._FocalPlaneCLASS
+    
 # -------------- #
 #                #
 #     CCD        #
@@ -942,8 +1049,10 @@ class CCD( Image, _Collection_):
     # Basically a Quadrant collection
 
     SHAPE = (3080*2, 3072*2)
-    COLLECTION_OF = Quadrant    
-    _QUADRANTCLASS = Quadrant
+    COLLECTION_OF = Quadrant
+    # "family"
+    _QUADRANTCLASS = "Quadrant"
+    _FocalPlaneCLASS = "FocalPlane"
 
     def __init__(self, quadrants=None, qids=None,
                      data=None, header=None,
@@ -980,12 +1089,17 @@ class CCD( Image, _Collection_):
             # this updates use_dask
             _ = [self.set_quadrant(quad_, qid=qid, **kwargs)
                      for quad_, qid in zip(quadrants, qids)]
-        
+            
+    @property
+    def filenames(self):
+        """ list of the filename of the different quadrants constituing the data. """
+        return [q.filename for qid, q in self.quadrants.items()]
+    
     # =============== #
     #  I/O            #
     # =============== #        
     @classmethod
-    def from_single_filename(cls, filename, as_path=True, use_dask=True, persist=False, **kwargs):
+    def from_single_filename(cls, filename, as_path=True, use_dask=False, persist=False, **kwargs):
         """ given a single quadrant file, this fetchs the missing ones and loads the instance.
 
         Parameters
@@ -1057,7 +1171,7 @@ class CCD( Image, _Collection_):
 
     @classmethod
     def from_filenames(cls, filenames, as_path=True,
-                           qids=[1, 2, 3, 4], use_dask=True,
+                           qids=[1, 2, 3, 4], use_dask=False,
                            persist=False, **kwargs):
         """ loads the instance from a list of the quadrant files.
 
@@ -1205,7 +1319,7 @@ class CCD( Image, _Collection_):
             raise ValueError("You need exactly 4 of each: data, header, fileouts")
 
         for file_, data_, header_ in zip(fileouts, datas, header):
-            cls._QUADRANTCLASS._to_fits(file_, data=data_, header=header_,
+            cls._quadrantclass._to_fits(file_, data=data_, header=header_,
                                             overwrite=overwrite, **kwargs)
     
     # --------- #
@@ -1265,6 +1379,43 @@ class CCD( Image, _Collection_):
         """ get a quadrant (``self.quadrants[qid]``) """
         return self.quadrants[qid]
 
+    def get_focalplane(self, use_dask=None, as_path=False, **kwargs):
+        """ get the full focal plane (64 quadrants making 16 CCDs) 
+        containing this quadrant
+
+        (see self._FocalPlaneCLASS)
+
+        Parameters
+        ----------
+        use_dask: bool, None
+            should the ccd object be build using dask ? 
+            if None, the current instance use_dask is used.
+        
+        as_path: bool
+            should this assume that instance self.filename can 
+            be directly transformed ? False should be favored 
+            as it downloads the missing images if need.
+
+        **kwargs goes the self._FocalPlaneCLASS.from_single_filename()
+
+        Returns
+        -------
+        FocalPlane
+            instance of self._FocalPlaneCLASS.
+        """
+        if use_dask is None:
+            use_dask = self.use_dask
+
+        if self.filename is None:
+            filename = self.filenames[0]
+        else:
+            filename = self.filename
+            
+        return self._focalplaneclass.from_single_filename(filename,
+                                                          use_dask=use_dask,
+                                                          as_path=as_path,
+                                                          **kwargs)
+    
     def get_quadrantheader(self):
         """ get a DataFrame gathering the quadrants's header 
         
@@ -1464,22 +1615,49 @@ class CCD( Image, _Collection_):
     @classproperty
     def qshape(cls):
         """ shape of an individual ccd quadrant """
-        return cls._QUADRANTCLASS.shape
+        return cls._quadrantclass.shape
 
     @property
     def ccdid(self):
         """ ccd id (from header) """
         return self.get_value("CCDID", None, attr_ok=False) # avoid loop
+
+    # family
+    @classproperty
+    def _quadrantclass(cls):
+        """ """
+        if type( cls._QUADRANTCLASS ) is str:            
+            try: # from this .py
+                return eval( cls._QUADRANTCLASS )
+            except: # from the library 
+                exec(f"from .__init__ import {cls._QUADRANTCLASS}")
+                return eval( cls._QUADRANTCLASS )
+
+        return cls._QUADRANTCLASS
+
+    @classproperty
+    def _focalplaneclass(cls):
+        """ """
+        if type(cls._FocalPlaneCLASS) is str:
+            try: # from this .py
+                return eval( cls._FocalPlaneCLASS )
+            except: # from the library 
+                exec(f"from .__init__ import {cls._FocalPlaneCLASS}")
+                return eval( cls._FocalPlaneCLASS )
+
         
+        return cls._FocalPlaneCLASS        
 # -------------- #
 #                #
 #  Focal Plane   #
 #                #
 # -------------- #
 class FocalPlane(Image, _Collection_):
-    _CCDCLASS = CCD
+    
     COLLECTION_OF = CCD
-
+    # Family
+    _CCDCLASS = "CCD"
+    
     # Basically a CCD collection
     def __init__(self, ccds=None, ccdids=None,
                      data=None, header=None, **kwargs):
@@ -1508,7 +1686,7 @@ class FocalPlane(Image, _Collection_):
     # =============== #
     @classmethod
     def from_filenames(cls, filenames, as_path=True,
-                           rcids=None, use_dask=True,
+                           rcids=None, use_dask=False,
                            persist=False, **kwargs):
         """ loads the instance from a list of the quadrant files.
 
@@ -1552,7 +1730,7 @@ class FocalPlane(Image, _Collection_):
 
         ccds, filenames = cls._read_filenames(ccdidlist.values, as_path=as_path,
                                                  use_dask=use_dask, persist=persist, **kwargs)
-        ccds = [cls._CCDCLASS.from_filenames(qfiles, qids=[1, 2, 3, 4], as_path=as_path,
+        ccds = [cls._ccdclass.from_filenames(qfiles, qids=[1, 2, 3, 4], as_path=as_path,
                                                  use_dask=use_dask, persist=persist, **kwargs)
                 for qfiles in ccdidlist.values]
             
@@ -1560,7 +1738,7 @@ class FocalPlane(Image, _Collection_):
                    use_dask=use_dask)
 
     @classmethod
-    def from_single_filename(cls, filename, as_path=True, use_dask=True,
+    def from_single_filename(cls, filename, as_path=True, use_dask=False,
                                  persist=False, **kwargs):
         """ given a single quadrant file, this fetchs the missing ones and loads the instance.
 
@@ -1594,7 +1772,7 @@ class FocalPlane(Image, _Collection_):
         """
         import re
         ccdids = range(1, 17)
-        ccds = [cls._CCDCLASS.from_single_filename(re.sub("_c(\d\d)_*", f"_c{i:02d}_", filename),
+        ccds = [cls._ccdclass.from_single_filename(re.sub("_c(\d\d)_*", f"_c{i:02d}_", filename),
                                                    as_path=as_path, use_dask=use_dask,
                                                    persist=persist, **kwargs)
                 for i in ccdids]
@@ -1639,7 +1817,7 @@ class FocalPlane(Image, _Collection_):
 
     def get_quadrant(self, rcid):
         """ get the quadrant (get the ccd and then get its quadrant """
-        ccdid, qid = self.rcid_to_ccdid_qid(rcid)
+        ccdid, qid = rcid_to_ccdid_qid(rcid)
         return self.get_ccd(ccdid).get_quadrant(qid)
 
     def get_quadrantheader(self, rcids="all"):
@@ -1770,19 +1948,6 @@ class FocalPlane(Image, _Collection_):
 
         return mosaic
 
-    # --------- #
-    # CONVERTS  #
-    # --------- #
-    @staticmethod
-    def ccdid_qid_to_rcid(ccdid, qid):
-        """ computes the rcid """
-        return ccdid_qid_to_rcid(ccdid, qid)
-
-    @staticmethod
-    def rcid_to_ccdid_qid(rcid):
-        """ computes the rcid """
-        return rcid_to_ccdid_qid(rcid)
-
     # =============== #
     #  Properties     #
     # =============== #
@@ -1799,6 +1964,11 @@ class FocalPlane(Image, _Collection_):
         is_none = [v is not None for v in self.ccds.values()]
         return getattr(np, logic)(is_none)
 
+    @property
+    def filenames(self):
+        """ list of the filename of the different quadrants constituing the data. """
+        return [q.filename for ccdid, ccd in self.ccds.items() for qid, q in ccd.quadrants.items()]
+    
     @classproperty
     def shape_full(cls):
         """ shape with gap"""
@@ -1818,4 +1988,17 @@ class FocalPlane(Image, _Collection_):
     @classproperty
     def qshape(cls):
         """ """
-        return cls._CCDCLASS.qshape
+        return cls._ccdclass.qshape
+    
+    # family
+    @classproperty
+    def _ccdclass(cls):
+        """ """
+        if type( cls._CCDCLASS ) is str:
+            try: # from this .py
+                return eval( cls._CCDCLASS )
+            except: # from the library 
+                exec(f"from .__init__ import {cls._CCDCLASS}")
+                return eval( cls._CCDCLASS )
+
+        return cls._CCDCLASS

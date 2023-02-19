@@ -1,4 +1,5 @@
 
+import os
 import pandas
 import numpy as np
 import dask
@@ -16,6 +17,11 @@ __all__ = ["ScienceQuadrant", "ScienceCCD", "ScienceFocalPlane"]
 
 
 class ScienceQuadrant(Quadrant, WCSHolder):
+
+    # "family"
+    _CCDCLASS = "ScienceCCD"
+    _FocalPlaneCLASS = "ScienceFocalPlane"
+
     
     BITMASK_KEY = ["tracks", "sexsources", "lowresponsivity", "highresponsivity",
                    "noisy", "ghosts", "spillage", "spikes", "saturated",
@@ -191,19 +197,8 @@ class ScienceQuadrant(Quadrant, WCSHolder):
         raise ValueError(
             f"cannot parse the given system {system}, use xy, radec or uv")
 
-    def get_ccd(self, use_dask=False, **kwargs):
-        """ ScienceCCD object containing this quadrant. """
-        return ScienceCCD.from_single_filename(self.filename,
-                                                      use_dask=use_dask,
-                                                      **kwargs)
-
-    def get_focalplane(self, use_dask=False, **kwargs):
-        """ FocalPlane (64 quadrants making 16 CCDs) containing this quadrant """
-        return ScienceFocalPlane.from_single_filename(self.filename,
-                                                              use_dask=use_dask,
-                                                              **kwargs)
     
-    def get_rawimage(self, use_dask=None, which="quadrant", **kwargs):
+    def get_rawimage(self, use_dask=None, which="quadrant", as_path=False, **kwargs):
         """ get the raw image of the given science quadrant
         
         This uses ztfquery to fetch the raw image path 
@@ -225,10 +220,12 @@ class ScienceQuadrant(Quadrant, WCSHolder):
         
         if which == "quadrant":
             rawimg = raw.RawQuadrant.from_filename(rawfile, qid=self.qid,
-                                                    use_dask=use_dask, **kwargs)
+                                                    use_dask=use_dask,
+                                                    as_path=as_path,**kwargs)
             
         elif which == "ccd":
-            rawimg = raw.RawCCD.from_filename(rawfile, use_dask=use_dask, **kwargs)
+            rawimg = raw.RawCCD.from_filename(rawfile, use_dask=use_dask,
+                                                  as_path=as_path, **kwargs)
             
         else:
             raise ValueError(f"Cannot parse input which {which} (quadrant or ccd implemented)")
@@ -784,10 +781,12 @@ class ScienceQuadrant(Quadrant, WCSHolder):
 
 
 class ScienceCCD(CCD):
-    SHAPE = 3080*2, 3072*2
     
-    _QUADRANTCLASS = ScienceQuadrant
-
+    COLLECTION_OF = ScienceQuadrant
+    # "family" 
+    _QUADRANTCLASS = "ScienceQuadrant"
+    _FocalPlaneCLASS = "ScienceFocalPlane"
+    
     # =============== #
     #  Properties     #
     # =============== #
@@ -800,16 +799,12 @@ class ScienceCCD(CCD):
 
         return self._meta
 
-    @property
-    def filenames(self):
-        """ list of the filename of the different quadrants constituing the data. """
-        return [q.filenames for q in self.quandrants]
-
 
 class ScienceFocalPlane(FocalPlane):
     """ """
-    _CCDCLASS = ScienceCCD
-
+    _CCDCLASS = "ScienceCCD"
+    COLLECTION_OF = ScienceCCD
+    
     def get_files(self, client=None, suffix=["sciimg.fits", "mskimg.fits"], as_dask="futures"):
         """ fetch the files of the focal plane (using ztfquery.io.bulk_get_file) 
 
@@ -842,8 +837,3 @@ class ScienceFocalPlane(FocalPlane):
                                        ).set_index("rcid")
 
         return self._meta
-
-    @property
-    def filenames(self):
-        """ list of the filename of the different quadrants constituing the data. """
-        return [q.filename for ccdid, ccd in self.ccds.items() for qid, q in ccd.quadrants.items()]

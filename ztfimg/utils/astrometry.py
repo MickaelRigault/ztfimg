@@ -62,6 +62,7 @@ class WCSHolder( object ):
         
         if system in ["radec","coords","worlds"]:
             return np.squeeze(self.xy_to_radec(*self.get_centroid(system="xy"), reorder=reorder) )
+        
     # --------- #
     #  Convert  #
     # --------- #
@@ -99,10 +100,10 @@ class WCSHolder( object ):
         return np.asarray(tools.project([ra, dec], self.pointing))*180/np.pi * 3600
     
     # uv -> 
-    def uv_to_xy(self, u, v):
+    def uv_to_xy(self, u, v, reorder=True):
         """ get the x, y ccd position given the tangent plane coordinates u, v """
         ra, dec = self.uv_to_radec(u, v)
-        return self.radec_to_xy(ra, dec)
+        return self.radec_to_xy(ra, dec, reorder=reorder)
     
     def uv_to_radec(self, u, v):
         """ get the ra, dec coordinates given the tangent plane coordinates u, v """
