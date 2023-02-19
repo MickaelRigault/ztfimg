@@ -51,6 +51,7 @@ Documentation
 	     
    notebooks/quickstart
    notebooks/ztfimgdask   
+   notebooks/quadrant_ccd_focalplane
    notebooks/ztfimg_rawccd_rawquadrant
 
 API
