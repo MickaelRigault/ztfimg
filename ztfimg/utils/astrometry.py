@@ -7,7 +7,7 @@ from . import tools
 
 def read_radec(filename, ext=0, as_serie=False):
     """ """
-    ra, dec = WCS.from_filename(filename).get_centroid("radec")
+    ra, dec = WCS.from_filename(filename).get_center("radec")
 
     if as_serie:
         return pandas.Series([ra,dec], index=["ra","dec"])
@@ -51,17 +51,17 @@ class WCSHolder( object ):
     # --------- #
     #  GETTER   #
     # --------- #
-    def get_centroid(self, system="xy", reorder=True):
+    def get_center(self, system="xy", reorder=True):
         """ x and y or RA, Dec coordinates of the centroid. (shape[::-1]) """
         shape = np.asarray(self.wcs.pixel_shape)
         if system in ["xy","pixel","pixels","pxl"]:
             return (shape[::-1]+1)/2
 
         if system in ["uv","tangent"]:
-            return np.squeeze(self.xy_to_uv(*self.get_centroid(system="xy"), reorder=reorder) )
+            return np.squeeze(self.xy_to_uv(*self.get_center(system="xy"), reorder=reorder) )
         
         if system in ["radec","coords","worlds"]:
-            return np.squeeze(self.xy_to_radec(*self.get_centroid(system="xy"), reorder=reorder) )
+            return np.squeeze(self.xy_to_radec(*self.get_center(system="xy"), reorder=reorder) )
         
     # --------- #
     #  Convert  #
@@ -69,8 +69,8 @@ class WCSHolder( object ):
     def xy_to_radec(self, x, y, reorder=True):
         """ get sky ra, dec [in deg] coordinates given the (x,y) ccd positions  """
         if reorder and hasattr(self, "shape"):
-            x = self.shape[1] - x
-            y = self.shape[0] - y
+            x = self.shape[1] -x -1 # starts at 0
+            y = self.shape[0] -y -1 # starts at 0
             
         return self.wcs.all_pix2world(np.asarray([np.atleast_1d(x),
                                                   np.atleast_1d(y)]).T,
@@ -90,8 +90,8 @@ class WCSHolder( object ):
                                                   np.atleast_1d(dec)]).T,
                                       0).T
         if reorder and hasattr(self, "shape"):
-            x = self.shape[1]-x
-            y = self.shape[0]-y
+            x = self.shape[1] -x -1 # starts at 0
+            y = self.shape[0] -y -1 # starts at 0
 
         return x, y
     

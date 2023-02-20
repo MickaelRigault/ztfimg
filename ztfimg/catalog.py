@@ -5,12 +5,9 @@ import pandas
 import numpy as np
 
 from astropy import coordinates, units
-from ztfquery.io import LOCALSOURCE
-CALIBRATOR_PATH = os.path.join(LOCALSOURCE, "calibrator")
-
-
 
 __all__ = ["get_field_catalog",
+           "download_vizier_catalog",
            "get_isolated",
            "match_and_merge"]
 
@@ -18,13 +15,13 @@ __all__ = ["get_field_catalog",
 #                #
 #  Access        #
 #                #
-# -------------- # 
-def get_field_catalog(which, fieldid, rcid=None, ccdid=None, **kwargs):
+# -------------- #
+def get_field_catalog(name, fieldid, rcid=None, ccdid=None, **kwargs):
     """ get a catalog stored a field catalog
     
     Parameters
     ----------
-    which: str
+    name: str
         name of the catalog
         - ps1
         
@@ -44,15 +41,13 @@ def get_field_catalog(which, fieldid, rcid=None, ccdid=None, **kwargs):
     DataFrame
         catalog 
     """
-
-
-    
+    from ztfquery.io import LOCALSOURCE    
     # Tests if the field catalog exists.
-    if which not in ["ps1"]:
-        raise NotImplementedError(f"{which} field catalog is not implemented.")
+    if name not in ["ps1"]:
+        raise NotImplementedError(f"{name} field catalog is not implemented.")
         
     # directory where the catalogs are stored
-    dircat = os.path.join(CALIBRATOR_PATH, which)
+    dircat = os.path.join(LOCALSOURCE, "calibrator", name)
     
     # RCID
     # is rcid given
@@ -73,8 +68,8 @@ def get_field_catalog(which, fieldid, rcid=None, ccdid=None, **kwargs):
     cats = []
     for rcid_ in rcid: # usually a few
         for fieldid_ in fieldid: # usually a few
-            catfile_ = os.path.join( dircat, f"{rcid_:02d}", 
-                                    f"{which}_rc{rcid_:02d}_{fieldid_:06d}.parquet")
+            catfile_ = os.path.join(dircat, f"{rcid_:02d}", 
+                                    f"{name}_rc{rcid_:02d}_{fieldid_:06d}.parquet")
             cat = pandas.read_parquet(catfile_, **kwargs)
             cat["fieldid"] = fieldid_
             cat["rcid"] = rcid_
@@ -83,15 +78,80 @@ def get_field_catalog(which, fieldid, rcid=None, ccdid=None, **kwargs):
     # get the dataframes
     return pandas.concat(cats)
 
+def download_vizier_catalog(name,
+                            radec, radius=1, r_unit="deg",
+                            columns=None, column_filters={},
+                            use_tap=False,
+                            rakey="RA_ICRS", deckey="DE_ICRS",
+                            **kwargs):
+    """ download data from the vizier system
 
+    Parameters
+    ----------
+    name: string
+        name of a vizier calalog.
+    """
 
+    # name cleaning    
+    NAMES_SHORTCUT = {"gaia": "gaiadr3",
+                      "panstarrs":"ps1"}
+        
+    VIZIERCAT = {"gaiadr3": "I/350/gaiaedr3",
+                 "ps1": "II/349/ps1"}
+                     
+    name = NAMES_SHORTCUT.get(name, name) # shortcut
+    viziername = VIZIERCAT.get(name, name) # convert to vizier
 
+    # imports
+    from astroquery import vizier
+    from astropy import coordinates, units
+
+    # metadata for vizier
+    coord = coordinates.SkyCoord(*radec, unit=(units.deg,units.deg))
+    angle = coordinates.Angle(radius, r_unit)
+
+    prop = dict(column_filters=column_filters, row_limit=-1)
+    if columns is not None:
+        prop["columns"] = columns
+    v = vizier.Vizier( **{**prop, **kwargs} )
+
+    # cache is False is necessary, especially when running from a computing center
+    cattable = v.query_region(coord, radius=angle, catalog=viziername, cache=False)
+
+    # Check output
+    if cattable is None:
+        raise IOError(f"cannot query the region {radec} of {radius}{r_unit} for {viziername}")
+
+    # Worked. 
+    cattable = cattable.values()
+    if len(cattable) == 0: # but empty
+        raise IOError(f"querying the region {radec} of {radius}{r_unit} for {viziername} returns 0 entries")
+
+    # Good to go
+    cattable = cattable[0]
+    catdata = cattable.to_pandas() # pandas.DataFrame
+
+    # RA, Dec renaming for package interaction purposes
+    if rakey in catdata:
+        catdata["ra"] = catdata[rakey]
+    else:
+        warning.warn(f"no {rakey} column in cat. ra columns set to NaN")
+        catdata["ra"] = np.NaN
+    
+    if deckey in catdata:
+        catdata["dec"] = catdata[deckey]
+    else:
+        warning.warn(f"no {deckey} column in cat. dec columns set to NaN")
+        catdata["dec"] = np.NaN
+
+    # out
+    return catdata
+    
 # -------------- #
 #                #
 #  Application   #
 #                #
 # -------------- # 
-
 def get_isolated(catdf, catdf_ref=None, xkey="ra", ykey="dec", keyunit="deg", 
                 seplimit=10, sepunits="arcsec"):
     """ """

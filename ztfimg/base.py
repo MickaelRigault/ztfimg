@@ -628,47 +628,6 @@ class Image( object ):
             return catdf.reset_index().join(fdata)
 
         return fdata
-
-    def get_catalog(self, which="ps1", fieldcat=False, **kwargs):
-        """ get a catalog for the image
-        
-        Parameters
-        ----------
-        which: str
-            name of a the catalog.
-
-        fieldcat: bool
-            is the catalog you are looking for a "field catalog" ?
-            (see catalog.py)
-
-        Returns
-        -------
-        DataFrame
-            catalog dataframe. The image x, y coordinates columns will be added
-            using the radec_to_xy method. If not available, NaN will be set.
-            
-        """
-        if fieldcat:
-            from .catalog import get_field_catalog
-            cat = get_field_catalog(which,
-                                    fieldid=self.get_value("fieldid"),
-                                    rcid=self.get_value("rcid", None), 
-                                    ccdid=self.get_value("ccdid", None), # ignored if rcid is not None
-                                    **kwargs)
-        else:
-            raise NotImplementedError("Only fieldcat have been implemented.")
-
-        # Adding x, y coordinates
-        # convertion available ?
-        if hasattr(self, "radec_to_xy"):
-            x, y = self.radec_to_xy(*cat[["ra","dec"]].values.T)
-        else:
-            x, y = np.NaN, np.NaN
-
-        cat["x"] = x
-        cat["y"] = y
-        
-        return cat
         
     # -------- #
     # PLOTTER  #
@@ -997,7 +956,82 @@ class Quadrant(Image):
             data = data[::-1,::-1]
             
         return data
+
+    def get_catalog(self, name, fieldcat=False, radius=0.7, 
+                        reorder=True, in_fov=False, **kwargs):
+        """ get a catalog for the image
+        
+        Parameters
+        ----------
+        name: str
+            name of a the catalog.
+            - ps1 # available for fieldcat
+
+        fieldcat: bool
+            is the catalog you are looking for a "field catalog" ?
+            (see catalog.py). See list of available names in 
+            name parameter doc.
+
+        radius: float
+            = ignored if fieldcat is True =
+            radius [in degree] of the cone search 
+            centered on the quadrant position. 
+            radius=0.7 is slightly larger that half a diagonal.
+
+        reorder: bool
+            when creating the x and y columns given the 
+            catalog ra, dec, should this assume x and y reordered
+            position. 
+            reorder=True matches data from get_data() but not self.data. 
+            (leave to True if unsure).
+        
+        in_fov: bool
+            should entries outside the image footprint be droped ?
+            (ignored if x and y column setting fails).
+            
+        **kwargs goes to get_field_catalog or download_vizier_catalog.
+        
+        Returns
+        -------
+        DataFrame
+            catalog dataframe. The image x, y coordinates columns will be added
+            using the radec_to_xy method. If not available, NaN will be set.
+            
+        """
+        if fieldcat:
+            from .catalog import get_field_catalog
+            cat = get_field_catalog(name,
+                                    fieldid=self.get_value("fieldid"),
+                                    rcid=self.get_value("rcid", None), 
+                                    ccdid=self.get_value("ccdid", None), # ignored if rcid is not None
+                                    **kwargs)
+        else:
+            from .catalog import download_vizier_catalog
+            cat = download_vizier_catalog(name, self.get_center("radec"),
+                                            radius=radius, r_unit='deg',
+                                            **kwargs)
+
+        # Adding x, y coordinates
+        # convertion available ?
+        if hasattr(self, "radec_to_xy") and "ra" in cat and "dec" in cat:
+            x, y = self.radec_to_xy(*cat[["ra","dec"]].values.T, reorder=reorder)
+        else:
+            x, y = np.NaN, np.NaN
+            in_fov = False
+            
+        cat["x"] = x
+        cat["y"] = y
+        
+        if in_fov:
+            cat = cat[cat["x"].between(0, self.shape[-1]) &
+                      cat["y"].between(0, self.shape[0]) ]
+        
+        return cat
+
     
+    # =============== #
+    #  Properties     #
+    # =============== #    
     @property
     def qid(self):
         """ quadrant id (from header) """

@@ -162,42 +162,8 @@ class ScienceQuadrant(Quadrant, WCSHolder):
         super().load_wcs(header)
 
     # -------- #
-    #  CORE    #
-    # -------- #
-
-    # -------- #
     #  GETTER  #
     # -------- #
-    def get_center(self, system="xy"):
-        """ x and y or RA, Dec coordinates of the centroid. (shape[::-1]) 
-
-        Parameters
-        ----------
-        system: str
-            system you want to get the center:
-            - 'xy': ccd pixel coordinates
-            - 'uv': projecting plane coordinates (center on focal plane center)
-            - 'radec': RA, Dec sky coordinates.
-
-        Returns
-        -------
-        (float, float)
-            requested center.
-            
-        """
-        if system in ["xy", "pixel", "pixels", "pxl"]:
-            return (np.asarray(self.shape[::-1])+1)/2
-
-        if system in ["uv", "tangent"]:
-            return np.squeeze(self.xy_to_uv(*self.get_center(system="xy")))
-
-        if system in ["radec", "coords", "worlds"]:
-            return np.squeeze(self.xy_to_radec(*self.get_center(system="xy")))
-
-        raise ValueError(
-            f"cannot parse the given system {system}, use xy, radec or uv")
-
-    
     def get_rawimage(self, use_dask=None, which="quadrant", as_path=False, **kwargs):
         """ get the raw image of the given science quadrant
         
@@ -704,6 +670,7 @@ class ScienceQuadrant(Quadrant, WCSHolder):
 
     def _setxy_to_cat_(self, cat, drop_outside=True, pixelbuffer=10):
         """ """
+        warnings.warn("_setxy_to_cat_ is deprecated")
         x, y = self.radec_to_xy(cat["ra"], cat["dec"])
         u, v = self.radec_to_uv(cat["ra"], cat["dec"])
         cat["x"] = x

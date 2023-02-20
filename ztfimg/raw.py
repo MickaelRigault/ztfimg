@@ -13,7 +13,7 @@ from .utils.tools import fit_polynome, rebin_arr, parse_vmin_vmax
 from .base import Quadrant, CCD, FocalPlane
 from .io import get_nonlinearity_table
 
-NONLINEARITY_TABLE= get_nonlinearity_table()
+NONLINEARITY_TABLE = get_nonlinearity_table()
 
 __all__ = ["RawQuadrant", "RawCCD", "RawFocalPlane"]
 
