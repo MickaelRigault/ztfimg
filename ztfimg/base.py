@@ -1598,6 +1598,41 @@ class CCD( Image, _Collection_):
             
         return data_
 
+
+    def get_catalog(self, name, fieldcat=False, in_fov=False, drop_duplicate=True,
+                        sourcekey="Source", **kwargs):
+        """ get a catalog for the image.
+
+        This method calls down to the individual quadrant's get_catalog
+        and merge them while updating their x,y position to make x,y 
+        ccd pixels and not quadrant pixels.
+
+        """
+        cats = self._call_down("get_catalog", True,
+                                name, fieldcat=fieldcat,
+                                in_fov=in_fov, **kwargs)
+        
+        # updates the quadrants. recall:
+        # q2 | q1
+        # --------
+        # q3 | q4
+        cats[0]["x"] += self.qshape[1]
+        cats[3]["x"] += self.qshape[1]
+        cats[0]["y"] += self.qshape[0]
+        cats[1]["y"] += self.qshape[0]
+        # -> merging
+        cat = pandas.concat(cats)
+        
+        if drop_duplicate:
+            if sourcekey not in cat:
+                warnings.warn(f"cannot drop duplicated based on {sourcekey}: not in catalog")
+            else:
+                cat = cat.groupby(sourcekey).first().reset_index()
+        elif not in_fov:
+            warnings("no duplicate drop and in_fov=False, you maye have multiple entries of the same source.")
+
+        return cat
+        
     # - internal get
     def _quadrants_to_ccd(self, rebin=None, **kwargs):
         """ combine the ccd data into the quadrants"""
