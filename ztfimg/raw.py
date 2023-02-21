@@ -321,14 +321,14 @@ class RawQuadrant( Quadrant ):
         
     def get_overscan(self, which="data", clipping=True,
                          userange=[5,25], stackstat="nanmedian",
-                         modeldegree=3, specaxis=1):
+                         modeldegree=3, specaxis=1,
+                         corr_overscan=False, corr_nl=False):
         """ 
         
         Parameters
         ----------
         which: [string] 
             could be:
-            
               - 'raw': as stored
               - 'data': raw within userange 
               - 'spec': vertical or horizontal profile of the overscan
@@ -353,6 +353,16 @@ class RawQuadrant( Quadrant ):
         userange: [2d-array] 
             start and end of the raw overscan to be used.
                         
+        corr_overscan: bool
+            = only if which is raw or data = 
+            Should the data be corrected for overscan
+            (if both corr_overscan and corr_nl are true, 
+            nl is applied first)
+
+        corr_nl: bool
+            = only if which is raw or data = 
+            Should data be corrected for non-linearity
+
         Returns
         -------
         1 or 2d array (see which)
@@ -369,16 +379,28 @@ class RawQuadrant( Quadrant ):
         except:
             from scipy.stats import median_absolute_deviation as nmad # scipy<1.9
             
-        
-        # = Raw as given
-        if which == "raw" or (which=="data" and userange is None):
-            return self.overscan
-        
-        # = Raw but cleaned
-        if which == "data":
-            data = self.overscan[:, userange[0]:userange[1]]                
+        if which=="data" and userange is None:
+            which = "raw"
+
+        # raw (or data, that is cleaned raw)            
+        if which in ["raw", "data"]:
+            data = self.overscan
+            if which == "data":
+                data = data[:, userange[0]:userange[1]]
+                
+            # correct for non linearity
+            if corr_nl:
+                a, b = self.get_nonlinearity_corr()
+                data /= (a*data**2 + b*data + 1)
+                
+            # correct for overscan model
+            if corr_overscan:
+                os_model = self.get_overscan(which="model")
+                data -= os_model[:,None]            
+                
             return data
 
+        # Spectrum or Model
         if which == "spec":
             data = self.get_overscan(which="data", userange=userange)
             func_to_apply = getattr(np if not self._use_dask else da, stackstat)
@@ -406,11 +428,14 @@ class RawQuadrant( Quadrant ):
         raise ValueError(f'which should be "raw", "data", "spec", "model", {which} given')    
 
 
-    def get_lastdata_firstoverscan(self, **kwargs):
+    def get_lastdata_firstoverscan(self, n=1, corr_overscan=False, corr_nl=False, **kwargs):
         """ get the last data and the first overscan columns
         
         Parameters
         ----------
+        n: int
+           n-last and n-first
+
         **kwargs goes to get_data
 
         Returns
@@ -419,21 +444,23 @@ class RawQuadrant( Quadrant ):
             (2, n-row) data (last_data, first_overscan)
         """
         # for reorder to make sure they are on the "normal" way.
-        data = self.get_data(reorder=True, **kwargs)
-        overscan = self.get_overscan("raw")
+        data = self.get_data(reorder=True, corr_overscan=corr_overscan, corr_nl=corr_nl,
+                            **kwargs)
+        overscan = self.get_overscan("raw", corr_overscan=corr_overscan, corr_nl=corr_nl)
         # reminder
         # q2 | q1
         # -------
         # q3 | q4
         
         if self.qid in [1,4]: # top-right, bottom-righ
-            last_data = data[:,0] # 0 = leftmost part of the ccd
-            first_overscan = overscan[:,0]
+            last_data = data[:,:n] # 0 = leftmost part of the ccd
+            first_overscan = overscan[:,:n]
         else: # top-left, bottom-left
-            last_data = data[:,-1] # rightmost part of the ccd
-            first_overscan = overscan[:,0]
+            # [:,::-1] means first, second, etc.
+            last_data = data[:,-n:][:,::-1] # rightmost part of the ccd
+            first_overscan = overscan[:,-n:][:,::-1]
             
-        return last_data, first_overscan
+        return last_data.squeeze(), first_overscan.squeeze()
 
     
     def get_sciimage(self, use_dask=None, **kwargs):
