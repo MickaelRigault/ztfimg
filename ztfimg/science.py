@@ -456,13 +456,10 @@ class ScienceQuadrant(Quadrant, WCSHolder):
                      data=None,
                      bkgann=None, subpix=0,
                      system="xy",
-                     which="dataclean",
-                     dataprop={},
-                     mask=None, maskprop={},
-                     err=None, noiseprop={},
+                     mask=None, err=None,
                      as_dataframe=False,
                      **kwargs):
-        """
+        """ get the aperture (circular) photometry.
 
 
         Parameters
@@ -477,7 +474,9 @@ class ScienceQuadrant(Quadrant, WCSHolder):
 
         bkgann: 2d-array
             Length 2 tuple giving the inner and outer radius of a “background annulus”.
-            If supplied, the background is estimated by averaging unmasked pixels in this annulus.
+            If supplied, the background is estimated by averaging unmasked pixels in this annulus. 
+            If supplied, the inner and outer radii obey numpy broadcasting rules along with ``x``,
+            ``y`` and ``r``.
 
         subpix: int
             Subpixel sampling factor. If 0, exact overlap is calculated. 5 is acceptable.
@@ -494,21 +493,11 @@ class ScienceQuadrant(Quadrant, WCSHolder):
             using ``data = self.get_data(**dataprop)``
 
         mask: 2d-array
-            mask image. ``mask=self.get_mask(**maskprop)`` used if None
-            
-        maskprop: dict
-            = ignored if mask is given =
-            kwargs for the get_mask method
-            using ``mask = self.get_mask(**maskprop)``
+            mask image. ``mask=self.get_mask()`` used if None
         
         err: 2d-array
-            error image. ``mask=self.get_noise(**noiseprop)`` used if None
+            error image. ``mask=self.get_noise()`` used if None
         
-        noiseprop: dict
-            = ignored if mask is given =
-            kwargs for the get_noise method
-            using ``mask = self.get_noise(**noiseprop)``
-
         as_dataframe: [bool]
             set the returned format.
             If as_dataFrame=True, this will be a dataframe with
@@ -519,8 +508,9 @@ class ScienceQuadrant(Quadrant, WCSHolder):
         
         Returns
         -------
-        2d-array or `pandas.DataFrame`
-           (see unit: (counts, dcounts) | (flux, dflux) | (mag, dmag)) + flag (see get_flag option)
+        (3, n) array or `pandas.DataFrame`
+            array: with n the number of radius.
+            
         """
 
         if system == "radec":
@@ -531,19 +521,21 @@ class ScienceQuadrant(Quadrant, WCSHolder):
             raise ValueError(
                 f"system must be xy, radec or uv ;  {system} given")
 
-        if err is None:
-            err = self.get_noise(**noiseprop)
-
-        if mask is None:
-            mask = self.get_mask(**maskprop)
-
+        # Data
         if data is None:
-            data = self.get_data(**dataprop)
+            data = self.get_data()
+            
+        # Err
+        if err is None:
+            err = self.get_noise()
+            
+        # Mask
+        if mask is None:
+            mask = self.get_mask()
 
         # calling back base.get_aperture()
         return super().get_aperture(x0, y0, radius,
-                                    data=data,
-                                    err=err,
+                                    data=data, err=err,
                                     bkgann=bkgann, subpix=subpix,
                                     as_dataframe=as_dataframe,
                                     **kwargs)

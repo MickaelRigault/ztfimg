@@ -1,6 +1,7 @@
 """ Tools to match catalogs """
 
 import os
+import warnings
 import pandas
 import numpy as np
 
@@ -82,7 +83,7 @@ def download_vizier_catalog(name,
                             radec, radius=1, r_unit="deg",
                             columns=None, column_filters={},
                             use_tap=False,
-                            rakey="RA_ICRS", deckey="DE_ICRS",
+                            rakey="RAJ2000", deckey="DEJ2000",
                             **kwargs):
     """ download data from the vizier system
 
@@ -90,6 +91,42 @@ def download_vizier_catalog(name,
     ----------
     name: string
         name of a vizier calalog.
+        known short-names:
+        - 'gaia' or 'gaiadr3' -> I/350/gaiaedr3
+        - 'ps1' -> II/349/ps1
+
+    radec: [float, float]
+        center cone search coordinates (RA, Dec ; in degree).
+
+    radius: float
+        radius of the cone search
+
+    r_unit: string
+        unit of the cone search radius. (deg, arcsec etc).
+
+    columns: list
+        If provided, this will query this specific columns. 
+        (see detailed doc in astroquery.vizier.Vizier)
+        
+    column_filters: dict
+        provide filtering of the query;
+        (see detailed doc in astroquery.vizier.Vizier)
+
+    use_tap: bool
+        = Not yet available =
+
+    rakey: str
+        column name of the catalog corresponding to the R.A.
+
+    deckey: str
+        column name of the catalog corresponding to the Declination
+
+    **kwargs goes to astroquery.vizier.Vizier
+        
+    Returns
+    -------
+    DataFrame
+        the catalog
     """
 
     # name cleaning    
@@ -135,13 +172,13 @@ def download_vizier_catalog(name,
     if rakey in catdata:
         catdata["ra"] = catdata[rakey]
     else:
-        warning.warn(f"no {rakey} column in cat. ra columns set to NaN")
+        warnings.warn(f"no {rakey} column in cat. ra columns set to NaN")
         catdata["ra"] = np.NaN
     
     if deckey in catdata:
         catdata["dec"] = catdata[deckey]
     else:
-        warning.warn(f"no {deckey} column in cat. dec columns set to NaN")
+        warnings.warn(f"no {deckey} column in cat. dec columns set to NaN")
         catdata["dec"] = np.NaN
 
     # out

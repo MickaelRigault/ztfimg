@@ -46,13 +46,14 @@ Documentation
 ===============
     
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 1
    :caption: Getting Starting
 	     
    notebooks/quickstart
    notebooks/ztfimgdask   
    notebooks/quadrant_ccd_focalplane
-   notebooks/catalogs   
+   notebooks/catalogs
+   notebooks/aperture   
    notebooks/ztfimg_rawccd_rawquadrant
 
 API

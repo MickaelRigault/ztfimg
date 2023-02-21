@@ -395,7 +395,7 @@ class Image( object ):
         return self.header.get(key_, default)
 
     def get_aperture(self, x, y, radius,
-                     data=None, dataprop={},
+                     data=None,
                      bkgann=None, subpix=0,
                      err=None, mask=None,
                      as_dataframe=True,
@@ -413,13 +413,8 @@ class Image( object ):
             
         data: 2d-array, None
             if you want to apply the aperture photometry on this specific image, provide it.
-            otherwhise, ``data = self.get_data(**dataprop)`` is used
+            otherwhise, ``data = self.get_data()`` is used
             
-        dataprop: dict
-            = ignored if data is given =
-            kwargs used to get the data. 
-            ``data = self.get_data(**dataprop)``
-
         bkgann: 2d-array, None
             inner and outer radius of a “background annulus”.
             If supplied, the background is estimated by averaging 
@@ -463,7 +458,7 @@ class Image( object ):
          
         """
         if data is None:
-            data = self.get_data(**dataprop)
+            data = self.get_data()
             
         return self._get_aperture(data, x, y, radius,
                                   bkgann=bkgann, subpix=subpix,
@@ -476,7 +471,6 @@ class Image( object ):
                      x, y, radius,
                      bkgann=None, subpix=0,
                      use_dask=None,
-                     dataprop={},
                      err=None, mask=None,
                      as_dataframe=False,
                      **kwargs):
@@ -495,15 +489,12 @@ class Image( object ):
         radius: float, list
             size (radius) of the aperture. This could be a list of radius.
             
-        dataprop: dict
-            = ignored if data is given =
-            kwargs used to get the data. 
-            ``data = self.get_data(**dataprop)``
-
         bkgann: 2d-array, None
             inner and outer radius of a “background annulus”.
             If supplied, the background is estimated by averaging 
-            unmasked pixels in this annulus.
+            unmasked pixels in this annulus. If supplied, the inner
+            and outer radii obey numpy broadcasting rules along with ``x``,
+            ``y`` and ``r``.
 
         subpix: int
             Subpixel sampling factor. 0 is the exact overlap calculation ; 5 is acceptable.
@@ -522,19 +513,20 @@ class Image( object ):
 
         Returns
         -------
-        2d-array or dataframe
-           flux, error and flag for each coordinates and radius.
+        (3, n) array or `pandas.DataFrame`
+            array: with n the number of radius.
         """
 
         from .utils.tools import get_aperture
 
         if use_dask is None:
-            use_dask = "dask" in str(type(data))
+            use_dask = "dask" in str( type(data) )
 
         apdata = get_aperture(data,
                               x, y, radius=radius,
                               err=err, mask=mask, bkgann=bkgann,
                               use_dask=use_dask, **kwargs)
+        
         if not as_dataframe:
             return apdata
 
@@ -551,83 +543,6 @@ class Image( object ):
                                       columns=dic.keys())
 
         return pandas.DataFrame(dic)
-                
-    def getcat_aperture(self, catdf, radius,
-                            data=None, dataprop={},
-                            xykeys=["x", "y"], join=True,
-                            as_dataframe=True,
-                            **kwargs):
-        """ measures the aperture (using get_aperture) using a catalog dataframe as input
-
-        # Careful, the indexing is reset (becomes index column) when joined. #
-
-        Parameters
-        ----------
-        catdf: pandas.DataFrame
-            dataframe containing, at minimum the x and y centroid positions
-
-        radius: float, list
-            size (radius) of the aperture. This could be a list of radius.
-
-        data: 2d-array, None
-            if you want to apply the aperture photometry on this specific image, provide it.
-            otherwhise, ``data = self.get_data(**dataprop)`` is used
-
-        dataprop: dict
-            = ignored if data is given =
-            kwargs used to get the data. 
-            ``data = self.get_data(**dataprop)``
-
-        xykeys: list of two str
-            name of the x and y columns in the input dataframe
-
-        join: bool, optional
-            shall the returned dataframe be a new dataframe joined
-            to the input one, or simply the aperture dataframe?
-
-        as_dataframe: bool
-            return format.
-            If As DataFrame, this will be a dataframe with
-            3xn-radius columns (f_0...f_i, f_0_e..f_i_e, f_0_f...f_i_f)
-            standing for fluxes, errors, flags.
-
-        **kwargs goes to self.get_aperture
-
-        Returns
-        -------
-        2d-array or dataframe
-           flux, error and flag for each coordinates and radius.
-
-
-        See also
-        --------
-        get_aperture: run the aperture photometry given list of pixel coordinates
-
-        
-        """
-        if data is None:
-            data = self.get_data(**dataprop)
-            
-        return self._getcat_aperture(catdf, data, radius,
-                                     xykeys=["x", "y"],
-                                     join=join, **kwargs)
-
-    @classmethod
-    def _getcat_aperture(cls, catdf, data, radius,
-                         xykeys=["x", "y"],
-                         join=True, **kwargs):
-        """ """
-        if join:
-            kwargs["as_dataframe"] = True
-            
-        x, y = catdf[xykeys].values.T
-        fdata = cls._get_aperture(data, x, y, radius,
-                                  **kwargs)
-        if join:
-            # the index and drop is because dask.DataFrame do not behave as pandas.DataFrame
-            return catdf.reset_index().join(fdata)
-
-        return fdata
         
     # -------- #
     # PLOTTER  #
@@ -635,7 +550,7 @@ class Image( object ):
     def show(self, ax=None, colorbar=True, cax=None, apply=None,
                  data=None,
                  vmin="1", vmax="99",
-                 rebin=None, dataprop={},
+                 rebin=None,
                  savefile=None,
                  dpi=150,  **kwargs):
         """ Show the image data (imshow)
@@ -659,7 +574,7 @@ class Image( object ):
             
         data: 2d-array, None
             if you want to plot this specific image, provide it.
-            otherwhise, ``data = self.get_data(rebin=rebin, **dataprop)`` is shown.
+            otherwhise, ``data = self.get_data(rebin=rebin)`` is shown.
 
         vmin, vmax: str, float
             minimum and maximum value for the colormap.
@@ -670,10 +585,6 @@ class Image( object ):
             by how much should the data be rebinned when accessed ?
             (see details in get_data())
             
-        dataprop: dict
-            used as kwargs of get_data() when accessing the data 
-            to be shown.
-
         savefile: str, None
             if you want to save the plot, provide here the path for that.
         
@@ -698,7 +609,7 @@ class Image( object ):
             fig = ax.figure
 
         if data is None:
-            data = self.get_data(rebin=rebin, **dataprop)
+            data = self.get_data(rebin=rebin)
             
         if "dask" in str(type(data)):
             data = data.compute()
