@@ -418,14 +418,20 @@ class RawQuadrant( Quadrant ):
         list 
             (2, n-row) data (last_data, first_overscan)
         """
-        data = self.get_data(**kwargs)
+        # for reorder to make sure they are on the "normal" way.
+        data = self.get_data(reorder=True, **kwargs)
         overscan = self.get_overscan("raw")
-        if self.qid in [1,4]:
-            last_data = data[:,-1]
+        # reminder
+        # q2 | q1
+        # -------
+        # q3 | q4
+        
+        if self.qid in [1,4]: # top-right, bottom-righ
+            last_data = data[:,0] # 0 = leftmost part of the ccd
             first_overscan = overscan[:,0]
-        else:
-            last_data = data[:,0]
-            first_overscan = overscan[:,-1]
+        else: # top-left, bottom-left
+            last_data = data[:,-1] # rightmost part of the ccd
+            first_overscan = overscan[:,0]
             
         return last_data, first_overscan
 
