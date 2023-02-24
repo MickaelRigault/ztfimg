@@ -407,6 +407,7 @@ class Image( object ):
         x, y: array
             coordinates of the centroid for the apertures.
             x and y are image pixel coordinates.
+            numpy or dask array.
 
         radius: float, list
             size (radius) of the aperture. This could be a list of radius.
@@ -459,7 +460,8 @@ class Image( object ):
         """
         if data is None:
             data = self.get_data()
-            
+
+        radius = np.atleast_1d(radius) # float->array for dasked images.
         return self._get_aperture(data, x, y, radius,
                                   bkgann=bkgann, subpix=subpix,
                                   err=err, mask=mask,
@@ -869,7 +871,8 @@ class Quadrant(Image):
         return data
 
     def get_catalog(self, name, fieldcat=False, radius=0.7, 
-                        reorder=True, in_fov=False, **kwargs):
+                        reorder=True, in_fov=False,
+                        use_dask=None, **kwargs):
         """ get a catalog for the image
         
         Parameters
@@ -899,6 +902,10 @@ class Quadrant(Image):
         in_fov: bool
             should entries outside the image footprint be droped ?
             (ignored if x and y column setting fails).
+
+        use_dask: bool
+            should this return a dask.dataframe for the catalog ?
+            If None, this will use self.use_dask.
             
         **kwargs goes to get_field_catalog or download_vizier_catalog.
         
@@ -909,25 +916,42 @@ class Quadrant(Image):
             using the radec_to_xy method. If not available, NaN will be set.
             
         """
+        if use_dask is None:
+            use_dask = self.use_dask
+        
         if fieldcat:
             from .catalog import get_field_catalog
             cat = get_field_catalog(name,
                                     fieldid=self.get_value("fieldid"),
                                     rcid=self.get_value("rcid", None), 
                                     ccdid=self.get_value("ccdid", None), # ignored if rcid is not None
+                                    use_dask=use_dask,
                                     **kwargs)
         else:
             from .catalog import download_vizier_catalog
             cat = download_vizier_catalog(name, self.get_center("radec"),
                                             radius=radius, r_unit='deg',
+                                            use_dask=use_dask,
                                             **kwargs)
 
+        # is catalog dasked ?
+        dasked_cat = "dask" in str( type(cat) )
+        
         # Adding x, y coordinates
         # convertion available ?
         if hasattr(self, "radec_to_xy") and "ra" in cat and "dec" in cat:
-            x, y = self.radec_to_xy(*cat[["ra","dec"]].values.T, reorder=reorder)
+            if dasked_cat: # dasked catalog
+                x_y = dask.delayed(self.radec_to_xy)(*cat[["ra","dec"]].values.T, reorder=reorder)
+                x = da.from_delayed(x_y[0], shape=(cat["ra"].values.size,), dtype="float32" )
+                y = da.from_delayed(x_y[1], shape=(cat["ra"].values.size,), dtype="float32" )
+            else:
+                x, y = self.radec_to_xy(*cat[["ra","dec"]].values.T, reorder=reorder)
         else:
-            x, y = np.NaN, np.NaN
+            if dasked_cat:
+                x, y = da.NaN, da.NaN
+            else:
+                x, y = np.NaN, np.NaN
+                
             in_fov = False
             
         cat["x"] = x
@@ -1511,7 +1535,7 @@ class CCD( Image, _Collection_):
 
 
     def get_catalog(self, name, fieldcat=False, in_fov=False, drop_duplicate=True,
-                        sourcekey="Source", **kwargs):
+                        sourcekey="Source", use_dask=None, **kwargs):
         """ get a catalog for the image.
 
         This method calls down to the individual quadrant's get_catalog
@@ -1521,7 +1545,8 @@ class CCD( Image, _Collection_):
         """
         cats = self._call_down("get_catalog", True,
                                 name, fieldcat=fieldcat,
-                                in_fov=in_fov, **kwargs)
+                                in_fov=in_fov, use_dask=use_dask,
+                                **kwargs)
         
         # updates the quadrants. recall:
         # q2 | q1

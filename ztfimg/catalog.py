@@ -17,7 +17,7 @@ __all__ = ["get_field_catalog",
 #  Access        #
 #                #
 # -------------- #
-def get_field_catalog(name, fieldid, rcid=None, ccdid=None, **kwargs):
+def get_field_catalog(name, fieldid, rcid=None, ccdid=None, use_dask=False, columns=None, **kwargs):
     """ get a catalog stored a field catalog
     
     Parameters
@@ -37,14 +37,28 @@ def get_field_catalog(name, fieldid, rcid=None, ccdid=None, **kwargs):
         id of the ccd (1->16)
         = ignored if rcid is not None =
         
+    use_dask: bool
+        should this return a dask dataframe ? 
+        
     Returns
     -------
     DataFrame
-        catalog 
+        catalog (pandas or dask, see use_dask)
     """
+    # defines dpandas
+    if use_dask:
+        if columns is None:
+            columns = ['ra', 'dec', 'gmag', 'e_gmag', 'rmag', 'e_rmag',
+                       'imag', 'e_imag', 'zmag', 'e_zmag']
+        import dask.dataframe as dpandas
+        
+    else:
+        dpandas = pandas
+
+    # Location of field catalogs
     from ztfquery.io import LOCALSOURCE    
-    # Tests if the field catalog exists.
-    if name not in ["ps1"]:
+
+    if name not in ["ps1"]: # Tests if fieldcat exists.
         raise NotImplementedError(f"{name} field catalog is not implemented.")
         
     # directory where the catalogs are stored
@@ -62,7 +76,7 @@ def get_field_catalog(name, fieldid, rcid=None, ccdid=None, **kwargs):
     else:
         rcid = np.atleast_1d(rcid)  # array
         
-    # FIELD        
+    # FIELD
     fieldid = np.atleast_1d(fieldid) # array
     
     # double for loops because IO structures
@@ -71,19 +85,23 @@ def get_field_catalog(name, fieldid, rcid=None, ccdid=None, **kwargs):
         for fieldid_ in fieldid: # usually a few
             catfile_ = os.path.join(dircat, f"{rcid_:02d}", 
                                     f"{name}_rc{rcid_:02d}_{fieldid_:06d}.parquet")
-            cat = pandas.read_parquet(catfile_, **kwargs)
+
+            # dpandas => pandas if not dask, dask.dataframe otherwise
+            cat = dpandas.read_parquet(catfile_, columns=columns, **kwargs)
+                
             cat["fieldid"] = fieldid_
             cat["rcid"] = rcid_
             cats.append(cat)
             
     # get the dataframes
-    return pandas.concat(cats)
+    return dpandas.concat(cats)
 
 def download_vizier_catalog(name,
                             radec, radius=1, r_unit="deg",
                             columns=None, column_filters={},
                             use_tap=False,
                             rakey="RAJ2000", deckey="DEJ2000",
+                            use_dask=False,
                             **kwargs):
     """ download data from the vizier system
 
@@ -135,6 +153,21 @@ def download_vizier_catalog(name,
         
     VIZIERCAT = {"gaiadr3": "I/350/gaiaedr3",
                  "ps1": "II/349/ps1"}
+
+    # pre-defined columns for dask it needed.
+    KNOWN_COLUMNS = {"I/350/gaiaedr3": ['RA_ICRS', 'e_RA_ICRS', 'DE_ICRS', 'e_DE_ICRS', 'Source', 'Plx',
+                                        'e_Plx', 'PM', 'pmRA', 'e_pmRA', 'pmDE', 'e_pmDE', 'RUWE', 'FG', 'e_FG',
+                                        'Gmag', 'e_Gmag', 'FBP', 'e_FBP', 'BPmag', 'e_BPmag', 'FRP', 'e_FRP',
+                                        'RPmag', 'e_RPmag', 'BP-RP', 'RVDR2', 'e_RVDR2', 'Tefftemp', 'loggtemp',
+                                        'PS1', 'SDSSDR13', 'SkyMapper2', 'URAT1', 'GmagCorr', 'e_GmagCorr',
+                                        'FGCorr', 'RAJ2000', 'DEJ2000'],
+                     "II/349/ps1": ['RAJ2000', 'DEJ2000', 'objID', 'f_objID', 'Qual', 'e_RAJ2000',
+                                    'e_DEJ2000', '_tab1_10', 'Ns', 'Nd', 'gmag', 'e_gmag', 'gKmag',
+                                    'e_gKmag', 'gFlags', 'rmag', 'e_rmag', 'rKmag', 'e_rKmag', 'rFlags',
+                                    'imag', 'e_imag', 'iKmag', 'e_iKmag', 'iFlags', 'zmag', 'e_zmag',
+                                    'zKmag', 'e_zKmag', 'zFlags', 'ymag', 'e_ymag', 'yKmag', 'e_yKmag',
+                                    'yFlags']
+                    }
                      
     name = NAMES_SHORTCUT.get(name, name) # shortcut
     viziername = VIZIERCAT.get(name, name) # convert to vizier
@@ -142,44 +175,61 @@ def download_vizier_catalog(name,
     # imports
     from astroquery import vizier
     from astropy import coordinates, units
+    if use_dask:
+        import dask
+
 
     # metadata for vizier
     coord = coordinates.SkyCoord(*radec, unit=(units.deg,units.deg))
     angle = coordinates.Angle(radius, r_unit)
 
+    # properties of the vizier query
     prop = dict(column_filters=column_filters, row_limit=-1)
+    if use_dask and columns is None: # that cannot be
+        columns = KNOWN_COLUMNS.get(viziername, None)
+        if columns is None:
+            raise AttributeError(f"you must provide the columns when using dask ; pre-defined columns exist only for {list(KNOWN_COLUMNS.keys())}")
+        
     if columns is not None:
         prop["columns"] = columns
-    v = vizier.Vizier( **{**prop, **kwargs} )
 
+    if use_dask:
+        v = dask.delayed(vizier.Vizier)( **{**prop, **kwargs} )
+    else:
+        v = vizier.Vizier( **{**prop, **kwargs} )
+        
     # cache is False is necessary, especially when running from a computing center
     cattable = v.query_region(coord, radius=angle, catalog=viziername, cache=False)
 
-    # Check output
-    if cattable is None:
-        raise IOError(f"cannot query the region {radec} of {radius}{r_unit} for {viziername}")
+    if not use_dask:
+        # Check output
+        if cattable is None:
+            raise IOError(f"cannot query the region {radec} of {radius}{r_unit} for {viziername}")
 
-    # Worked. 
-    cattable = cattable.values()
-    if len(cattable) == 0: # but empty
-        raise IOError(f"querying the region {radec} of {radius}{r_unit} for {viziername} returns 0 entries")
-
-    # Good to go
+        # Worked. 
+        cattable = cattable.values()
+        if len(cattable) == 0: # but empty
+            raise IOError(f"querying the region {radec} of {radius}{r_unit} for {viziername} returns 0 entries")
+    
+    # Good to go or dasked
     cattable = cattable[0]
     catdata = cattable.to_pandas() # pandas.DataFrame
-
+    if use_dask:
+        catdata = dask.dataframe.from_delayed(catdata, meta=pandas.DataFrame(columns=columns,
+                                                                             dtype="float32"))
+    
     # RA, Dec renaming for package interaction purposes
     if rakey in catdata:
         catdata["ra"] = catdata[rakey]
     else:
         warnings.warn(f"no {rakey} column in cat. ra columns set to NaN")
-        catdata["ra"] = np.NaN
+        catdata["ra"] = np.NaN if not use_dask else dask.array.NaN
     
     if deckey in catdata:
         catdata["dec"] = catdata[deckey]
     else:
         warnings.warn(f"no {deckey} column in cat. dec columns set to NaN")
-        catdata["dec"] = np.NaN
+        catdata["dec"] = np.NaN if not use_dask else dask.array.NaN
 
     # out
     return catdata

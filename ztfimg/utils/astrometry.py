@@ -71,7 +71,7 @@ class WCSHolder( object ):
         if reorder and hasattr(self, "shape"):
             x = self.shape[1] -x -1 # starts at 0
             y = self.shape[0] -y -1 # starts at 0
-            
+                        
         return self.wcs.all_pix2world(np.asarray([np.atleast_1d(x),
                                                   np.atleast_1d(y)]).T,
                                       0).T
@@ -86,6 +86,7 @@ class WCSHolder( object ):
     # coords -> 
     def radec_to_xy(self, ra, dec, reorder=True):
         """ get the (x,y) ccd positions given the sky ra, dec [in deg] corrdinates """
+        
         x, y = self.wcs.all_world2pix(np.asarray([np.atleast_1d(ra),
                                                   np.atleast_1d(dec)]).T,
                                       0).T
