@@ -54,8 +54,10 @@ class WCSHolder( object ):
     # --------- #
     #  Convert  #
     # --------- #
+
+    # xy
     def xy_to_radec(self, x, y, reorder=True):
-        """ get sky ra, dec [in deg] coordinates given the (x,y) ccd positions  """
+        """ get sky ra, dec [in deg] coordinates given the (x,y) quadrant positions  """
         if reorder and hasattr(self, "shape"):
             x = self.shape[1] -x -1 # starts at 0
             y = self.shape[0] -y -1 # starts at 0
@@ -68,12 +70,33 @@ class WCSHolder( object ):
         """ w,y to u, v tangent plane projection (in arcsec from pointing center). 
         This uses pixels_to_coords->coords_to_uv
         """
-        ra, dec = self.xy_to_radec(x, y, reorder=True)
+        ra, dec = self.xy_to_radec(x, y, reorder=reorder)
         return self.radec_to_uv(ra, dec)
 
-    # coords -> 
+    def xy_to_ij(self, x, y, qid=None):
+        """ converts quadrant coordinates (x,y) into ccd coordinates (i,j) """
+        # recall:
+        # q2 | q1
+        # --------
+        # q3 | q4
+        if qid is None:
+            if not hasattr(self, "qid"):
+                raise ValueError("self.qid does not exist, please provide the qid")
+            
+            qid = self.qid
+        
+        if self.qid in [1, 4]:
+            x = x+self.shape[1]
+
+        if self.qid in [1, 2]:
+            y = y+self.shape[0]
+
+        return x, y # i, j
+
+
+    # radec
     def radec_to_xy(self, ra, dec, reorder=True):
-        """ get the (x,y) ccd positions given the sky ra, dec [in deg] corrdinates """
+        """ get the (x,y) quadrant positions given the sky ra, dec [in deg] coordinates """
         
         x, y = self.wcs.all_world2pix(np.asarray([np.atleast_1d(ra),
                                                   np.atleast_1d(dec)]).T,
@@ -86,17 +109,62 @@ class WCSHolder( object ):
     
     def radec_to_uv(self, ra, dec):
         """ radec to u, v (tangent plane projection in arcsec from pointing center) """
-        return np.asarray(tools.project([ra, dec], self.pointing))*180/np.pi * 3600
+        # -1, 1 to have ra pointing rightward
+        return np.asarray(tools.project([ra, dec], self.pointing))*180/np.pi * 3600  * np.atleast_1d(-1,1)
+
+    def radec_to_ij(self, ra, dec, reorder=True, qid=None):
+        """ radec to ccd coordinates (i,j) """
+        x, y = self.radec_to_xy(ra, dec, reorder=True)
+        return self.xy_to_ij(x, j, qid=qid)
+
     
-    # uv -> 
+    # uv
     def uv_to_xy(self, u, v, reorder=True):
-        """ get the x, y ccd position given the tangent plane coordinates u, v """
+        """ get the x, y quadrant position given the tangent plane coordinates u, v """
         ra, dec = self.uv_to_radec(u, v)
         return self.radec_to_xy(ra, dec, reorder=reorder)
     
     def uv_to_radec(self, u, v):
         """ get the ra, dec coordinates given the tangent plane coordinates u, v """
-        return np.asarray(tools.deproject([u, v], self.pointing))*180/np.pi
+        # deproject contains the 3600
+        # -1, 1 to have ra pointing rightward        
+        return np.asarray(tools.deproject([np.asarray(u)*-1, np.asarray(v)], self.pointing))*180/np.pi
+
+    def uv_to_ij(self, u, v, reorder=True, qid=None):
+        """ get the i,j ccd pixel coordinates given the tangent plane coordinates u, v """
+        x, y = self.uv_to_xy(u, v, reorder=True)
+        return self.xy_to_ij(x, y, qid=None)
+
+    # ij
+    def ij_to_xy(self, i, j, qid=None):
+        """ converts ccd coordinates (i,j) into quadrant coordinates (x,y) """
+        # recall:
+        # q2 | q1
+        # --------
+        # q3 | q4
+        if qid is None:
+            if not hasattr(self, "qid"):
+                raise ValueError("self.qid does not exist, please provide the qid")
+            
+            qid = self.qid
+        
+        if self.qid in [1, 4]:
+            i = i-self.shape[1]
+
+        if self.qid in [1, 2]:
+            j = j-self.shape[0]
+
+        return i, j # x, y
+
+    def ij_to_radec(self, i, j, reorder=True, qid=None):
+        """ get the (ra,dec) sky coordinates from the i,j ccd coordinates """
+        x, y = self.ij_to_xy(i,j, qid=qid)
+        return self.xy_to_radec(x,y, reorder=True)
+
+    def ij_to_uv(self, i, j, reorder=True, qid=None):
+        """ get the tangent plane coordinates from the i,j ccd coordinates """
+        x, y = self.ij_to_xy(i,j, qid=qid)
+        return self.xy_to_uv(x, y, reorder=reorder)
 
     # =============== #
     #  Properties     #

@@ -765,7 +765,7 @@ class _Collection_( object ):
         """ """
         import inspect
         
-        if inspect.ismethod( getattr(self, what) ): # is func ?
+        if inspect.ismethod( getattr(self._images[0], what) ): # is func ?
             return [getattr(img, what)(*args, **kwargs) for img in self._images]
         return [getattr(img, what) for img in self._images]
     
@@ -780,6 +780,14 @@ class Quadrant(Image):
     _CCDCLASS = "CCD"
     _FocalPlaneCLASS = "FocalPlane"
 
+
+    
+    # ============== #
+    #   Methods      #
+    # ============== #
+    # -------- #
+    #  GETTER  #
+    # -------- #
     def get_ccd(self, use_dask=None, as_path=False, **kwargs):
         """ get the ccd object containing this quadrant. 
         (see self._CCDCLASS)
@@ -973,6 +981,7 @@ class Quadrant(Image):
         system: string
             coordinate system.
             - xy: image pixel coordinates
+            - ij: ccd coordinates
             - radec: sky coordinates (in deg)
             - uv: camera coordinates (in arcsec)
 
@@ -986,14 +995,20 @@ class Quadrant(Image):
         2d-array
             coordinates (see system)
         """
+        center_pixel = (self.shape[::-1]+1)/2
         if system in ["xy","pixel","pixels","pxl"]:
-            return (self.shape[::-1]+1)/2
+            return center_pixel
 
+        if system in ["ccd", "ij"]:
+            return np.squeeze(self.xy_to_ij(*center_pixel) )
+        
         if system in ["uv","tangent"]:
-            return np.squeeze(self.xy_to_uv(*self.get_center(system="xy"), reorder=reorder) )
+            return np.squeeze(self.xy_to_uv(*center_pixel, reorder=reorder) )
         
         if system in ["radec","coords","worlds"]:
-            return np.squeeze(self.xy_to_radec(*self.get_center(system="xy"), reorder=reorder) )
+            return np.squeeze(self.xy_to_radec(*center_pixel, reorder=reorder) )
+
+        raise ValueError(f"{system} system not recognized. 'xy', 'ij', 'radec' or 'uv'")            
 
     def get_corners(self, system="xy", reorder=True):
         """ get the corners of the image.
@@ -1003,6 +1018,7 @@ class Quadrant(Image):
         system: str
             coordinate system.
             - xy: image pixel coordinates
+            - ij: ccd coordinates
             - radec: sky coordinates (in deg)
             - uv: camera coordinates (in arcsec)
 
@@ -1025,12 +1041,18 @@ class Quadrant(Image):
 
         if system in ['xy', "pixels"]:
             return corners
+        
+        if system in ["ccd", "ij"]:
+            return self.xy_to_ij(*corners.T)
+        
         if system == "radec":
             return self.xy_to_radec(*corners.T, reorder=True).T
+        
         if system == "uv":
             return self.xy_to_uv(*corners.T, reorder=True).T
 
-        raise ValueError(f"{system} system not recognized. 'xy', 'radec' or 'uv'")        
+        raise ValueError(f"{system} system not recognized. 'xy', 'ij', 'radec' or 'uv'")
+    
     # =============== #
     #  Properties     #
     # =============== #    
@@ -1409,6 +1431,27 @@ class CCD( Image, _Collection_):
             self._use_dask = quadrant.use_dask # updates
 
     # --------- #
+    #  Call     #
+    # --------- #
+    def call_quadrants(self, what, *args, **kwargs):
+        """ run the given input on quadrants 
+
+        Parameters
+        ----------
+        what: str
+            method or attribute of quadrants
+
+        *args goes to each quadrant.what() if method
+        **kwargs goes to each quadrant.what() if method
+
+        Returns
+        -------
+        list
+            results of what called on each quadrant (1,2,3,4)
+        """
+        return self._call_down(what, *args, **kwargs)
+    
+    # --------- #
     #  GETTER   #
     # --------- #
     def get_quadrant(self, qid):
@@ -1643,7 +1686,8 @@ class CCD( Image, _Collection_):
         ----------
         system: string
             coordinate system.
-            - xy: image pixel coordinates
+            # for ccds xy and ij are the same
+            - xy / ij: image pixel coordinates 
             - radec: sky coordinates (in deg)
             - uv: camera coordinates (in arcsec)
 
@@ -1661,10 +1705,12 @@ class CCD( Image, _Collection_):
         # q2 | q1
         # --------
         # q3 | q4
-        if system == "xy":
+        if system in ["xy", "ij"]:
             return self.qshape
+        
         if system == "radec":
             return self.get_quadrant(1).xy_to_radec(0,0).squeeze()
+        
         if system == "uv":
             return self.get_quadrant(1).xy_to_uv(0,0).squeeze()
         
@@ -1726,7 +1772,7 @@ class CCD( Image, _Collection_):
     @property
     def ccdid(self):
         """ ccd id (from header) """
-        return self.get_value("CCDID", None, attr_ok=False) # avoid loop
+        return self.get_quadrant(1).ccdid
 
     # family
     @classproperty
@@ -1752,7 +1798,8 @@ class CCD( Image, _Collection_):
                 return eval( cls._FocalPlaneCLASS )
 
         
-        return cls._FocalPlaneCLASS        
+        return cls._FocalPlaneCLASS
+    
 # -------------- #
 #                #
 #  Focal Plane   #
@@ -1916,7 +1963,59 @@ class FocalPlane(Image, _Collection_):
                 
             self.ccds[ccdid] = ccd
             self._use_dask  = ccd.use_dask
+
+    # -------- #
+    #  CALL    #
+    # -------- #
+    def call_ccds(self, what, *args, **kwargs):
+        """ run the given input on ccds
+
+        Parameters
+        ----------
+        what: str
+            method or attribute of quadrants
+
+        *args goes to each quadrant.what() if method
+        **kwargs goes to each quadrant.what() if method
+
+        Returns
+        -------
+        list
+            results of what called on each quadrant (1->16)
+        """
+        return self._call_down(what, *args, **kwargs)
+    
+    def call_quadrants(self, what, *args, **kwargs):
+        """ run the given input on quadrants 
+
+        Parameters
+        ----------
+        what: str
+            method or attribute of quadrants
+
+        *args goes to each quadrant.what() if method
+        **kwargs goes to each quadrant.what() if method
+
+        Returns
+        -------
+        list
+            results of what called on each quadrant (0->63)
+        """
+        import inspect
+        q0 = self.get_quadrant(0)
         
+        if inspect.ismethod( getattr(q0, what) ): # is func ?
+            return [getattr(q, what)(*args, **kwargs)
+                        for ccdid, ccd in self.ccds.items()
+                        for qid, q in ccd.quadrants.items()]
+        
+        return [getattr(q, what)
+                    for ccdid, ccd in self.ccds.items()
+                    for qid, q in ccd.quadrants.items()]
+    
+    # -------- #
+    #  GETTER  #
+    # -------- #
     def get_ccd(self, ccdid):
         """ get the ccd (self.ccds[ccdid])"""
         return self.ccds[ccdid]
@@ -2078,7 +2177,7 @@ class FocalPlane(Image, _Collection_):
     @property
     def filenames(self):
         """ list of the filename of the different quadrants constituing the data. """
-        return [q.filename for ccdid, ccd in self.ccds.items() for qid, q in ccd.quadrants.items()]
+        return self.call_quadrants("filename")
     
     @classproperty
     def shape_full(cls):

@@ -458,7 +458,7 @@ def deproject(uv, radec0, projection="gnomonic"):
     u, v = np.asarray(uv)/(180/np.pi * 3600)
 
     # - ref
-    ra0,dec0 = np.asarray(radec0)*np.pi/180
+    ra0, dec0 = np.asarray(radec0)*np.pi/180
     _cosra, _sinra = np.cos(ra0), np.sin(ra0)
     _cosdec, _sindec = np.cos(dec0), np.sin(dec0)
     
