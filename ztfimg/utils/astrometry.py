@@ -51,18 +51,6 @@ class WCSHolder( object ):
     # --------- #
     #  GETTER   #
     # --------- #
-    def get_center(self, system="xy", reorder=True):
-        """ x and y or RA, Dec coordinates of the centroid. (shape[::-1]) """
-        shape = np.asarray(self.wcs.pixel_shape)
-        if system in ["xy","pixel","pixels","pxl"]:
-            return (shape[::-1]+1)/2
-
-        if system in ["uv","tangent"]:
-            return np.squeeze(self.xy_to_uv(*self.get_center(system="xy"), reorder=reorder) )
-        
-        if system in ["radec","coords","worlds"]:
-            return np.squeeze(self.xy_to_radec(*self.get_center(system="xy"), reorder=reorder) )
-        
     # --------- #
     #  Convert  #
     # --------- #

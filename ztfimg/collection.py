@@ -165,7 +165,7 @@ class ImageCollection( _Collection_ ):
         list
             list of filename (or delayed)
         """
-        filenames = self._call_down("filename", False)
+        filenames = self._call_down("filename")
         if self.use_dask and computed:
             # Tricks to avoid compute and gather
             return dask.delayed(list)(filenames).compute()
@@ -357,7 +357,7 @@ class ImageCollection( _Collection_ ):
     def headerdf(self):
         """ images header as dask.dataframe. """
         if not hasattr(self, "_headerdf") or self._headerdf is None:
-            self._headerdf = _headers_to_headerdf_(self._call_down("header", False), persist=True)
+            self._headerdf = _headers_to_headerdf_(self._call_down("header"), persist=True)
             
         return self._headerdf
     
@@ -372,7 +372,7 @@ class ImageCollection( _Collection_ ):
     def filenames(self):
         """ list of image filenames. """
         if not hasattr(self,"_filenames") or self._filenames is None:
-            self._filenames = dask.delayed(list)(self._call_down("filename", False)).compute()
+            self._filenames = dask.delayed(list)(self._call_down("filename")).compute()
             
         return self._filenames
     
@@ -474,7 +474,7 @@ class ScienceQuadrantCollection( QuadrantCollection ):
         propdown = {**dict( calibrators=calibrators, extra=extra,
                             isolation=isolation, seplimit=seplimit),
                     **kwargs}
-        return self._call_down("get_catalog", True, **propdown)
+        return self._call_down("get_catalog", **propdown)
     
     def get_calibrators(self, which="gaia",
                             setxy=True, drop_outside=True, drop_namag=True,
@@ -485,7 +485,7 @@ class ScienceQuadrantCollection( QuadrantCollection ):
                             pixelbuffer=pixelbuffer, isolation=isolation, mergehow=mergehow),
                     **kwargs}
         
-        return self._call_down("get_calibrators", True, **propdown)
+        return self._call_down("get_calibrators", **propdown)
     
     def get_calibrator_aperture(self, radius, which="gaia", xykeys=["x","y"],
                                     calkwargs={}, system="xy", whichdata="dataclean",

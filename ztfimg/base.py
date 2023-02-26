@@ -737,7 +737,7 @@ class _Collection_( object ):
 
     def _get_subdata(self, **kwargs):
         """ get a stack of the data from get_data collection of """
-        datas = self._call_down("get_data", True, **kwargs)
+        datas = self._call_down("get_data", **kwargs)
         # This rest assumes all datas types match.
         use_dask = "dask" in str( type(datas[0]) )
         if use_dask:
@@ -761,9 +761,11 @@ class _Collection_( object ):
         return [getattr(img, what)(marg, *args, **kwargs)
                 for img, marg in zip(self._images, margs)]
     
-    def _call_down(self, what, isfunc, *args, **kwargs):
+    def _call_down(self, what, *args, **kwargs):
         """ """
-        if isfunc:
+        import inspect
+        
+        if inspect.ismethod( getattr(self, what) ): # is func ?
             return [getattr(img, what)(*args, **kwargs) for img in self._images]
         return [getattr(img, what) for img in self._images]
     
@@ -963,7 +965,72 @@ class Quadrant(Image):
         
         return cat
 
-    
+    def get_center(self, system="xy", reorder=True):
+        """ get the center of the image
+
+        Parameters
+        ----------
+        system: string
+            coordinate system.
+            - xy: image pixel coordinates
+            - radec: sky coordinates (in deg)
+            - uv: camera coordinates (in arcsec)
+
+        reorder: bool
+            should this provide the coordinates assuming
+            normal ordering (+ra right, +dec up) (True) ?
+            = leave True if unsure = 
+
+        Returns
+        -------
+        2d-array
+            coordinates (see system)
+        """
+        if system in ["xy","pixel","pixels","pxl"]:
+            return (self.shape[::-1]+1)/2
+
+        if system in ["uv","tangent"]:
+            return np.squeeze(self.xy_to_uv(*self.get_center(system="xy"), reorder=reorder) )
+        
+        if system in ["radec","coords","worlds"]:
+            return np.squeeze(self.xy_to_radec(*self.get_center(system="xy"), reorder=reorder) )
+
+    def get_corners(self, system="xy", reorder=True):
+        """ get the corners of the image.
+
+        Parameters
+        ----------
+        system: str
+            coordinate system.
+            - xy: image pixel coordinates
+            - radec: sky coordinates (in deg)
+            - uv: camera coordinates (in arcsec)
+
+        reorder: bool
+            = ignored if system='xy' =    
+            should this provide the coordinates assuming
+            normal ordering (+ra right, +dec up) (True) ?
+            Leave default if unsure. 
+
+        Returns
+        -------
+        2d-array
+            lower-left, lower-right, upper-right, upper-left
+        """
+        # 
+        corners = np.stack([[0,0], 
+                            [self.shape[1],0],
+                            [self.shape[1],self.shape[0]],
+                            [0,self.shape[0]]])
+
+        if system in ['xy', "pixels"]:
+            return corners
+        if system == "radec":
+            return self.xy_to_radec(*corners.T, reorder=True).T
+        if system == "uv":
+            return self.xy_to_uv(*corners.T, reorder=True).T
+
+        raise ValueError(f"{system} system not recognized. 'xy', 'radec' or 'uv'")        
     # =============== #
     #  Properties     #
     # =============== #    
@@ -1543,7 +1610,7 @@ class CCD( Image, _Collection_):
         ccd pixels and not quadrant pixels.
 
         """
-        cats = self._call_down("get_catalog", True,
+        cats = self._call_down("get_catalog",
                                 name, fieldcat=fieldcat,
                                 in_fov=in_fov, use_dask=use_dask,
                                 **kwargs)
@@ -1568,6 +1635,40 @@ class CCD( Image, _Collection_):
             warnings("no duplicate drop and in_fov=False, you maye have multiple entries of the same source.")
 
         return cat
+
+    def get_center(self, system="xy", reorder=True):
+        """ get the center of the image
+
+        Parameters
+        ----------
+        system: string
+            coordinate system.
+            - xy: image pixel coordinates
+            - radec: sky coordinates (in deg)
+            - uv: camera coordinates (in arcsec)
+
+        reorder: bool
+            should this provide the coordinates assuming
+            normal ordering (+ra right, +dec up) (True) ?
+            = leave True if unsure = 
+
+        Returns
+        -------
+        2d-array
+            coordinates (see system)
+        """
+        # reminder | center is -0.5,-0.5 of q1
+        # q2 | q1
+        # --------
+        # q3 | q4
+        if system == "xy":
+            return self.qshape
+        if system == "radec":
+            return self.get_quadrant(1).xy_to_radec(0,0).squeeze()
+        if system == "uv":
+            return self.get_quadrant(1).xy_to_uv(0,0).squeeze()
+        
+        raise ValueError(f"{system} system not recognized. 'xy', 'radec' or 'uv'")
         
     # - internal get
     def _quadrants_to_ccd(self, rebin=None, **kwargs):
@@ -1955,7 +2056,7 @@ class FocalPlane(Image, _Collection_):
 
     # =============== #
     #  Properties     #
-    # =============== #
+    # =============== #    
     @property
     def ccds(self):
         """ dictionary of the ccds {ccdid:CCD, ...}"""
@@ -1969,6 +2070,11 @@ class FocalPlane(Image, _Collection_):
         is_none = [v is not None for v in self.ccds.values()]
         return getattr(np, logic)(is_none)
 
+    @property
+    def _images(self):
+        """ Internal property for _Collection_ methods """
+        return list( self.ccds.values() )
+    
     @property
     def filenames(self):
         """ list of the filename of the different quadrants constituing the data. """
