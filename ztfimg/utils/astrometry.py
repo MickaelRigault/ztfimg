@@ -91,7 +91,7 @@ class WCSHolder( object ):
         if self.qid in [1, 2]:
             y = y+self.shape[0]
 
-        return x, y # i, j
+        return np.stack([x, y]) # i, j
 
 
     # radec
@@ -105,7 +105,7 @@ class WCSHolder( object ):
             x = self.shape[1] -x -1 # starts at 0
             y = self.shape[0] -y -1 # starts at 0
 
-        return x, y
+        return np.stack([x, y])
     
     def radec_to_uv(self, ra, dec):
         """ radec to u, v (tangent plane projection in arcsec from pointing center) """
@@ -154,7 +154,7 @@ class WCSHolder( object ):
         if self.qid in [1, 2]:
             j = j-self.shape[0]
 
-        return i, j # x, y
+        return np.stack([i, j]) #  # x, y
 
     def ij_to_radec(self, i, j, reorder=True, qid=None):
         """ get the (ra,dec) sky coordinates from the i,j ccd coordinates """

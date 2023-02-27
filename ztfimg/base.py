@@ -1043,7 +1043,7 @@ class Quadrant(Image):
             return corners
         
         if system in ["ccd", "ij"]:
-            return self.xy_to_ij(*corners.T)
+            return self.xy_to_ij(*corners.T).T
         
         if system == "radec":
             return self.xy_to_radec(*corners.T, reorder=True).T
@@ -1681,6 +1681,7 @@ class CCD( Image, _Collection_):
 
     def get_center(self, system="xy", reorder=True):
         """ get the center of the image
+        Note: this uses the 1st quadrant wcs solution if one is needed.
 
         Parameters
         ----------
@@ -1715,7 +1716,49 @@ class CCD( Image, _Collection_):
             return self.get_quadrant(1).xy_to_uv(0,0).squeeze()
         
         raise ValueError(f"{system} system not recognized. 'xy', 'radec' or 'uv'")
+
+    def get_corners(self, system="xy", reorder=True):
+        """ get the corners of the image.
+        Note: this uses the 1st quadrant wcs solution if one is needed.
+
+        Parameters
+        ----------
+        system: str
+            coordinate system.
+            - xy/ij: image pixel coordinates
+            - radec: sky coordinates (in deg)
+            - uv: camera coordinates (in arcsec)
+
+        reorder: bool
+            = ignored if system='xy' =    
+            should this provide the coordinates assuming
+            normal ordering (+ra right, +dec up) (True) ?
+            Leave default if unsure. 
+
+        Returns
+        -------
+        2d-array
+            lower-left, lower-right, upper-right, upper-left
+        """
+        # 
+        corners = np.stack([[0,0], 
+                            [self.shape[1],0],
+                            [self.shape[1],self.shape[0]],
+                            [0,self.shape[0]]])
+    
+        if system in ['xy', "ij"]:
+            return corners
+                
+        if system == "radec":
+            return self.get_quadrant(1).ij_to_radec(*corners.T, reorder=True).T
         
+        if system == "uv":
+            return self.get_quadrant(1).ij_to_uv(*corners.T, reorder=True).T
+
+        raise ValueError(f"{system} system not recognized. 'xy', 'ij', 'radec' or 'uv'")
+
+
+    
     # - internal get
     def _quadrants_to_ccd(self, rebin=None, **kwargs):
         """ combine the ccd data into the quadrants"""
@@ -1730,7 +1773,128 @@ class CCD( Image, _Collection_):
         ccd_down = npda.concatenate([d[2], d[3]], axis=1)
         ccd = npda.concatenate([ccd_down, ccd_up], axis=0)
         return ccd
-    
+
+
+
+
+    def show_footprint(self, values="qid", ax=None, 
+                        system="ij", cmap="coolwarm",
+                        vmin=None, vmax=None, 
+                        quadrant_id="qid", #in_deg=True, 
+                        **kwargs):
+        """ illustrate the image footprint
+
+        Parameters
+        ----------
+        values: str, None or array
+            values to be displaid as facecolor in the image.
+            - str: understood as a quadrant properties 
+                   (using call_quadrants)
+            - None: (or 'None') no facecolor (just edge)
+            - array: value to be displaid. size of 4.
+
+        ax: matplotlib.Axes
+            axes where to draw the plot
+
+        system: str
+            coordinates system: 
+            - xy: quadrant 
+            - ij: ccd (favored)
+            - uv: focalplane
+
+        cmap: str or matplotlib's cmap
+            colormap 
+
+        vmin, vmax: 
+            boundaries for the colormap
+
+        quadrant_id: str or None
+            value indicated in the quadrants. 
+            None means no text written.
+
+        **kwargs goes to matplotlib.patches.Polygon
+
+        Returns
+        -------
+        fig
+        """
+        import matplotlib.pyplot as plt
+        from matplotlib.patches import Polygon
+        from matplotlib.colors import Normalize
+
+        # --------
+        # Figures
+        if ax is None:
+            fig = plt.figure(figsize=[6,6])
+            ax = fig.add_axes([0.15,0.15,0.8,0.8])
+        else:
+            fig = ax.figure
+        prop = dict(lw=0, alpha=0.8, zorder=3)
+
+        # ---------
+        # colormap
+        if cmap is None:
+            cmap = plt.get_cmap("tab10")
+
+        if type(cmap) is str:
+            cmap =plt.get_cmap(cmap)
+
+        # Values
+        if type(values) is str:
+            if values == "None": # like in matplotlib
+                values = None
+            else:
+                values = self.call_quadrants(values) 
+        elif values is not None and (lvalues := len(values)) != nimages:
+            raise ValueError(f"len(values) must be {nimages} ; {lvalues} given")
+
+        if values is not None:
+            if vmin is None: 
+                vmin = np.nanmin(values)
+            if vmax is None: 
+                vmax = np.nanmax(values)
+            norm = Normalize(vmin=vmin, vmax=vmax)
+
+
+        # using center and corner as debug, center could be derived from corners. 
+        centers = np.stack(self.call_quadrants("get_center", system=system))
+        corners = np.stack(self.call_quadrants("get_corners", system=system))
+
+        ids = self.call_quadrants(quadrant_id) # for labels
+        # loop over the values
+        if values is None:
+            values = [None] * len(ids)
+
+        for value_, ids_, corners_, centers_ in zip(values, ids, corners, centers):
+            if value_ is not None:
+                facecolor = cmap(norm(value_))
+            else:
+                facecolor = "None"
+                prop["lw"] = 1
+                prop["edgecolor"] = "0.7"
+
+            p = Polygon(corners_, facecolor=facecolor, **{**prop, **kwargs})
+            ax.add_patch(p)
+            if quadrant_id is not None:
+                ax.text(*centers_, ids_, va="center", ha="center", color="w", zorder=9)
+
+        if system in ["xy","ij"]:
+            ax.set_xlim(-10, self.shape[1]+10)
+            ax.set_ylim(-10, self.shape[0]+10)
+        elif system in ["uv"]:
+            # requires limits for polygon only plots
+            ax.set_xlim(-(3.8*3600),(3.8*3600))
+            ax.set_ylim(-(3.8*3600),(3.8*3600))
+
+        # labels
+    #    ax.set_ylabel(f"v {label_unit}", fontsize="large")
+    #    ax.set_xlabel(f"u {label_unit}", fontsize="large")
+        # Fancy
+        clearwhich = ["left","right","top","bottom"]
+        [ax.spines[which].set_visible(False) for which in clearwhich]
+        ax.tick_params(labelsize="small", labelcolor="0.7", color="0.7")
+
+        return fig
     # =============== #
     #  Properties     #
     # =============== #
@@ -2153,6 +2317,152 @@ class FocalPlane(Image, _Collection_):
 
         return mosaic
 
+    # -------- #
+    #  PLOTS   #
+    # -------- #
+    def show_footprint(self, values="id", ax=None, 
+                           level="quadrant", cmap="coolwarm",
+                           vmin=None, vmax=None, 
+                           incl_ids=True, in_deg=True, 
+                           **kwargs):
+        """ illustrate the image footprint
+
+        Parameters
+        ----------
+        values: str, None or array
+            values to be displaid as facecolor in the image.
+            - str: understood as a `level` properties 
+                   (using call_quadrants or call_ccds)
+                   Special case: 'id' means:
+                   - ccdid if level='ccd' 
+                   - rcid if level='quadrant
+            - None: (or 'None') no facecolor (just edge)
+            - array: value to be displaid. Size must match that
+                of the level.
+
+        ax: matplotlib.Axes
+            axes where to draw the plot
+
+        level: str
+            'ccd' (16) or 'quadrant' (64) 
+
+        cmap: str or matplotlib's cmap
+            colormap 
+
+        vmin, vmax: 
+            boundaries for the colormap
+
+        incl_ids: bool
+            should the name of the (ccd or quadrant) id
+            be shown ?
+
+        in_deg: bool
+            should the footprint be shown in deg (True) or
+            in arcsec (False) ? 
+            note: 1 pixel ~ 1 arcsec
+        
+        **kwargs goes to matplotlib.patches.Polygon
+
+        Returns
+        -------
+        fig
+        """
+        import matplotlib.pyplot as plt
+        from matplotlib.patches import Polygon
+        from matplotlib.colors import Normalize
+        
+        # -------
+        # level
+        if level == "ccd":
+            call_func = self.call_ccds
+            nimages = 16
+            id_ = "ccdid"
+        elif level == "quadrant":
+            call_func = self.call_quadrants
+            nimages = 64
+            id_ = "rcid"
+        else:
+            raise ValueError(f"level can be 'ccd' or 'quadrant', {level} given")
+
+        # --------
+        # Figures
+        if ax is None:
+            fig = plt.figure(figsize=[6,6])
+            ax = fig.add_axes([0.15,0.15,0.8,0.8])
+        else:
+            fig = ax.figure
+        prop = dict(lw=0, alpha=0.8, zorder=3)
+
+        # ---------
+        # colormap
+        if cmap is None:
+            cmap = plt.get_cmap("tab10")
+
+        if type(cmap) is str:
+            cmap =plt.get_cmap(cmap)
+
+        # degree or arcsec
+        if in_deg:
+            coef = 1/3600
+            label_unit = "[in deg]"
+        else:
+            coef = 1
+            label_unit = "[in arcsec]"
+
+        # Values
+        if type(values) is str:
+            if values == 'id':
+                values = id_
+
+            if values == "None": # like in matplotlib
+                values = None
+            else:
+                values = call_func(values) 
+        elif values is not None and (lvalues := len(values)) != nimages:
+            raise ValueError(f"len(values) must be {nimages} ; {lvalues} given")
+
+        if values is not None:
+            if vmin is None: 
+                vmin = np.nanmin(values)
+            if vmax is None: 
+                vmax = np.nanmax(values)
+            norm = Normalize(vmin=vmin, vmax=vmax)
+
+
+        # using center and corner as debug, center could be derived from corners. 
+        centers = np.stack(call_func("get_center", system="uv")) * coef
+        corners = np.stack(call_func("get_corners", system="uv")) * coef
+        ids = call_func(id_) # for labels
+        # loop over the values
+        if values is None:
+            values = [None] * len(ids)
+
+        for value_, ids_, corners_, centers_ in zip(values, ids, corners, centers):
+            if value_ is not None:
+                facecolor = cmap(norm(value_))
+            else:
+                facecolor = "None"
+                prop["lw"] = 1
+                prop["edgecolor"] = "0.7"
+
+            p = Polygon(corners_, facecolor=facecolor, **{**prop, **kwargs})
+            ax.add_patch(p)
+            if incl_ids:
+                ax.text(*centers_, ids_, va="center", ha="center", color="w", zorder=9)
+
+        # requires limits for polygon only plots
+        ax.set_xlim(-(3.8*3600) * coef,(3.8*3600) * coef)
+        ax.set_ylim(-(3.8*3600) * coef,(3.8*3600) * coef)
+        # labels
+        ax.set_ylabel(f"v {label_unit}", fontsize="large")
+        ax.set_xlabel(f"u {label_unit}", fontsize="large")
+        # Fancy
+        clearwhich = ["left","right","top","bottom"]
+        [ax.spines[which].set_visible(False) for which in clearwhich]
+        ax.tick_params(labelsize="small", labelcolor="0.7", color="0.7")
+
+        return fig
+    
     # =============== #
     #  Properties     #
     # =============== #    
