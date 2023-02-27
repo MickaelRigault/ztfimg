@@ -1439,7 +1439,8 @@ class CCD( Image, _Collection_):
         Parameters
         ----------
         what: str
-            method or attribute of quadrants
+            method or attribute of quadrants or anything 
+            accessing through quadrant.get_value()
 
         *args goes to each quadrant.what() if method
         **kwargs goes to each quadrant.what() if method
@@ -1449,6 +1450,11 @@ class CCD( Image, _Collection_):
         list
             results of what called on each quadrant (1,2,3,4)
         """
+        q0 = self.get_quadrant(1)
+        if not hasattr(q0, what):
+            kwargs["key"] = what
+            what = "get_value"
+        
         return self._call_down(what, *args, **kwargs)
     
     # --------- #
@@ -1786,12 +1792,14 @@ class CCD( Image, _Collection_):
 
         Parameters
         ----------
-        values: str, None or array
+        values: str, None, array, dict, pandas.Series
             values to be displaid as facecolor in the image.
             - str: understood as a quadrant properties 
                    (using call_quadrants)
             - None: (or 'None') no facecolor (just edge)
             - array: value to be displaid. size of 4.
+            - dict: {id_: value} # empty id_ will be set to None
+            - pandas.Series: empty id_ will be set to None
 
         ax: matplotlib.Axes
             axes where to draw the plot
@@ -1829,6 +1837,7 @@ class CCD( Image, _Collection_):
             ax = fig.add_axes([0.15,0.15,0.8,0.8])
         else:
             fig = ax.figure
+            
         prop = dict(lw=0, alpha=0.8, zorder=3)
 
         # ---------
@@ -1845,9 +1854,10 @@ class CCD( Image, _Collection_):
                 values = None
             else:
                 values = self.call_quadrants(values) 
-        elif values is not None and (lvalues := len(values)) != nimages:
-            raise ValueError(f"len(values) must be {nimages} ; {lvalues} given")
-
+        elif values is not None:
+            # reindex
+            values = pandas.Series(values).reindex( np.arange(4) ).values
+        
         if values is not None:
             if vmin is None: 
                 vmin = np.nanmin(values)
@@ -1866,12 +1876,12 @@ class CCD( Image, _Collection_):
             values = [None] * len(ids)
 
         for value_, ids_, corners_, centers_ in zip(values, ids, corners, centers):
-            if value_ is not None:
-                facecolor = cmap(norm(value_))
-            else:
+            if value_ is None or np.isnan(value_):
                 facecolor = "None"
                 prop["lw"] = 1
                 prop["edgecolor"] = "0.7"
+            else:
+                facecolor = cmap(norm(value_))
 
             p = Polygon(corners_, facecolor=facecolor, **{**prop, **kwargs})
             ax.add_patch(p)
@@ -2146,7 +2156,7 @@ class FocalPlane(Image, _Collection_):
         -------
         list
             results of what called on each quadrant (1->16)
-        """
+        """        
         return self._call_down(what, *args, **kwargs)
     
     def call_quadrants(self, what, *args, **kwargs):
@@ -2155,7 +2165,8 @@ class FocalPlane(Image, _Collection_):
         Parameters
         ----------
         what: str
-            method or attribute of quadrants
+            method or attribute of quadrants or anything 
+            accessing through quadrant.get_value()
 
         *args goes to each quadrant.what() if method
         **kwargs goes to each quadrant.what() if method
@@ -2167,8 +2178,15 @@ class FocalPlane(Image, _Collection_):
         """
         import inspect
         q0 = self.get_quadrant(0)
-        
-        if inspect.ismethod( getattr(q0, what) ): # is func ?
+
+        if hasattr(q0, what):
+            is_func = inspect.ismethod( getattr(q0, what) )
+        else: # use the get_value method
+            kwargs["key"] = what
+            what = "get_value"
+            is_func = True
+            
+        if is_func: # is func ?
             return [getattr(q, what)(*args, **kwargs)
                         for ccdid, ccd in self.ccds.items()
                         for qid, q in ccd.quadrants.items()]
@@ -2329,7 +2347,7 @@ class FocalPlane(Image, _Collection_):
 
         Parameters
         ----------
-        values: str, None or array
+        values: str, None, array, dict, pandas.Series
             values to be displaid as facecolor in the image.
             - str: understood as a `level` properties 
                    (using call_quadrants or call_ccds)
@@ -2339,6 +2357,9 @@ class FocalPlane(Image, _Collection_):
             - None: (or 'None') no facecolor (just edge)
             - array: value to be displaid. Size must match that
                 of the level.
+            - dict: {id_: value} # empty id_ will be set to None
+            - pandas.Series: empty id_ will be set to None
+
 
         ax: matplotlib.Axes
             axes where to draw the plot
@@ -2417,10 +2438,11 @@ class FocalPlane(Image, _Collection_):
             if values == "None": # like in matplotlib
                 values = None
             else:
-                values = call_func(values) 
-        elif values is not None and (lvalues := len(values)) != nimages:
-            raise ValueError(f"len(values) must be {nimages} ; {lvalues} given")
-
+                values = call_func(values)
+        elif values is not None:
+            # reindex
+            values = pandas.Series(values).reindex( np.arange(nimages) ).values
+        
         if values is not None:
             if vmin is None: 
                 vmin = np.nanmin(values)
@@ -2438,12 +2460,12 @@ class FocalPlane(Image, _Collection_):
             values = [None] * len(ids)
 
         for value_, ids_, corners_, centers_ in zip(values, ids, corners, centers):
-            if value_ is not None:
-                facecolor = cmap(norm(value_))
-            else:
+            if value_ is None or np.isnan(value_):
                 facecolor = "None"
                 prop["lw"] = 1
                 prop["edgecolor"] = "0.7"
+            else:
+                facecolor = cmap(norm(value_))                
 
             p = Polygon(corners_, facecolor=facecolor, **{**prop, **kwargs})
             ax.add_patch(p)
@@ -2451,8 +2473,8 @@ class FocalPlane(Image, _Collection_):
                 ax.text(*centers_, ids_, va="center", ha="center", color="w", zorder=9)
 
         # requires limits for polygon only plots
-        ax.set_xlim(-(3.8*3600) * coef,(3.8*3600) * coef)
-        ax.set_ylim(-(3.8*3600) * coef,(3.8*3600) * coef)
+        ax.set_xlim(-(3.8*3600) * coef, (3.8*3600) * coef)
+        ax.set_ylim(-(3.8*3600) * coef, (3.8*3600) * coef)
         # labels
         ax.set_ylabel(f"v {label_unit}", fontsize="large")
         ax.set_xlabel(f"u {label_unit}", fontsize="large")

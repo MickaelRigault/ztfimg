@@ -11,7 +11,7 @@ MAINTAINER_EMAIL = 'm.rigault@ipnl.in2p3.fr'
 URL = 'https://github.com/MickaelRigault/ztfimg'
 LICENSE = 'BSD (3-clause)'
 DOWNLOAD_URL = 'https://github.com/MickaelRigault/ztfimg'
-VERSION = '0.15.7'
+VERSION = '0.15.8'
 
 try:
     from setuptools import setup, find_packages
