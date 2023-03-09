@@ -741,7 +741,7 @@ class ScienceQuadrant(Quadrant, WCSHolder):
 
 class ScienceCCD(CCD):
     
-    COLLECTION_OF = ScienceQuadrant
+    _COLLECTION_OF = ScienceQuadrant
     # "family" 
     _QUADRANTCLASS = "ScienceQuadrant"
     _FocalPlaneCLASS = "ScienceFocalPlane"
@@ -762,7 +762,7 @@ class ScienceCCD(CCD):
 class ScienceFocalPlane(FocalPlane):
     """ """
     _CCDCLASS = "ScienceCCD"
-    COLLECTION_OF = ScienceCCD
+    _COLLECTION_OF = ScienceCCD
     
     def get_files(self, client=None, suffix=["sciimg.fits", "mskimg.fits"], as_dask="futures"):
         """ fetch the files of the focal plane (using ztfquery.io.bulk_get_file) 

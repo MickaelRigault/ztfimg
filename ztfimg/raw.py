@@ -583,7 +583,7 @@ class RawQuadrant( Quadrant ):
         
 class RawCCD( CCD ):
 
-    COLLECTION_OF = RawQuadrant
+    _COLLECTION_OF = RawQuadrant
     # "family"
     _QUADRANTCLASS = "RawQuadrant"
     _FocalPlaneCLASS = "RawFocalPlane"    
@@ -756,7 +756,7 @@ class RawFocalPlane( FocalPlane ):
     # 15 µm/arcsec  (ie 1 arcsec/pixel) and using 
     # 7.2973 mm = 487 pixel gap along rows (ie between columns) 
     # and 671 pixels along columns.
-    COLLECTION_OF = RawCCD
+    _COLLECTION_OF = RawCCD
     # family
     _CCDCLASS = "RawCCD"
     

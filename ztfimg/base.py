@@ -718,18 +718,18 @@ class Image( object ):
 #                #
 # -------------- #
 class _Collection_( object ):
-    COLLECTION_OF = Image
+    _COLLECTION_OF = Image # Set this to None to let it guess
 
     @classmethod
     def _read_filenames(cls, filenames, use_dask=False, 
                            as_path=False, persist=False, **kwargs):
         """ """
         filenames = np.atleast_1d(filenames).tolist()
-        # it's the whole COLLECTION_OF that is dask, not inside it.
+        # it's the whole _COLLECTION_OF that is dask, not inside it.
         prop = {**dict(as_path=as_path, use_dask=use_dask), **kwargs}
 
         # dask is called inside this.
-        images = [cls.COLLECTION_OF.from_filename(filename, **prop) for filename in filenames]
+        images = [cls._COLLECTION_OF.from_filename(filename, **prop) for filename in filenames]
         if persist and use_dask:
             images = [i.persist() for i in images]
             
@@ -742,7 +742,7 @@ class _Collection_( object ):
         use_dask = "dask" in str( type(datas[0]) )
         if use_dask:
             if type( datas[0] ) != da.Array: # Dask delayed
-                datas = [da.from_delayed(f_, shape=self.COLLECTION_OF.shape,
+                datas = [da.from_delayed(f_, shape=self._COLLECTION_OF.shape,
                                                  dtype="float32")
                                      for f_ in datas]
             # dask.array stack
@@ -762,13 +762,36 @@ class _Collection_( object ):
                 for img, marg in zip(self._images, margs)]
     
     def _call_down(self, what, *args, **kwargs):
-        """ """
+        """ call an attribute or a method to each image.
+        
+        Parameters
+        ----------
+        what: str
+            attribute or method of individual images.
+            
+        args, kwargs: 
+            = ignored if what is an attribute = 
+            method options
+            
+        See also
+        --------
+        _map_down: map a list to the list of image
+        """
         import inspect
         
         if inspect.ismethod( getattr(self._images[0], what) ): # is func ?
             return [getattr(img, what)(*args, **kwargs) for img in self._images]
         return [getattr(img, what) for img in self._images]
-    
+
+    # ============== #
+    #   Properties   #
+    # ============== #
+    @property
+    def collection_of(self):
+        """ """
+        if not hasattr(self, "_collection_of") or self._collection_of is None:
+            self._collection_of = self._COLLECTION_OF
+        return self._collection_of
 # -------------- #
 #                #
 #   QUADRANT     #
@@ -1107,7 +1130,7 @@ class CCD( Image, _Collection_):
     # Basically a Quadrant collection
 
     SHAPE = (3080*2, 3072*2)
-    COLLECTION_OF = Quadrant
+    _COLLECTION_OF = Quadrant
     # "family"
     _QUADRANTCLASS = "Quadrant"
     _FocalPlaneCLASS = "FocalPlane"
@@ -1981,7 +2004,7 @@ class CCD( Image, _Collection_):
 # -------------- #
 class FocalPlane(Image, _Collection_):
     
-    COLLECTION_OF = CCD
+    _COLLECTION_OF = CCD
     # Family
     _CCDCLASS = "CCD"
     

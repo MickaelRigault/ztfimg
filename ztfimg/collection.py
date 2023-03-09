@@ -57,9 +57,6 @@ def _headers_to_headerdf_(headers, persist=False):
 
 class ImageCollection( _Collection_ ):
     
-    COLLECTION_OF = Image
-    QUADRANT_SHAPE = Quadrant.SHAPE
-    
     def __init__(self, images, **kwargs):
         """  Image collection handles multi-images
 
@@ -76,7 +73,6 @@ class ImageCollection( _Collection_ ):
         -------
         instance
         """
-        self._use_dask = "dask" in str( type(images[0]) )
         self.set_images(images, **kwargs)
         
     @classmethod
@@ -141,7 +137,7 @@ class ImageCollection( _Collection_ ):
                                                 as_path=as_path, persist=persist,
                                                 **kwargs)
         
-        this= cls.from_images(images)
+        this = cls.from_images(images)
         this._filenames = filenames
         return this
     
@@ -323,29 +319,10 @@ class ImageCollection( _Collection_ ):
         from_images: load the instance given a list of images.
         from_filenames: loads the instance given a list of files.
         """
+        # All dasked ?
         self._images = np.atleast_1d(images).tolist()
         self._filenames = None
         
-    # ---------- #
-    #  DASK      #
-    # ---------- #
-    def gather_images(self, client):
-        """ gather the self._images (works for delayed only) 
-        
-        this will change the type of self.images from dask.delayed to actual images.
-
-
-        Parameters
-        ----------
-        client: dask.delayed.Client
-            client to be used to gather the dask.delayed images.
-            
-        Returns
-        -------
-        None
-            updates self.images
-        """
-        self._images = client.gather(self._images)
         
     # ---------- #
     #  INTERNAL  #
@@ -395,189 +372,3 @@ class ImageCollection( _Collection_ ):
     def SHAPE(cls):
         """ shape of object the collection is made of"""
         return cls.COLLECTION_OF.SHAPE
-    
-# Collection of Quadrant    
-class QuadrantCollection( ImageCollection ):
-    COLLECTION_OF = Quadrant
-
-# Collection of CCD    
-class CCDCollection( ImageCollection ):
-    COLLECTION_OF = CCD
-
-# Collection of Science Quadrant
-class ScienceQuadrantCollection( QuadrantCollection ):
-    COLLECTION_OF = ScienceQuadrant
-
-    # =============== #
-    #  Methods        #
-    # =============== #
-    # ------- #
-    # GETTER  #
-    # ------- #
-    def get_aperture(self, x0s, y0s, radius, bkgann=None, system="xy",
-                         whichdata="dataclean", dataprop={},
-                         **kwargs):
-        """ run get_aperture on all images.
-
-
-        documentation to be detailed.
-
-        Parameters
-        ----------
-
-        x0, y0: [2d-array, 2d-array]
-           x and y positions where you want your stamp for each images.
-           len(x0) and len(y0) must be equal to self.nimages.
-           for instance: if you have N images and M positions to stamps for each.
-           Note: M does not need to be the same for all images.
-           ```
-           x0 = [[x0_0, x0_1,...,x0_M], 
-                 [x1_0, x1_1, ..., x1_M], 
-                 ... 
-                 [xN_0, xN_1, ..., xN_M]
-                 ]
-            ```
-            same for y0
-
-        system: [string] -optional-
-            In which system are the input x0, y0:
-            - xy (ccd )
-            - radec (in deg, sky)
-            - uv (focalplane)
-
-        whichdata: 
-            version of the image data to use for the aperture:
-            - data (as stored in science images)
-            - clean/dataclean (best version| masked and source background removed)
-
-        **kwargs goes to each individual image's get_aperture 
-
-        Returns
-        -------
-        list of dataframe
-        
-        """
-        dataprop = {**dict(which=whichdata), **dataprop}
-        propdown = {**dict(bkgann=bkgann, system=system, dataprop=dataprop),
-                    **kwargs}
-        return [img.get_aperture(x0_, y0_, radius, **propdown)
-                    for img, x0_, y0_ in zip(self.images, x0s, y0s)]
-    
-    def get_catalog(self, calibrators="gaia", extra=["ps1","psfcat"],
-                        isolation=20, seplimit=0.5, **kwargs):
-        """ short cut to image[:].get_catalog()
-
-        Returns
-        -------
-        list of dataframe
-        """
-        propdown = {**dict( calibrators=calibrators, extra=extra,
-                            isolation=isolation, seplimit=seplimit),
-                    **kwargs}
-        return self._call_down("get_catalog", **propdown)
-    
-    def get_calibrators(self, which="gaia",
-                            setxy=True, drop_outside=True, drop_namag=True,
-                            pixelbuffer=10, isolation=None, mergehow="inner", **kwargs):
-        """ """
-        propdown = {**dict( which=which,
-                            setxy=setxy, drop_outside=drop_outside, drop_namag=drop_namag,
-                            pixelbuffer=pixelbuffer, isolation=isolation, mergehow=mergehow),
-                    **kwargs}
-        
-        return self._call_down("get_calibrators", **propdown)
-    
-    def get_calibrator_aperture(self, radius, which="gaia", xykeys=["x","y"],
-                                    calkwargs={}, system="xy", whichdata="dataclean",
-                                    **kwargs):
-        """ for each image: calls get_calibrators() and then getcat_aperture()
-        """
-        cals = self.get_calibrators(which=which, **calkwargs)
-        dataprop = {**dict(which=whichdata), **dataprop}
-        return self._map_down("getcat_aperture", cals, radius, xykeys=xykeys,
-                                 system=system, dataprop=dataprop, **kwargs)
-    
-    # =============== #
-    #  Properties     #
-    # =============== #
-
-
-
-# ======================= #
-#                         #
-#    RAW                  #
-#                         #
-# ======================= #
-class RawCCDCollection( CCDCollection ):
-    COLLECTION_OF = RawCCD
-    
-    @staticmethod
-    def bulk_getfile_daterange(start, end, ccdid, imgtype=None, filtercode=None,
-                                   dateformat=None, persist=False):
-        """ """
-        from astropy.time import Time
-        from ztfquery import query
-        if format != "jd":
-            start, end = Time([start, end], format=dateformat).jd
-
-
-        sql_query = f"ccdid = {ccdid} and obsjd between {start} and {end}"
-        # IMGTYPE        
-        if imgtype is not None:
-            sql_query += f" and imgtype='{imgtype}'"
-            
-        # CCDID            
-        if filtercode is not None:
-            filtercode = tuple(np.atleast_1d(filtercode))
-            sql_query += f" and filtercode IN {filtercode}"
-
-        zquery = query.ZTFQuery.from_metaquery(kind="raw",   sql_query=sql_query)
-        return io.bulk_get_file(zquery.get_data(exist=False),
-                            as_dask="persist" if persist else "delayed")
-    
-    # ------------ #
-    #  INITIALISE  #
-    # ------------ #
-    @classmethod
-    def from_date(cls, date, ccdid, dateformat=None, **kwargs):
-        """ """
-        start = Time(date, format=dateformat).jd
-        return cls.from_daterange(start, start+1, dateformat="jd", ccdid=ccdid, **kwargs)
-        
-    @classmethod
-    def from_daterange(cls, start, end, ccdid, filtercode=None, dateformat=None,
-                           persist=False, queryprop={}, **kwargs):
-        """ """
-        files = cls.bulk_getfile_daterange(start, end, ccdid, filtercode=filtercode, dateformat=dateformat, 
-                                           persist=persist, **queryprop)
-        return cls.from_filenames(files, use_dask=True, persist=persist, **kwargs)
-
-
-class RawFlatCCDCollection( RawCCDCollection ):
-    
-    @classmethod
-    def bulk_getfile_daterange(cls, start, end, ccdid, filtercode=["zr","zg","zi"],
-                                   dateformat=None, persist=False,
-                                   **kwargs):
-        """ """
-        return super().bulk_getfile_daterange(start, end, ccdid,
-                                             imgtype="flat",  # forcing this.
-                                              filtercode=filtercode,
-                                              dateformat=dateformat, persist=persist, 
-                                              **kwargs)    
-    
-    # ============ #
-    #  Methods     #
-    # ============ #
-    def split_by_led(self):
-        """ splits the images by ILUM_LED number (from header) 
-        and returns a dictionary containing {ledid: self.__class__}
-        
-        Returns
-        -------
-        dict
-        """
-        data = self.headerdf.compute().T
-        leds = data.groupby("ILUM_LED").groups
-        return {ledid:self.__class__.from_images( list(np.asarray(self.images)[index]) )
-                for ledid, index in leds.items()}
