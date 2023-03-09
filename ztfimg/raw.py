@@ -627,17 +627,14 @@ class RawCCD( CCD ):
         """
         qids = (1,2,3,4)
         
-        quadrant_from_filename = cls._quadrantclass.from_filename
-        if use_dask:
-            quadrant_from_filename = dask.delayed(quadrant_from_filename)
-            
-        quadrants = [quadrant_from_filename(filename, qid=qid,
-                                                as_path=as_path,
-                                                use_dask=False,
-                                                persist=False, **kwargs)
+        quadrant_from_filename = cls._quadrantclass.from_filename            
+        quadrants = [quadrant_from_filename(filename,
+                                            qid=qid,
+                                            as_path=as_path,
+                                            use_dask=use_dask,
+                                            persist=persist,
+                                            **kwargs)
                          for qid in qids]
-        if persist and use_dask:
-            quadrants = [q.persist() for q in quadrants]
             
         this = cls.from_quadrants(quadrants, qids=qids)
         this._filename = filename

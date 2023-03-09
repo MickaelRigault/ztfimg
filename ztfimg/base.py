@@ -10,6 +10,41 @@ from .utils.decorators import classproperty
 
 __all__ = ["Image", "Quadrant", "CCD", "FocalPlane"]
 
+
+def read_header(filename, ext=None, use_dask=False, persist=False):
+    """ reads the file header while handling serialization issues.
+
+    Parameters
+    ----------
+    filename: str
+        file path.
+
+    ext: int
+        extension fo the header. see fits.getheader
+
+    use_dask: bool
+        should this use dask ?
+        
+    persist: bool
+        = ignored if use_dask=False = 
+        should the returned delayed object be persisted ?
+
+    Returns
+    -------
+    Header or delayed
+        if delayed, it is a pandas.Series that is delayed for serialization issues
+    """
+    from astropy.io import fits
+    if use_dask:
+        h_ = dask.delayed(fits.getheader)(filename, ext)
+        header = dask.delayed(pandas.Series)(h_)
+        if persist:
+            header = header.persist()
+    else:
+        header = fits.getheader(filename, ext)
+    return header
+
+    
 class Image( object ):
     SHAPE = None
     # Could be any type (raw, science)
@@ -52,18 +87,10 @@ class Image( object ):
     @staticmethod
     def _read_header(filename, use_dask=False, persist=False, ext=None):
         """ assuming fits format. """
-        from astropy.io.fits import getheader
-
         if "dask" in str( type(filename) ):
             use_dask = True
-        
-        if use_dask:
-            header = dask.delayed(getheader)(filename, ext=ext)
-            if persist:
-                header = header.persist()
-        else:
-            header = getheader(filename, ext=ext)
-            
+
+        header = read_header(filename, use_dask=use_dask, persist=persist, ext=ext)            
         return header
 
     @staticmethod
@@ -322,16 +349,20 @@ class Image( object ):
 
         return data_
 
-    def get_header(self):
+    def get_header(self, compute=True):
         """ get the current header
 
         this is a shortcut to self.header
 
         Returns
         -------
-        fits.header
-            whatever is in self.header 
+        fits.Header or pandas.Series
+            if compute is needed, this returns a pandas.Series
+            for serialization issues
         """
+        if "dask" in str( type( self.header) ) and compute:
+            return self.header.compute()
+        
         return self.header
 
     def get_value(self, key, default=None, attr_ok=True):
@@ -631,19 +662,6 @@ class Image( object ):
 
         return fig
 
-    # -------- #
-    # PLOTTER  #
-    # -------- #
-    def _compute_header(self):
-        """ """
-        if self._use_dask and "dask" in str(type(self._header)):
-            self._header = self._header.compute()
-
-    def _compute_data(self):
-        """ """
-        if self._use_dask and "dask." in str(type(self._data)):
-            self._data = self._data.compute()
-
     # =============== #
     #  Properties     #
     # =============== #
@@ -668,12 +686,11 @@ class Image( object ):
         return hasattr(self, "_data") and self._data is not None
 
     @property
-    def header(self, compute=True):
+    def header(self):
         """ header of the data."""
         if not hasattr(self, "_header"):
             return None
-        # Computes the header only if necessary
-        self._compute_header()
+
         return self._header
 
     @classproperty
@@ -722,19 +739,57 @@ class _Collection_( object ):
 
     @classmethod
     def _read_filenames(cls, filenames, use_dask=False, 
-                           as_path=False, persist=False, **kwargs):
+                           as_path=False, persist=False,
+                           **kwargs):
         """ """
         filenames = np.atleast_1d(filenames).tolist()
-        # it's the whole _COLLECTION_OF that is dask, not inside it.
+        
         prop = {**dict(as_path=as_path, use_dask=use_dask), **kwargs}
 
+        # Collection of what ?
+        if cls._COLLECTION_OF is not None: # already specified
+            COLLECTION_OF = cls._COLLECTION_OF
+        else:
+            COLLECTION_OF = cls._guess_filenames_imgtype_(filenames)
+        print(COLLECTION_OF)
+        
         # dask is called inside this.
-        images = [cls._COLLECTION_OF.from_filename(filename, **prop) for filename in filenames]
-        if persist and use_dask:
+        images = [COLLECTION_OF.from_filename(filename, **prop) for filename in filenames]
+        if use_dask and persist:
             images = [i.persist() for i in images]
             
         return images, filenames
 
+    @staticmethod
+    def _guess_filenames_imgtype_(filenames):
+        """ guess the Image Class given the filenames
+        
+        Only sci->ScienceQuadrant and raw->RawCCD implemented.
+
+        This will raise a NotImplementedError if multiple kinds of filenames 
+        are given.
+        
+        
+        """
+        from ztfquery import io
+        kind = io.filename_to_kind(filenames)
+        if len( np.unique(kind) ) > 1:
+            raise NotImplementedError("Only single filename image kind inplemented.")
+        else:
+            kind = kind[0] # sci, raw or cal
+            
+        # Works
+        if kind == "sci":
+            from .science import ScienceQuadrant
+            imgtype = ScienceQuadrant
+        elif kind == "raw":
+            from .raw import RawCCD
+            imgtype = RawCCD
+        else:
+            raise NotImplementedError(f"Only sci and raw image kind implemented ; {kind} given")
+        
+        return imgtype
+            
     def _get_subdata(self, **kwargs):
         """ get a stack of the data from get_data collection of """
         datas = self._call_down("get_data", **kwargs)
@@ -783,14 +838,35 @@ class _Collection_( object ):
             return [getattr(img, what)(*args, **kwargs) for img in self._images]
         return [getattr(img, what) for img in self._images]
 
+
+    def compute(self, **kwargs):
+        """ compute all dasked images
+        = careful this may load a lot of data in memory =
+        
+        Ignored if not use_dask.
+            
+        **kwargs goes to individual's image compte().
+        """
+        _ = self._call_down("compute", **kwargs)
+        self._use_dask = False # if needed be
+        
+    def persist(self, **kwargs):
+        """ persist all dasked images
+        = this loads data in your cluster's memory =
+        
+        **kwargs goes to individual's image compte().
+        """
+        _ = self._call_down("persist", **kwargs)
+
     # ============== #
     #   Properties   #
     # ============== #
     @property
     def collection_of(self):
-        """ """
+        """ name of the collection elements. """
         if not hasattr(self, "_collection_of") or self._collection_of is None:
             self._collection_of = self._COLLECTION_OF
+            
         return self._collection_of
 # -------------- #
 #                #
@@ -803,8 +879,6 @@ class Quadrant(Image):
     _CCDCLASS = "CCD"
     _FocalPlaneCLASS = "FocalPlane"
 
-
-    
     # ============== #
     #   Methods      #
     # ============== #
@@ -1075,7 +1149,85 @@ class Quadrant(Image):
             return self.xy_to_uv(*corners.T, reorder=True).T
 
         raise ValueError(f"{system} system not recognized. 'xy', 'ij', 'radec' or 'uv'")
-    
+
+    # ======== #
+    #  Dask    #
+    # ======== #
+    def compute(self, **kwargs):
+        """ computes all delayed attribute.
+
+
+        Parameters
+        ----------
+        attrnames: list
+            list of attribute name this should be applied to.
+            If None, all dasked attributes will be used.
+
+        **kwargs goes to delayed.compute(**kwargs)
+
+        Return
+        ------
+        None
+
+        See also
+        --------
+        persist: persists (some) delayed attributes
+        """
+        
+        if not self.use_dask:
+            warnings.warn("dask not used ; nothing to do.")
+            return
+
+        attrnames = self._get_dasked_attributes_()
+        # compute all at once;
+        newattr = dask.delayed(list)([getattr(self, a) for a in attrnames]
+                                    ).compute(**kwargs)
+        _ = [setattr(self, name_, attr_) for name_, attr_ in zip(attrnames, newattr)]
+
+        # not dasked anymore
+        self._use_dask = False
+
+    def persist(self, attrnames=None, **kwargs):
+        """ persist delayed attributes
+
+        Parameters
+        ----------
+        attrnames: list
+            list of attribute name this should be applied to.
+            If None, all dasked attributes will be used.
+
+        **kwargs goes to delayed.persist(**kwargs)
+        
+        Return
+        ------
+        None
+
+        See also
+        --------
+        compute: computes delayed attributes
+        """
+        
+        if not self.use_dask:
+            warnings.warn("dask not used ; nothing to do.")
+            return
+
+        if attrnames is None:
+            attrnames = self._get_dasked_attributes_()
+
+        # persist all individually
+        newattr = [getattr(self, a).persist(**kwargs) for a in attrnames]
+        _ = [setattr(self, name_, attr_) for name_, attr_ in zip(attrnames, newattr)]
+
+        # still dasked
+        self._use_dask = True
+
+
+    def _get_dasked_attributes_(self):
+        """ returns the name of all dasked attributes """
+        to_be_check = ["_data", "_mask", "_filename", "_header"]
+        return [attr for attr in to_be_check
+                    if hasattr(self, attr) and  "dask" in str( type( getattr(self, attr) ) )]
+        
     # =============== #
     #  Properties     #
     # =============== #    
