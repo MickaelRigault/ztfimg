@@ -1755,7 +1755,7 @@ class CCD( Image, _Collection_):
             
             qdata = [q1,q2,q3,q4]
             if not reorder: # self.data is expected to be reodered
-                qdata = [q[::-1;::-1] for q in qdata]
+                qdata = [q[::-1,::-1] for q in qdata]
             
             if rebin is not None:
                 npda = da if self.use_dask else np
