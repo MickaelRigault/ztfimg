@@ -45,7 +45,7 @@ class ScienceQuadrant(Quadrant, WCSHolder):
 
     @classmethod
     def from_filename(cls, filename, filename_mask=None,
-                          download=True, as_path=False,
+                          download=True, as_path=True,
                           use_dask=False, persist=False, **kwargs):
         """
         Parameters
@@ -87,29 +87,33 @@ class ScienceQuadrant(Quadrant, WCSHolder):
 
         if filename_mask is None:
             filename_mask = filename
-
+            as_path = False
+            
         meta = io.parse_filename(filename)
         
         if use_dask:
             # Getting the filenames, download if needed
             if not as_path:
-                filename = dask.delayed(io.get_file)(filename, suffix="sciimg.fits",
+                filepath = dask.delayed(io.get_file)(filename, suffix="sciimg.fits",
                                                    downloadit=download,
                                                    show_progress=False, maxnprocess=1,
                                                    **kwargs)
 
-                filename_mask = dask.delayed(io.get_file)(filename_mask, suffix="mskimg.fits",
+                filepath_mask = dask.delayed(io.get_file)(filename_mask, suffix="mskimg.fits",
                                                    downloadit=download,
                                                    show_progress=False, maxnprocess=1,
                                                    **kwargs)
-
+            else:
+                filepath = filename
+                filepath_mask = filename_mask
+                
             # Getting the filenames
             # - Data
-            data = da.from_delayed(dask.delayed(fits.getdata)(filename),
+            data = da.from_delayed(dask.delayed(fits.getdata)(filepath),
                                    shape=cls.SHAPE, dtype="float32")
-            header = dask.delayed(fits.getheader)(filename)
+            header = dask.delayed(fits.getheader)(filepath)
             # - Mask
-            mask = da.from_delayed(dask.delayed(fits.getdata)(filename_mask),
+            mask = da.from_delayed(dask.delayed(fits.getdata)(filepath_mask),
                                    shape=cls.SHAPE, dtype="int16")
             if persist:
                 data = data.persist()
@@ -122,10 +126,15 @@ class ScienceQuadrant(Quadrant, WCSHolder):
                                      downloadit=download, **kwargs)
                 filename_mask = io.get_file(filename_mask, suffix="mskimg.fits",
                                      downloadit=download, **kwargs)
-            data = fits.getdata(filename)
-            header = fits.getheader(filename)
+            else:
+                filepath = filename
+                filepath_mask = filename_mask
+
+                
+            data = fits.getdata(filepath)
+            header = fits.getheader(filepath)
             # - Mask
-            mask = fits.getdata(filename_mask)
+            mask = fits.getdata(filepath_mask)
 
         # self
 
@@ -133,6 +142,7 @@ class ScienceQuadrant(Quadrant, WCSHolder):
                    mask=mask, meta=meta)
         
         this._filename = filename
+        this._filepath = filepath
         return this
 
     def set_mask(self, mask):

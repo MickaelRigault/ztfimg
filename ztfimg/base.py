@@ -11,12 +11,12 @@ from .utils.decorators import classproperty
 __all__ = ["Image", "Quadrant", "CCD", "FocalPlane"]
 
 
-def read_header(filename, ext=None, use_dask=False, persist=False):
+def read_header(filepath, ext=None, use_dask=False, persist=False):
     """ reads the file header while handling serialization issues.
 
     Parameters
     ----------
-    filename: str
+    filepath: str
         file path.
 
     ext: int
@@ -36,12 +36,12 @@ def read_header(filename, ext=None, use_dask=False, persist=False):
     """
     from astropy.io import fits
     if use_dask:
-        h_ = dask.delayed(fits.getheader)(filename, ext)
+        h_ = dask.delayed(fits.getheader)(filepath, ext)
         header = dask.delayed(pandas.Series)(h_)
         if persist:
             header = header.persist()
     else:
-        header = fits.getheader(filename, ext)
+        header = fits.getheader(filepath, ext)
     return header
 
     
@@ -65,32 +65,32 @@ class Image( object ):
             self.set_header(header)
 
     @classmethod
-    def _read_data(cls, filename, use_dask=False, persist=False, ext=None):
+    def _read_data(cls, filepath, use_dask=False, persist=False, ext=None):
         """ assuming fits format."""
         from astropy.io.fits import getdata
 
-        if "dask" in str( type(filename) ):
+        if "dask" in str( type(filepath) ):
             use_dask = True
     
         if use_dask:
             # - Data
-            data = da.from_delayed( dask.delayed( getdata) (filename, ext=ext),
+            data = da.from_delayed( dask.delayed( getdata) (filepath, ext=ext),
                                    shape=cls.SHAPE, dtype="float32")
             if persist:
                 data = data.persist()
 
         else:
-            data = getdata(filename, ext=ext)
+            data = getdata(filepath, ext=ext)
 
         return data
 
     @staticmethod
-    def _read_header(filename, use_dask=False, persist=False, ext=None):
+    def _read_header(filepath, use_dask=False, persist=False, ext=None):
         """ assuming fits format. """
-        if "dask" in str( type(filename) ):
+        if "dask" in str( type(filepath) ):
             use_dask = True
 
-        header = read_header(filename, use_dask=use_dask, persist=persist, ext=ext)            
+        header = read_header(filepath, use_dask=use_dask, persist=persist, ext=ext)            
         return header
 
     @staticmethod
@@ -108,7 +108,7 @@ class Image( object ):
         return fileout
     
     @staticmethod
-    def _get_filename(filename, as_path=True, use_dask=False, **kwargs):
+    def _get_filepath(filename, as_path=True, use_dask=False, **kwargs):
         """ internal function that can call ztfquery.get_file() to download files you don't have yet.
         
         Parameters
@@ -185,13 +185,14 @@ class Image( object ):
         if not use_dask:
             dask_header = False
             
-        filename = cls._get_filename(filename, as_path=as_path, use_dask=use_dask)
-        data = cls._read_data(filename, use_dask=use_dask, persist=persist)
-        header = cls._read_header(filename, use_dask=dask_header, persist=persist)
+        filepath = cls._get_filepath(filename, as_path=as_path, use_dask=use_dask)
+        data = cls._read_data(filepath, use_dask=use_dask, persist=persist)
+        header = cls._read_header(filepath, use_dask=dask_header, persist=persist)
         
         # self
         this = cls.from_data(data=data, header=header, **kwargs)
         this._filename = filename
+        self._filepath = filepath
         return this
 
     @classmethod
@@ -703,8 +704,16 @@ class Image( object ):
     def filename(self):
         """ If this method was loaded from a file, this is it's filename. None otherwise """
         if not hasattr(self, "_filename"):
-            return None
+            return self.filepath # could be None 
         return self._filename
+
+    @property
+    def filepath(self):
+        """ If this method was loaded from a file, this is it's filename. None otherwise """
+        if not hasattr(self, "_filepath"):
+            return None
+        return self._filepath
+    
 
     @property
     def filtername(self):
@@ -751,7 +760,6 @@ class _Collection_( object ):
             COLLECTION_OF = cls._COLLECTION_OF
         else:
             COLLECTION_OF = cls._guess_filenames_imgtype_(filenames)
-        print(COLLECTION_OF)
         
         # dask is called inside this.
         images = [COLLECTION_OF.from_filename(filename, **prop) for filename in filenames]
@@ -836,6 +844,7 @@ class _Collection_( object ):
         
         if inspect.ismethod( getattr(self._images[0], what) ): # is func ?
             return [getattr(img, what)(*args, **kwargs) for img in self._images]
+        
         return [getattr(img, what) for img in self._images]
 
 
@@ -847,6 +856,7 @@ class _Collection_( object ):
             
         **kwargs goes to individual's image compte().
         """
+        warnings.warn("compute of a collection is not optimal yet. Loops over images to call their compute.")
         _ = self._call_down("compute", **kwargs)
         self._use_dask = False # if needed be
         
@@ -1224,7 +1234,7 @@ class Quadrant(Image):
 
     def _get_dasked_attributes_(self):
         """ returns the name of all dasked attributes """
-        to_be_check = ["_data", "_mask", "_filename", "_header"]
+        to_be_check = ["_data", "_mask", "_filepath", "_header"]
         return [attr for attr in to_be_check
                     if hasattr(self, attr) and  "dask" in str( type( getattr(self, attr) ) )]
         
@@ -1322,12 +1332,7 @@ class CCD( Image, _Collection_):
             # this updates use_dask
             _ = [self.set_quadrant(quad_, qid=qid, **kwargs)
                      for quad_, qid in zip(quadrants, qids)]
-            
-    @property
-    def filenames(self):
-        """ list of the filename of the different quadrants constituing the data. """
-        return [q.filename for qid, q in self.quadrants.items()]
-    
+                
     # =============== #
     #  I/O            #
     # =============== #        
@@ -1639,7 +1644,7 @@ class CCD( Image, _Collection_):
         """ get a quadrant (``self.quadrants[qid]``) """
         return self.quadrants[qid]
 
-    def get_focalplane(self, use_dask=None, as_path=False, **kwargs):
+    def get_focalplane(self, use_dask=None, **kwargs):
         """ get the full focal plane (64 quadrants making 16 CCDs) 
         containing this quadrant
 
@@ -1665,7 +1670,7 @@ class CCD( Image, _Collection_):
         """
         if use_dask is None:
             use_dask = self.use_dask
-
+            
         if self.filename is None:
             filename = self.filenames[0]
         else:
@@ -1673,7 +1678,6 @@ class CCD( Image, _Collection_):
             
         return self._focalplaneclass.from_single_filename(filename,
                                                           use_dask=use_dask,
-                                                          as_path=as_path,
                                                           **kwargs)
     
     def get_quadrantheader(self):
@@ -2094,7 +2098,6 @@ class CCD( Image, _Collection_):
             #self.load_data()
 
         return self._data
-
         
     @property
     def quadrants(self):
@@ -2123,6 +2126,17 @@ class CCD( Image, _Collection_):
         """ ccd id (from header) """
         return self.get_quadrant(1).ccdid
 
+    @property
+    def filenames(self):
+        """ list of the filename of the different quadrants constituing the data. """
+        return [q.filename for qid, q in self.quadrants.items()]
+
+    @property
+    def filepaths(self):
+        """ list of the filepath of the different quadrants constituing the data. """
+        return [q.filepath for qid, q in self.quadrants.items()]
+
+    
     # family
     @classproperty
     def _quadrantclass(cls):

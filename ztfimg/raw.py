@@ -39,17 +39,17 @@ class RawQuadrant( Quadrant ):
 
 
     @classmethod
-    def _read_overscan(cls, filename, ext, use_dask=True, persist=False):
+    def _read_overscan(cls, filepath, ext, use_dask=True, persist=False):
         """ assuming fits format. """
         from astropy.io.fits import getdata
         
         if use_dask:
-            overscan = da.from_delayed(dask.delayed(getdata)(filename, ext=ext+4),
+            overscan = da.from_delayed(dask.delayed(getdata)(filepath, ext=ext+4),
                                             shape=cls.SHAPE_OVERSCAN, dtype="float32")
             if persist:
                 overscan = overscan.persist()
         else:
-            overscan = getdata(filename, ext=ext+4)
+            overscan = getdata(filepath, ext=ext+4)
             
         return overscan            
 
@@ -127,16 +127,17 @@ class RawQuadrant( Quadrant ):
             dask_header = False
 
         meta = io.parse_filename(filename)
-        filename = cls._get_filename(filename, as_path=as_path, use_dask=use_dask)
+        filepath = cls._get_filepath(filename, as_path=as_path, use_dask=use_dask)
         # data
-        data = cls._read_data(filename, ext=qid, use_dask=use_dask, persist=persist)
-        header = cls._read_header(filename, ext=qid, use_dask=dask_header, persist=persist)
+        data = cls._read_data(filepath, ext=qid, use_dask=use_dask, persist=persist)
+        header = cls._read_header(filepath, ext=qid, use_dask=dask_header, persist=persist)
         # and overscan
-        overscan = cls._read_overscan(filename, ext=qid, use_dask=use_dask, persist=persist)
+        overscan = cls._read_overscan(filepath, ext=qid, use_dask=use_dask, persist=persist)
         
         this = cls(data, header=header, overscan=overscan, **kwargs)
         this._qid = qid
         this._filename = filename
+        this._filepath = filepath        
         this._meta = meta
         return this
 
@@ -180,15 +181,15 @@ class RawQuadrant( Quadrant ):
             raise IOError(f"Very strange: several local raw data found for filefracday: {filefracday} and ccdid: {ccdid}", filename)
         
         return cls.from_filename(filename[0], qid=qid, use_dask=use_dask,
-                                     persist=persist, **kwargs)
+                                 as_path=False, persist=persist, **kwargs)
     
     @staticmethod
-    def read_rawfile_header(filename, qid, grab_imgkeys=True):
+    def read_rawfile_header(filepath, qid, grab_imgkeys=True):
         """ reads the filename's header and returns it as a pandas.DataFrame
 
         Parameters
         ----------
-        filename: str
+        filepath: str
             path of the data file.
 
         qid: int
@@ -207,12 +208,12 @@ class RawQuadrant( Quadrant ):
                    "FILTER", "OBSJD", "RAD", "DECD", "TELRA","TELDEC", "AZIMUTH","ELVATION",
                    ]
         
-        if "_f.fits" in filename:
+        if "_f.fits" in filepath:
             imgkeys += ["ILUM_LED", "ILUMWAVE", "ILUMPOWR"]
 
-        header  = fits.getheader(filename, ext=qid)
+        header  = fits.getheader(filepath, ext=qid)
         if grab_imgkeys:
-            imgheader = fits.getheader(filename, ext=0)
+            imgheader = fits.getheader(filepath, ext=0)
             for key in imgkeys:
                 header.set(key, imgheader.get(key), imgheader.comments[key])
             
@@ -319,7 +320,7 @@ class RawQuadrant( Quadrant ):
         """
         return NONLINEARITY_TABLE.loc[self.rcid][["a","b"]].astype("float").values
         
-    def get_overscan(self, which="data", clipping=True,
+    def get_overscan(self, which="data", sigma_clipping=3,
                          userange=[5,25], stackstat="nanmedian",
                          modeldegree=3, specaxis=1,
                          corr_overscan=False, corr_nl=False):
@@ -327,7 +328,7 @@ class RawQuadrant( Quadrant ):
         
         Parameters
         ----------
-        which: [string] 
+        which: str
             could be:
               - 'raw': as stored
               - 'data': raw within userange 
@@ -335,22 +336,21 @@ class RawQuadrant( Quadrant ):
               see stackstat (see specaxis). Clipping is applied at that time (if clipping=True)
               - 'model': polynomial model of spec
             
-        clipping: [bool]:
+        clipping: bool
             Should clipping be applied to remove the obvious flux excess.
             This clipping is made using median statistics (median and 3*nmad)
             
-        specaxis : [int] -optional-
+        specaxis: int
             axis along which you are doing the median 
             = Careful: after userange applyed = 
             - axis: 1 (default) -> horizontal overscan data spectrum (~3000 pixels)
             - axis: 0 -> vertical stack of the overscan (~30 pixels)
             (see stackstat for stacking statistic (mean, median etc)
             
-            
-        stackstat: [string] -optional-
+        stackstat: str
             numpy method to use to converting data into spec
             
-        userange: [2d-array] 
+        userange: 2d-array
             start and end of the raw overscan to be used.
                         
         corr_overscan: bool
@@ -371,8 +371,6 @@ class RawQuadrant( Quadrant ):
         --------
         To get the raw overscan vertically stacked spectra, using mean statistic do:
         get_overscan('spec', userange=None, specaxis=0, stackstat='nanmean')
-
-
         """
         try:
             from scipy.stats import median_abs_deviation as nmad # scipy>1.9
@@ -403,21 +401,14 @@ class RawQuadrant( Quadrant ):
         # Spectrum or Model
         if which == "spec":
             data = self.get_overscan(which="data", userange=userange)
-            func_to_apply = getattr(np if not self._use_dask else da, stackstat)
-            spec = func_to_apply(data , axis=specaxis)
-            if clipping:
-                med_ = np.median( spec )
-                mad_  = nmad( spec )
-                # Symetric to avoid bias, even though only positive outlier are expected.
-                flag_out = (spec>(med_+3*mad_)) +(spec<(med_-3*mad_))
-                spec[flag_out] = np.NaN
-                #warnings.warn("overscan clipping is not implemented")
-                
-            return spec
+            return self._get_overscan_spec_(data,
+                                            sigma_clipping=sigma_clipping,
+                                            stackstat=stackstat,
+                                            axis=specaxis)
         
         if which == "model":
             spec = self.get_overscan( which = "spec", userange=userange, stackstat=stackstat,
-                                          clipping=clipping)
+                                          sigma_clipping=sigma_clipping)
             # dask
             if self._use_dask:                
                 d_ = dask.delayed(fit_polynome)(np.arange( len(spec) ), spec, degree=modeldegree)
@@ -427,7 +418,64 @@ class RawQuadrant( Quadrant ):
         
         raise ValueError(f'which should be "raw", "data", "spec", "model", {which} given')    
 
+    @classmethod
+    def _get_overscan_spec_(cls, data, 
+                            sigma_clipping=None, stackstat="nanmedian", 
+                            axis=1):
+        """ compute the overscan spectrum from a input overscan 2d-data
 
+        Parameters
+        ----------
+        data: array
+            2d dask or numpy array
+
+        sigma_clipping: float
+            sigma for the clipping (median statistics used).
+            None or 0 means no clipping.
+
+        stackstat: str
+            numpy method to go from 2d to 1d array. data->spec
+
+        axes: int
+            stacking axis. 1 means overscan spectrum.
+
+        Returns
+        -------
+        1d-array
+            numpy or dask depending on input data.
+        """
+
+        if "dask" in str( type(data) ):
+            d_spec = dask.delayed(cls._get_overscan_spec_)(data,
+                                                        sigma_clipping=sigma_clipping, 
+                                                        stackstat=stackstat,
+                                                        axis=axis)
+
+            new_shape = list(data.shape)
+            _ = new_shape.pop(axis)
+            new_shape = tuple(new_shape)
+            
+            spec = da.from_delayed(d_spec, shape=new_shape, dtype=data.dtype)
+            return spec
+
+
+        try:
+            from scipy.stats import median_abs_deviation as nmad # scipy>1.9
+        except:
+            from scipy.stats import median_absolute_deviation as nmad # scipy<1.9
+
+        # numpy based
+        spec = getattr(np,stackstat)(data, axis=axis)
+        med_ = np.median( spec, axis=0)
+        if sigma_clipping is not None and sigma_clipping>0:
+            mad_  = nmad( spec, axis=0)
+            # Symmetric to avoid bias, even though only positive outlier are expected.
+            flag_out = (spec>(med_+sigma_clipping*mad_)) +(spec<(med_-sigma_clipping*mad_))
+            spec[flag_out] = np.NaN
+
+        return spec
+
+    
     def get_lastdata_firstoverscan(self, n=1, corr_overscan=False, corr_nl=False, **kwargs):
         """ get the last data and the first overscan columns
         
@@ -487,7 +535,7 @@ class RawQuadrant( Quadrant ):
         from ztfquery.buildurl import get_scifile_of_filename
         # 
         filename = get_scifile_of_filename(self.filename, qid=self.qid, source="local")
-        return ScienceQuadrant.from_filename(filename, use_dask=use_dask, **kwargs)
+        return ScienceQuadrant.from_filename(filename, use_dask=use_dask, as_path=False, **kwargs)
     
     # -------- #
     # PLOTTER  #
@@ -549,12 +597,7 @@ class RawQuadrant( Quadrant ):
         if not hasattr(self, "_overscan"):
             return None
         return self._overscan
-    
-    @property
-    def ccdid(self):
-        """ """
-        return self.get_value("CCD_ID", attr_ok=False) # avoid loop
-        
+            
     @property
     def qid(self):
         """ quadrant (amplifier of the ccd) id (1->4) """
@@ -638,6 +681,9 @@ class RawCCD( CCD ):
             
         this = cls.from_quadrants(quadrants, qids=qids)
         this._filename = filename
+        if as_path:
+            this._filepath = filepath
+            
         this._meta = io.parse_filename(filename)
         return this
 
@@ -696,7 +742,7 @@ class RawCCD( CCD ):
         if len(filename)>1:
             raise IOError(f"Very strange: several local raw data found for filefracday: {filefracday} and ccdid: {ccdid}", filename)
         
-        return cls.from_filename(filename[0], use_dask=use_dask, **kwargs)
+        return cls.from_filename(filename[0], as_path=False, use_dask=use_dask, **kwargs)
 
 
 
@@ -731,13 +777,15 @@ class RawCCD( CCD ):
         from .science import ScienceQuadrant            
         from ztfquery.buildurl import get_scifile_of_filename
         # Specific quadrant
+        prop = {"as_path":False}
+        
         if qid is not None:
             filename = get_scifile_of_filename(self.filename, qid=qid, source="local")
-            return ScienceQuadrant.from_filename(filename, use_dask=use_dask, **kwargs)
+            return ScienceQuadrant.from_filename(filename, use_dask=use_dask, **{**prop,**kwargs} )
 
         # no quadrant given -> 4 filenames (qid = 1,2,3,4)
         filenames = get_scifile_of_filename(self.filename, source="local")
-        quadrants = [ScienceQuadrant.from_filename(filename, use_dask=use_dask, **kwargs)
+        quadrants = [ScienceQuadrant.from_filename(filename, use_dask=use_dask, **{**prop,**kwargs} )
                     for filename in filenames]
         
         if as_ccd:
@@ -797,6 +845,9 @@ class RawFocalPlane( FocalPlane ):
             this.set_ccd(ccd_, ccdid=ccd_.ccdid)
 
         this._filenames = ccd_filenames
+        if as_path:
+            this._filepaths = ccd_filenames
+            
         return this
 
     @classmethod
