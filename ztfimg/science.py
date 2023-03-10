@@ -122,7 +122,7 @@ class ScienceQuadrant(Quadrant, WCSHolder):
                 filepath = io.get_file(filename, suffix="sciimg.fits",
                                      downloadit=download, **kwargs)
             if not as_path or filepath_mask is None:
-                filepath_mask = io.get_file(filename_mask, suffix="mskimg.fits",
+                filepath_mask = io.get_file(filename, suffix="mskimg.fits",
                                      downloadit=download, **kwargs)
             else: # both given
                 filepath = filename
