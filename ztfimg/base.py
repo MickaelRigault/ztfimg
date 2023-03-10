@@ -1698,12 +1698,12 @@ class CCD( Image, _Collection_):
         df.columns = qid_range
         return df
 
-    def get_quadrantdata(self, from_data=False, rebin=None, rebin_stat="mean", **kwargs):
+    def get_quadrantdata(self, from_data=False, rebin=None, rebin_stat="mean",
+                             reorder=True, **kwargs):
         """ get the quadrant's data.
         
         Parameters
         ----------
-
         from_data: bool
             if self.data exists, should the quadrant be taken from it 
             (spliting it into 4 quadrants) ?
@@ -1725,6 +1725,10 @@ class CCD( Image, _Collection_):
             the median of a 4x4 pixel will be used to form a new pixel.
             The dimension of the final image will depend on rebin.
 
+        reorder: bool
+            Should the data be re-order to match the actual north-up.
+            (leave to True if not sure)
+
         **kwargs goes to each quadrant's get_data() (only if not from_data)
 
         Returns
@@ -1742,13 +1746,16 @@ class CCD( Image, _Collection_):
             return None
 
         if self.has_quadrants() and not from_data:
-            qdata = self._get_subdata(rebin=rebin, **kwargs) # internal method of _Collection_
+            qdata = self._get_subdata(rebin=rebin, reorder=reorder, **kwargs) # internal method of _Collection_
         else:
             q4 = self.data[:self.qshape[0],self.qshape[1]:]
             q1 = self.data[self.qshape[0]:,self.qshape[1]:]
             q3 = self.data[:self.qshape[0],:self.qshape[1]] 
             q2 = self.data[self.qshape[0]:,:self.qshape[1]]
+            
             qdata = [q1,q2,q3,q4]
+            if not reorder: # self.data is expected to be reodered
+                qdata = [q[::-1;::-1] for q in qdata]
             
             if rebin is not None:
                 npda = da if self.use_dask else np
