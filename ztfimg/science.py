@@ -95,7 +95,7 @@ class ScienceQuadrant(Quadrant, WCSHolder):
                                                    show_progress=False, maxnprocess=1,
                                                    **kwargs)
 
-            if not as_path or filepath_mask is None:
+            if not as_path or filename_mask is None:
                 filepath_mask = dask.delayed(io.get_file)(filename, suffix="mskimg.fits",
                                                    downloadit=download,
                                                    show_progress=False, maxnprocess=1,
@@ -121,7 +121,7 @@ class ScienceQuadrant(Quadrant, WCSHolder):
             if not as_path:
                 filepath = io.get_file(filename, suffix="sciimg.fits",
                                      downloadit=download, **kwargs)
-            if not as_path or filepath_mask is None:
+            if not as_path or filename_mask is None:
                 filepath_mask = io.get_file(filename, suffix="mskimg.fits",
                                      downloadit=download, **kwargs)
             else: # both given
