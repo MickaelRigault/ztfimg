@@ -84,10 +84,6 @@ class ScienceQuadrant(Quadrant, WCSHolder):
         """
         from ztfquery import io
         from astropy.io import fits
-
-        if filename_mask is None:
-            filename_mask = filename
-            as_path = False
             
         meta = io.parse_filename(filename)
         
@@ -99,11 +95,12 @@ class ScienceQuadrant(Quadrant, WCSHolder):
                                                    show_progress=False, maxnprocess=1,
                                                    **kwargs)
 
-                filepath_mask = dask.delayed(io.get_file)(filename_mask, suffix="mskimg.fits",
+            if not as_path or filepath_mask is None:
+                filepath_mask = dask.delayed(io.get_file)(filename, suffix="mskimg.fits",
                                                    downloadit=download,
                                                    show_progress=False, maxnprocess=1,
                                                    **kwargs)
-            else:
+            else: # Both given
                 filepath = filename
                 filepath_mask = filename_mask
                 
@@ -124,9 +121,10 @@ class ScienceQuadrant(Quadrant, WCSHolder):
             if not as_path:
                 filepath = io.get_file(filename, suffix="sciimg.fits",
                                      downloadit=download, **kwargs)
+            if not as_path or filepath_mask is None:
                 filepath_mask = io.get_file(filename_mask, suffix="mskimg.fits",
                                      downloadit=download, **kwargs)
-            else:
+            else: # both given
                 filepath = filename
                 filepath_mask = filename_mask
 
