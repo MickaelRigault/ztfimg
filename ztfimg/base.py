@@ -1747,6 +1747,7 @@ class CCD( Image, _Collection_):
 
         if self.has_quadrants() and not from_data:
             qdata = self._get_subdata(rebin=rebin, reorder=reorder, **kwargs) # internal method of _Collection_
+            
         else:
             q4 = self.data[:self.qshape[0],self.qshape[1]:]
             q1 = self.data[self.qshape[0]:,self.qshape[1]:]
@@ -1754,7 +1755,9 @@ class CCD( Image, _Collection_):
             q2 = self.data[self.qshape[0]:,:self.qshape[1]]
             
             qdata = [q1,q2,q3,q4]
+            print("reodering ?")
             if not reorder: # self.data is expected to be reodered
+                print("putting back ztf-ordering")
                 qdata = [q[::-1,::-1] for q in qdata]
             
             if rebin is not None:
