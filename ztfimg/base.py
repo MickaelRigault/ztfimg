@@ -192,7 +192,7 @@ class Image( object ):
         # self
         this = cls.from_data(data=data, header=header, **kwargs)
         this._filename = filename
-        self._filepath = filepath
+        this._filepath = filepath
         return this
 
     @classmethod
@@ -2668,7 +2668,7 @@ class FocalPlane(Image, _Collection_):
         ax.set_ylabel(f"v {label_unit}", fontsize="large")
         ax.set_xlabel(f"u {label_unit}", fontsize="large")
         # Fancy
-        clearwhich = ["left","right","top","bottom"]
+        clearwhich = ["left", "right","top","bottom"]
         [ax.spines[which].set_visible(False) for which in clearwhich]
         ax.tick_params(labelsize="small", labelcolor="0.7", color="0.7")
 
