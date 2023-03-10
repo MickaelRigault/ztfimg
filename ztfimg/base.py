@@ -2700,6 +2700,12 @@ class FocalPlane(Image, _Collection_):
         """ list of the filename of the different quadrants constituing the data. """
         return self.call_quadrants("filename")
     
+    @property
+    def filepaths(self):
+        """ list of the filename of the different quadrants constituing the data. """
+        return self.call_quadrants("filepath")
+
+    
     @classproperty
     def shape_full(cls):
         """ shape with gap"""

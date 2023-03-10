@@ -682,7 +682,7 @@ class RawCCD( CCD ):
         this = cls.from_quadrants(quadrants, qids=qids)
         this._filename = filename
         if as_path:
-            this._filepath = filepath
+            this._filepath = filename
             
         this._meta = io.parse_filename(filename)
         return this
