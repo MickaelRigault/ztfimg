@@ -102,7 +102,7 @@ class ScienceQuadrant(Quadrant, WCSHolder):
                                                    downloadit=download,
                                                    show_progress=False, maxnprocess=1,
                                                    **kwargs)
-            else: 
+            else: # Both given
                 filepath_mask = filename_mask
                 
             # Getting the filenames
@@ -212,6 +212,7 @@ class ScienceQuadrant(Quadrant, WCSHolder):
     def get_data(self, apply_mask=False, maskvalue=np.NaN,
                      rm_bkgd=False, whichbkgd="median",
                      rebin=None, rebin_stat="nanmean",
+                     zp=None,
                      reorder=True,
                      **kwargs):
         """ get a copy of the data affected by background and/or masking.
@@ -268,6 +269,18 @@ class ScienceQuadrant(Quadrant, WCSHolder):
             # not data -= to create a copy.
             data_ = data_-self.get_background(method=whichbkgd, rm_bkgd=False)
 
+        if zp is not None:
+            
+            magzp = self.get_value("MAGZP")
+            coef = 10 ** (-0.4*(magzp - zp)) # change zp system
+            if "delayed" in str( type( coef ) ):
+                if "dask" in str( type( data_ ) ):
+                    coef = da.from_delayed(coef, dtype="float32", shape=())
+                else: # means numpy data
+                    coef = coef.compute()
+            
+            data_ = data_*coef
+            
         if rebin is not None:
             data_ = getattr(da if self.use_dask else np, rebin_stat)(
                 rebin_arr(data_, (rebin, rebin), use_dask=self.use_dask), axis=(-2, -1))

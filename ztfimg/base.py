@@ -645,7 +645,7 @@ class Image( object ):
         if data is None:
             data = self.get_data(rebin=rebin)
             
-        if "dask" in str(type(data)):
+        if "dask" in str( type(data) ):
             data = data.compute()
 
         if apply is not None:
