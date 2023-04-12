@@ -2431,102 +2431,105 @@ class FocalPlane(Image, _Collection_):
 
         return hpixels, vpixels
 
-    def get_data(self, rebin=None, incl_gap=True, persist=False, **kwargs):
+    def get_data(self, rebin=None, incl_gap=True, persist=False, ccd_coef=None, **kwargs):
         """ get data. """
+
+        if ccd_coef is None:
+            ccd_coef = np.ones(16)
+            
+        elif (size:= len(ccd_coef)) != 16:
+            raise ValueError(f"size of ccd_coef must be 16. {size} given.")
+        
         # Merge quadrants of the 16 CCDs
         prop = {**dict(rebin=rebin), **kwargs}
 
         npda = da if self.use_dask else np
 
         if not incl_gap:
-            line_1 = getattr(npda, "concatenate")((self.get_ccd(4).get_data(**prop),
-                                                   self.get_ccd(
-                                                     3).get_data(**prop),
-                                                   self.get_ccd(
-                                                     2).get_data(**prop),
-                                                   self.get_ccd(1).get_data(**prop)), axis=1)
-            line_2 = getattr(npda, "concatenate")((self.get_ccd(8).get_data(**prop),
-                                                   self.get_ccd(
-                                                     7).get_data(**prop),
-                                                   self.get_ccd(
-                                                     6).get_data(**prop),
-                                                   self.get_ccd(5).get_data(**prop)), axis=1)
-            line_3 = getattr(npda, "concatenate")((self.get_ccd(12).get_data(**prop),
-                                                   self.get_ccd(
-                                                       11).get_data(**prop),
-                                                   self.get_ccd(
-                                                       10).get_data(**prop),
-                                                   self.get_ccd(9).get_data(**prop)), axis=1)
-            line_4 = getattr(npda, "concatenate")((self.get_ccd(16).get_data(**prop),
-                                                   self.get_ccd(
-                                                       15).get_data(**prop),
-                                                   self.get_ccd(
-                                                       14).get_data(**prop),
-                                                   self.get_ccd(13).get_data(**prop)), axis=1)
+            line_1 = getattr(npda, "concatenate")((self.get_ccd(4).get_data(**prop)*ccd_coef[3],
+                                                   self.get_ccd(3).get_data(**prop)*ccd_coef[2],
+                                                   self.get_ccd(2).get_data(**prop)*ccd_coef[1],
+                                                   self.get_ccd(1).get_data(**prop)*ccd_coef[0]
+                                                  ),
+                                                    axis=1)
+            
+            line_2 = getattr(npda, "concatenate")((self.get_ccd(8).get_data(**prop)*ccd_coef[7],
+                                                   self.get_ccd(7).get_data(**prop)*ccd_coef[6],
+                                                   self.get_ccd(6).get_data(**prop)*ccd_coef[5],
+                                                   self.get_ccd(5).get_data(**prop)*ccd_coef[4]
+                                                  ),
+                                                    axis=1)
+            
+            line_3 = getattr(npda, "concatenate")((self.get_ccd(12).get_data(**prop)*ccd_coef[11],
+                                                   self.get_ccd(11).get_data(**prop)*ccd_coef[10],
+                                                   self.get_ccd(10).get_data(**prop)*ccd_coef[9],
+                                                   self.get_ccd( 9).get_data(**prop)*ccd_coef[8]
+                                                   ),
+                                                    axis=1)
+            
+            line_4 = getattr(npda, "concatenate")((self.get_ccd(16).get_data(**prop)*ccd_coef[15],
+                                                   self.get_ccd(15).get_data(**prop)*ccd_coef[14],
+                                                   self.get_ccd(14).get_data(**prop)*ccd_coef[13],
+                                                   self.get_ccd(13).get_data(**prop)*ccd_coef[12]
+                                                    ),
+                                                    axis=1)
 
-            mosaic = getattr(npda, "concatenate")(
-                (line_1, line_2, line_3, line_4), axis=0)
+            mosaic = getattr(npda, "concatenate")( (line_1, line_2, line_3, line_4),
+                                                    axis=0)
+            
         else:
-            line_1 = getattr(npda, "concatenate")((self.get_ccd(4).get_data(**prop),
-                                                   da.ones(self._get_datagap(
-                                                       "columns", rebin=rebin))*np.NaN,
-                                                   self.get_ccd(
-                                                     3).get_data(**prop),
-                                                   da.ones(self._get_datagap(
-                                                       "columns", rebin=rebin))*np.NaN,
-                                                   self.get_ccd(
-                                                     2).get_data(**prop),
-                                                   da.ones(self._get_datagap(
-                                                       "columns", rebin=rebin))*np.NaN,
-                                                   self.get_ccd(1).get_data(**prop)), axis=1)
-            line_2 = getattr(npda, "concatenate")((self.get_ccd(8).get_data(**prop),
-                                                   da.ones(self._get_datagap(
-                                                       "columns", rebin=rebin))*np.NaN,
-                                                   self.get_ccd(
-                                                     7).get_data(**prop),
-                                                   da.ones(self._get_datagap(
-                                                       "columns", rebin=rebin))*np.NaN,
-                                                   self.get_ccd(
-                                                     6).get_data(**prop),
-                                                   da.ones(self._get_datagap(
-                                                       "columns", rebin=rebin))*np.NaN,
-                                                   self.get_ccd(5).get_data(**prop)), axis=1)
-            line_3 = getattr(npda, "concatenate")((self.get_ccd(12).get_data(**prop),
-                                                   da.ones(self._get_datagap(
-                                                       "columns", rebin=rebin))*np.NaN,
-                                                   self.get_ccd(
-                                                       11).get_data(**prop),
-                                                   da.ones(self._get_datagap(
-                                                       "columns", rebin=rebin))*np.NaN,
-                                                   self.get_ccd(
-                                                       10).get_data(**prop),
-                                                   da.ones(self._get_datagap(
-                                                       "columns", rebin=rebin))*np.NaN,
-                                                   self.get_ccd(9).get_data(**prop)), axis=1)
-            line_4 = getattr(npda, "concatenate")((self.get_ccd(16).get_data(**prop),
-                                                   da.ones(self._get_datagap(
-                                                       "columns", rebin=rebin))*np.NaN,
-                                                   self.get_ccd(
-                                                       15).get_data(**prop),
-                                                   da.ones(self._get_datagap(
-                                                       "columns", rebin=rebin))*np.NaN,
-                                                   self.get_ccd(
-                                                       14).get_data(**prop),
-                                                   da.ones(self._get_datagap(
-                                                       "columns", rebin=rebin))*np.NaN,
-                                                   self.get_ccd(13).get_data(**prop)), axis=1)
+            line_1 = getattr(npda, "concatenate")((self.get_ccd(4).get_data(**prop)*ccd_coef[3],
+                                                    da.ones(self._get_datagap("columns", rebin=rebin))*np.NaN,
+                                                   self.get_ccd(3).get_data(**prop)*ccd_coef[2],
+                                                    da.ones(self._get_datagap("columns", rebin=rebin))*np.NaN,
+                                                   self.get_ccd(2).get_data(**prop)*ccd_coef[1],
+                                                    da.ones(self._get_datagap("columns", rebin=rebin))*np.NaN,
+                                                   self.get_ccd(1).get_data(**prop)*ccd_coef[0],
+                                                       ),
+                                                    axis=1)
+            
+            line_2 = getattr(npda, "concatenate")((self.get_ccd(8).get_data(**prop)*ccd_coef[7],
+                                                    da.ones(self._get_datagap("columns", rebin=rebin))*np.NaN,
+                                                   self.get_ccd(7).get_data(**prop)*ccd_coef[6],
+                                                    da.ones(self._get_datagap("columns", rebin=rebin))*np.NaN,
+                                                   self.get_ccd(6).get_data(**prop)*ccd_coef[5],
+                                                    da.ones(self._get_datagap("columns", rebin=rebin))*np.NaN,
+                                                   self.get_ccd(5).get_data(**prop)*ccd_coef[4]
+                                                    ),
+                                                    axis=1)
+            
+            line_3 = getattr(npda, "concatenate")((self.get_ccd(12).get_data(**prop)*ccd_coef[11],
+                                                    da.ones(self._get_datagap("columns", rebin=rebin))*np.NaN,
+                                                   self.get_ccd(11).get_data(**prop)*ccd_coef[10],
+                                                    da.ones(self._get_datagap("columns", rebin=rebin))*np.NaN,
+                                                   self.get_ccd(10).get_data(**prop)*ccd_coef[9],
+                                                    da.ones(self._get_datagap("columns", rebin=rebin))*np.NaN,
+                                                   self.get_ccd(9).get_data(**prop)*ccd_coef[8]
+                                                       ),
+                                                    axis=1)
+            
+            line_4 = getattr(npda, "concatenate")((self.get_ccd(16).get_data(**prop)*ccd_coef[15],
+                                                   da.ones(self._get_datagap("columns", rebin=rebin))*np.NaN,
+                                                   self.get_ccd(15).get_data(**prop)*ccd_coef[14],
+                                                   da.ones(self._get_datagap("columns", rebin=rebin))*np.NaN,
+                                                   self.get_ccd(14).get_data(**prop)*ccd_coef[13],
+                                                   da.ones(self._get_datagap("columns", rebin=rebin))*np.NaN,
+                                                   self.get_ccd(13).get_data(**prop)*ccd_coef[12]
+                                                    ),
+                                                    axis=1)
+            
             size_shape = self._get_datagap("rows", rebin=rebin)[0]
-
             mosaic = getattr(npda, "concatenate")((line_1,
-                                                  da.ones(
+                                                   da.ones(
                                                       (size_shape, line_1.shape[1]))*np.NaN,
-                                                  line_2,
-                                                  da.ones(
+                                                   line_2,
+                                                   da.ones(
                                                       (size_shape, line_1.shape[1]))*np.NaN,
-                                                  line_3,
-                                                  da.ones(
+                                                   line_3,
+                                                   da.ones(
                                                       (size_shape, line_1.shape[1]))*np.NaN,
-                                                  line_4), axis=0)
+                                                   line_4),
+                                                    axis=0)
         if self.use_dask and persist:
             return mosaic.persist()
 
