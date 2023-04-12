@@ -9,7 +9,7 @@ import dask.array as da
 
 from ztfquery import io
         
-from .utils.tools import fit_polynome, rebin_arr, parse_vmin_vmax
+from .utils.tools import fit_polynome, rebin_arr, parse_vmin_vmax, ccdid_qid_to_rcid, rcid_to_ccdid_qid
 from .base import Quadrant, CCD, FocalPlane
 from .io import get_nonlinearity_table
 
@@ -170,7 +170,7 @@ class RawQuadrant( Quadrant ):
         
         """
         from ztfquery.io import filefracday_to_local_rawdata
-        ccdid, qid = RawFocalPlane.rcid_to_ccdid_qid(rcid)
+        ccdid, qid = rcid_to_ccdid_qid(rcid)
         
         filename = filefracday_to_local_rawdata(filefracday, ccdid=ccdid)
         
