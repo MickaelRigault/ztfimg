@@ -296,7 +296,7 @@ class RawQuadrant( Quadrant ):
             data_ /= (a*data_**2 + b*data_ + 1)
         
         if corr_overscan:
-            os_model = self.get_overscan(**{**dict(which="model"),**overscan_prop})
+            os_model = self.get_overscan( **{**dict(which="model"), **overscan_prop} )
             data_ -= os_model[:,None]            
 
         if rebin is not None:
@@ -329,6 +329,12 @@ class RawQuadrant( Quadrant ):
         Parameters
         ----------
         which: str
+            There are different format. 
+            - data and raw are 2d images:
+               - 'raw' are the overscan as stored
+               - 'data' re-order the data, that is, first overscan left and north up 
+                        matching get_data(reorder=True).
+
             could be:
               - 'raw': as stored | 
                       most likely you want 'data' as it includes re-ordering 
@@ -353,7 +359,8 @@ class RawQuadrant( Quadrant ):
             numpy method to use to converting data into spec
             
         userange: 2d-array
-            start and end of the raw overscan to be used.
+            = ignored is which != data or raw =
+            start and end of overscan data to be considered. 
                         
         corr_overscan: bool
             = only if which is raw or data = 
@@ -386,11 +393,13 @@ class RawQuadrant( Quadrant ):
                 # left-right inversion
                 # first overscan is self.get_overscan('data')[:,0]
                 if self.qid in [2, 3]:
-                    data = data[:, ::-1]
+                    data = data[::-1, ::-1]
+                else:
+                    data = data[::-1, :]
                     
-                if userange is not None:
-                    data = data[:, userange[0]:userange[1]]
-                
+            if userange is not None:
+                data = data[:, userange[0]:userange[1]]
+                    
             # correct for non linearity
             if corr_nl:
                 a, b = self.get_nonlinearity_corr()
@@ -413,8 +422,10 @@ class RawQuadrant( Quadrant ):
                                             axis=specaxis)
         
         if which == "model":
-            spec = self.get_overscan( which = "spec", userange=userange, stackstat=stackstat,
-                                          sigma_clipping=sigma_clipping)
+            spec = self.get_overscan(which = "spec", userange=userange,
+                                        sigma_clipping=sigma_clipping,                                         
+                                        stackstat=stackstat,
+                                        specaxis=specaxis)
             # dask
             if self._use_dask:                
                 d_ = dask.delayed(fit_polynome)(np.arange( len(spec) ), spec, degree=modeldegree)
@@ -547,7 +558,8 @@ class RawQuadrant( Quadrant ):
     # -------- #
     # PLOTTER  #
     # -------- #
-    def show_overscan(self, ax=None, axs=None, axm=None, 
+    def show_overscan(self, ax=None, axs=None, axm=None,
+                          which="data",
                       colorbar=False, cax=None, **kwargs):
         """ display the overscan image.
 
@@ -569,7 +581,7 @@ class RawQuadrant( Quadrant ):
             fig = ax.figure
             
         prop = dict(origin="lower", cmap="cividis", aspect="auto")
-        im = ax.imshow(self.get_overscan("raw"), **{**prop,**kwargs})
+        im = ax.imshow(self.get_overscan(which), **{**prop,**kwargs})
         
         if axs is not None:
             spec = self.get_overscan("spec")
