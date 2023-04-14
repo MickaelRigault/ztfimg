@@ -330,8 +330,10 @@ class RawQuadrant( Quadrant ):
         ----------
         which: str
             could be:
-              - 'raw': as stored
-              - 'data': raw within userange 
+              - 'raw': as stored | 
+                      most likely you want 'data' as it includes re-ordering 
+                      i.e. [:,0] is the first overscan independently of the quadrant
+              - 'data': raw re-ordered and within userange (if given). 
               - 'spec': vertical or horizontal profile of the overscan
               see stackstat (see specaxis). Clipping is applied at that time (if clipping=True)
               - 'model': polynomial model of spec
@@ -377,14 +379,17 @@ class RawQuadrant( Quadrant ):
         except:
             from scipy.stats import median_absolute_deviation as nmad # scipy<1.9
             
-        if which=="data" and userange is None:
-            which = "raw"
-
         # raw (or data, that is cleaned raw)            
         if which in ["raw", "data"]:
             data = self.overscan
             if which == "data":
-                data = data[:, userange[0]:userange[1]]
+                # left-right inversion
+                # first overscan is self.get_overscan('data')[:,0]
+                if self.qid in [2, 3]:
+                    data = data[:, ::-1]
+                    
+                if userange is not None:
+                    data = data[:, userange[0]:userange[1]]
                 
             # correct for non linearity
             if corr_nl:
@@ -400,6 +405,7 @@ class RawQuadrant( Quadrant ):
 
         # Spectrum or Model
         if which == "spec":
+            # data means re-ordering applied so 0 is first overscan column.
             data = self.get_overscan(which="data", userange=userange)
             return self._get_overscan_spec_(data,
                                             sigma_clipping=sigma_clipping,
@@ -494,6 +500,7 @@ class RawQuadrant( Quadrant ):
         # for reorder to make sure they are on the "normal" way.
         data = self.get_data(reorder=True, corr_overscan=corr_overscan, corr_nl=corr_nl,
                             **kwargs)
+        # raw means no change in ordering etc.
         overscan = self.get_overscan("raw", corr_overscan=corr_overscan, corr_nl=corr_nl)
         # reminder
         # q2 | q1
