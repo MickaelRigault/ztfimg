@@ -168,7 +168,7 @@ class ScienceQuadrant(Quadrant, WCSHolder):
             If None, self.header will be used.
         """
         if header is None:
-            header = self.header
+            header = self.get_header(compute=True)
 
         super().load_wcs(header)
 
