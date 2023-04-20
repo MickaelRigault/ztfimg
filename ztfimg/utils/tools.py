@@ -5,6 +5,9 @@ import dask
 import dask.array as da
 import dask.dataframe as dd
 
+__all__ = ["extract_sources", "get_aperture",
+           "ccdid_qid_to_rcid", "rcid_to_ccdid_qid"]
+
 
 def ccdid_qid_to_rcid(ccdid, qid):
     """ """
@@ -141,7 +144,7 @@ def get_source_mask(sourcedf, shape, r=5, use_dask=False):
     
         
     mask = np.zeros(shape).astype("bool")
-    ellipsemask = mask_ellipse(mask, *sourcedf[["x","y","a","b","theta"]].astype("float").values.T, r=r)
+    ellipsemask = mask_ellipse(mask, *sourcedf[["x","y","a","b","theta"]].astype("float32").values.T, r=r)
     return mask
         
 

@@ -55,6 +55,7 @@ Documentation
    notebooks/coordinates
    notebooks/catalogs
    notebooks/aperture
+   notebooks/source_extraction   
    notebooks/ztfimg_rawccd_rawquadrant
 
 API

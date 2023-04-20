@@ -87,6 +87,11 @@ exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store']
 
 #html_theme = 'alabaster'
 html_theme = 'sphinx_book_theme'
+html_theme_options = {
+    'show_toc_level': 2,
+    'repository_url': 'https://github.com/MickaelRigault/ztfimg',
+    'use_repository_button': True,     # add a "link to repository" button
+}
 html_static_path = ['_static']
 
 #html_permalinks_icon = '<span>#</span>'
