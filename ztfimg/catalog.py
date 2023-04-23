@@ -3,6 +3,7 @@
 import os
 import warnings
 import pandas
+import dask
 import numpy as np
 
 from astropy import coordinates, units
@@ -273,7 +274,6 @@ def get_isolated(catdf, catdf_ref=None,
     """
 
     if "dask" in str( type(catdf) ):
-        import dask
         d_iso = dask.delayed(get_isolated)(**locals())
         meta = pandas.DataFrame(columns=["isolated"], dtype=bool)
         dd = dask.dataframe.from_delayed(d_iso, meta)
