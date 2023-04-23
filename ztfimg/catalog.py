@@ -239,14 +239,50 @@ def download_vizier_catalog(name,
 #  Application   #
 #                #
 # -------------- # 
-def get_isolated(catdf, catdf_ref=None, xkey="ra", ykey="dec", keyunit="deg", 
-                seplimit=10, sepunits="arcsec"):
-    """ """
+def get_isolated(catdf, catdf_ref=None, 
+                 xkey="ra", ykey="dec", keyunit="deg", 
+                 seplimit=10):
+    """ get a boolean single-column dataframe ('isolated')
+    (not a serie for self-consistency with dask-mode)
+
+    Parameters
+    ----------
+    catdf: pandas.DataFrame, dask.DataFrame
+        dataframe to be tested with isolation. 
+        It must contain the xkey, ykey.
+        catdf could be dasked.
+        
+    catdf_ref: None, pandas.DataFrame, dask.DataFrame
+        reference for surrounding catalog. 
+        If None given, catdf used. (self-isolation)
+
+    xkey, ykey: str
+        coordinate key that must be in catdf (and catdf_ref if any)
+
+    keyunit: str
+        unit of the coordinate keys
+
+    seplimit: float
+        separation in arcsec.
+
+    Returns
+    -------
+    DataFrame
+        single-column (isolated) DataFrame 
+        (pandas or dask, depending on input catdf format)    
+    """
+
+    if "dask" in str( type(catdf) ):
+        import dask
+        d_iso = dask.delayed(get_isolated)(**locals())
+        meta = pandas.DataFrame(columns=["isolated"], dtype=bool)
+        dd = dask.dataframe.from_delayed(d_iso, meta)
+        return dd
     
     if catdf_ref is None:
         catdf_ref = catdf
         
-    seplimit =  seplimit* getattr(units,sepunits) 
+    seplimit =  seplimit* getattr(units, "arcsec") 
     
     #
     # - SkyCoord
@@ -257,41 +293,31 @@ def get_isolated(catdf, catdf_ref=None, xkey="ra", ykey="dec", keyunit="deg",
     iso = pandas.Series(True, index = catdf.index, name="isolated")
     tiso = pandas.Series(counts==1, index = catdf.iloc[unique].index, name="isolated")
     iso.loc[tiso.index] = tiso
-    return iso
+    return iso.to_frame()
+
 
 def match_and_merge(left, right,
-                    radec_key1=["ra","dec"], radec_key2=["ra","dec"], seplimit=0.5,
+                    radec_key1=["ra","dec"], radec_key2=["ra","dec"],
+                    seplimit=0.5,
                     mergehow="inner", suffixes=('_l', '_r'),
                     reset_index=False, **kwargs):
     """     
     Parameters
     ----------
-    cat1, cat2: [DataFrames]
-        pandas.DataFrame containing, at miminum, the radec_key1/2.
+    cat1, cat2: DataFrame
+        pandas.DataFrame containing, at least, the radec_key1/2.
         ra and dec entries (see radec_key1) must by in deg.
         
-    radec_key1,radec_key2: [string,string] -optional-
+    radec_key1, radec_key2: str
         name of the ra and dec coordinates for catalog 1 and 2, respectively.
         
-    seplimit: [float] -optional-
+    seplimit: float
         maximal distance (in arcsec) for the matching.
         
     Returns
     -------
     DataFrame
-
-
-    Example
-    -------
-    refpsffile = "../example/fromirsa/ztf_000519_zr_c09_q3_refpsfcat.fits"
-    scipsffile = "../example/fromirsa/ztf_20180216349352_000519_zr_c09_o_q3_psfcat.fits"
-    pmatch = matching.PSFCatMatch(scipsffile,refpsffile)
-    
-    pmatch.match() # run the matching, but done automatically if you forgot
-    pmatch.get_matched_entries(["ra","dec", "mag","sigmag","snr"]) # any self.scipsf.columns
-
     """
-    
     indexl, indexr = get_coordmatching_indexes(left, right, seplimit=seplimit)
     right.loc[indexr, "index_left"] = indexl
     mcat =  pandas.merge(left, right, left_index=True, right_on="index_left",
@@ -309,14 +335,14 @@ def get_coordmatching_indexes(left, right,
 
     Parameters
     ----------
-    left, right: [DataFrames]
-        pandas.DataFrame containing, at miminum, the radec_key l or r.
+    left, right: DataFrame
+        pandas.DataFrame containing, at least, the radec_key l or r.
         ra and dec entries (see radec_key1) must by in deg.
         
-    radec_keyl,radec_keyr: [string,string] -optional-
+    radec_keyl, radec_keyr: str
         name of the ra and dec coordinates for catalog left or right, respectively.
         
-    seplimit: [float] -optional-
+    seplimit: float
         maximal distance (in arcsec) for the matching.
         
     Returns
