@@ -1050,11 +1050,11 @@ class Quadrant(Image):
                                             use_dask=use_dask,
                                             **kwargs)
         # This is inplace.
-        cat = self._xy_to_catalog_(cat, ra="ra", dec="dec",
+        cat = self.add_xy_to_catalog(cat, ra="ra", dec="dec",
                                        reorder=reorder, in_fov=in_fov)
         return cat
 
-    def _xy_to_catalog_(self, cat, ra="ra", dec="dec", reorder=True, in_fov=False):
+    def add_xy_to_catalog(self, cat, ra="ra", dec="dec", reorder=True, in_fov=False):
         """ add the quadrant xy coordinates to a given catalog if possible.
         
         This assume that radec_to_xy is implemented for this instance.
