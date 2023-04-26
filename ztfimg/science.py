@@ -82,10 +82,20 @@ class ScienceQuadrant(Quadrant, WCSHolder):
         -------
         instance
         """
-        from ztfquery import io
+        from ztfquery import io, buildurl
         from astropy.io import fits
             
         meta = io.parse_filename(filename)
+        # If mask image not given, let's check if it exist somewhere either as mskimg.fits or mskimg.fits.gz
+        # trying mskimg.fits.gz first
+        if filename_mask is None:
+            filename_mask = buildurl.filename_to_url(filename, suffix="mskimg.fits.gz", source="local")
+            if not os.path.isfile(filename_mask): # trying mskimg.fits next
+                filename_mask = buildurl.filename_to_url(filename, suffix="mskimg.fits", source="local")
+            if not os.path.isfile(filename_mask): # ok, nothing exist, back to None
+                filename_mask = None 
+
+        # -> at this point if a mskimg.fits.gz or a mskimg.fits exists, filename_mask is it.
         
         if use_dask:
             # Getting the filenames, download if needed
@@ -97,11 +107,11 @@ class ScienceQuadrant(Quadrant, WCSHolder):
             else:
                 filepath = filename
 
-            if not as_path or filename_mask is None:
+            if filename_mask is None:
                 filepath_mask = dask.delayed(io.get_file)(filename, suffix="mskimg.fits",
-                                                   downloadit=download,
-                                                   show_progress=False, maxnprocess=1,
-                                                   **kwargs)
+                                                                  downloadit=download,
+                                                                  show_progress=False, maxnprocess=1,
+                                                                  **kwargs)
             else: # Both given
                 filepath_mask = filename_mask
                 
@@ -125,7 +135,7 @@ class ScienceQuadrant(Quadrant, WCSHolder):
             else:
                 filepath = filename
                 
-            if not as_path or filename_mask is None:
+            if filename_mask is None:
                 filepath_mask = io.get_file(filename, suffix="mskimg.fits",
                                      downloadit=download, **kwargs)
             else: # both given

@@ -29,4 +29,3 @@ def get_nonlinearity_table():
     nl_table["qid"] += 1 # qid in the file is actually AMP_ID that starts at 0, while qid starts at 1.
     nl_table["rcid"] = ccdid_qid_to_rcid(nl_table["ccdid"].astype("int"), nl_table["qid"].astype("int"))
     return nl_table.set_index("rcid").sort_index()
-
