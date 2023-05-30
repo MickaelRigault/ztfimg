@@ -485,6 +485,168 @@ class ScienceQuadrant(Quadrant, WCSHolder, ComplexImage):
 
         return data_
 
+    def get_mask(self, reorder=True, from_sources=None,
+                 tracks=True, ghosts=True, spillage=True, spikes=True,
+                 dead=True, nan=True, saturated=True, brightstarhalo=True,
+                 lowresponsivity=True, highresponsivity=True, noisy=True,
+                 sexsources=False, psfsources=False,
+                 alltrue=False, flip_bits=True,
+                 verbose=False, getflags=False,
+                 rebin=None, rebin_stat="nanmean",
+                 **kwargs):
+        """ get a boolean mask (or associated flags). You have the chooce of
+        what you want to mask out.
+
+        Image pixels to be mask are set to True.
+
+        A pixel is masked if it corresponds to any of the requested entry.
+        For instance if a bitmask is '3', it corresponds to condition 1(2^0) et 2(2^1).
+        Since 0 -> tracks and 1 -> sexsources, if tracks or sexsources (or both) is (are) true,
+        then the pixel will be set to True.
+
+        Uses: astropy.nddata.bitmask.bitfield_to_boolean_mask
+
+        Parameters
+        ----------
+
+        from_source: bool or DataFrame
+            A mask will be extracted from the given source.
+            (This uses, sep.mask_ellipse)
+            Accepted format:
+            - None or False: ignored.
+            - True: this uses the self.sources
+            - DataFrame: this will using this dataframe as source.
+                         this dataframe must contain: x,y,a,b,theta
+
+            => accepted kwargs: 'r' the scale (diameter) of the ellipse (5 default)
+
+        // If from_source is used, rest is ignored.
+
+
+
+        // These corresponds to the bitmasking definition for the IPAC pipeline //
+
+        Special parameters
+        alltrue: bool
+            Short cut to set everything to true. Supposedly only background left
+
+        flip_bits: bool
+            This should be True to have the aforementioned masking proceedure.
+            See astropy.nddata.bitmask.bitfield_to_boolean_mask
+
+        verbose: bool
+            Shall this print what you requested ?
+
+        getflags: bool
+            Get the bitmask power of 2 you requested instead of the actual masking.
+
+        Returns
+        -------
+        boolean mask (or list of int, see getflags)
+        """
+        # // BitMasking
+        npda = da if self.use_dask else np
+        if alltrue and not getflags:
+            return self.mask > 0
+
+        locals_ = locals()
+        if verbose:
+            print({k: locals_[k] for k in self.BITMASK_KEY})
+
+        flags = [2**i for i,
+                 k in enumerate(self.BITMASK_KEY) if locals_[k] or alltrue]
+        if getflags:
+            return flags
+
+        if self.use_dask:
+            mask_ = dask.delayed(bitmask.bitfield_to_boolean_mask)(self.mask,
+                                                                   ignore_flags=flags,
+                                                                   flip_bits=flip_bits)
+            mask = da.from_delayed(mask_, self.shape, dtype="bool")
+        else:
+            mask = bitmask.bitfield_to_boolean_mask(self.mask,
+                                                    ignore_flags=flags, flip_bits=flip_bits)
+        # Rebin
+        if rebin is not None:
+            mask = getattr(da if self.use_dask else np, rebin_stat)(
+                rebin_arr(mask, (rebin, rebin), use_dask=self.use_dask), axis=(-2, -1))
+
+        if reorder : 
+            mask = mask[::-1, ::-1]
+            
+        return mask
+
+    def get_background(self, method="median", rm_bkgd=False, backup_default="sep"):
+        """ get an estimation of the image's background
+
+        Parameters
+        ----------
+        method: str
+            if None, method ="default"
+            - "default": returns the background store as self.background (see set_background)
+            - "median": gets the median of the fully masked data (self.get_mask(alltrue=True))
+            - "sep": returns the sep estimation of the background image (Sextractor-like)
+
+        rm_bkgd: bool
+            // ignored if method != median //
+            shall the median background estimation be made on default-background subtraced image ?
+
+        backup_default: str
+            If no background has been set yet, which method should be the default backgroud.
+            If no background set and backup_default is None an AttributeError is raised.
+
+        Returns
+        -------
+        float/array (see method)
+        """
+        # Ready for additional background methods.
+        
+        # Method
+        if method == "median":
+            data_ = self.get_data(rm_bkgd=rm_bkgd, apply_mask=True, alltrue=True)
+            if "dask" in str( type(data_) ):
+                # median no easy to massively //
+                bkgd = data_.map_blocks(np.nanmedian)
+            else:
+                bkgd = np.nanmedian( data_ )
+
+        else:
+            raise NotImplementedError("Only median background implemented")
+
+        return bkgd
+
+    def get_dataclean(self):
+        """ """
+        if not hasattr(self, "_dataclean"):
+            self._dataclean = self.get_data(
+                apply_mask=True, rm_bkgd=False) - self.get_source_background()
+
+        return self._dataclean
+
+    def get_noise(self, which="nanstd"):
+        """ """
+        if which == "nanstd":
+            npda = da if self.use_dask else np
+            datamasked = self.get_data(
+                apply_mask=True, rm_bkgd=True, whichbkgd="median", alltrue=True)
+            return npda.nanstd(datamasked)
+
+        if which in ["sep", "sextractor", "globalrms"]:
+            if not hasattr(self, "_back"):
+                self._load_background_()
+            return self._back.globalrms
+
+        if which in ["backgroundrms", "rms"]:
+            if not hasattr(self, "_back"):
+                self._load_background_()
+            if self.use_dask:
+                return da.from_delayed(self._back.rms(),
+                                       shape=self.shape, dtype="float32")
+            return self._back.rms()
+
+        raise ValueError(
+            f"which should be nanstd, globalrms or rms ; {which} given")
+
     def get_source_mask(self, thresh=5, r=8):
         """ """
         if not hasattr(self, "_source_mask"):
