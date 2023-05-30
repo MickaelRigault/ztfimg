@@ -797,9 +797,9 @@ class _Collection_( object ):
         
         return imgtype
             
-    def _get_subdata(self, **kwargs):
+    def _get_subdata(self, calling="get_data", **kwargs):
         """ get a stack of the data from get_data collection of """
-        datas = self._call_down("get_data", **kwargs)
+        datas = self._call_down(calling, **kwargs)
         # This rest assumes all datas types match.
         use_dask = "dask" in str( type(datas[0]) )
         if use_dask:
@@ -1604,7 +1604,7 @@ class CCD( Image, _Collection_):
     # --------- #
     def load_data(self, **kwargs):
         """  get the data from the quadrants and set it to data. """
-        data = self._quadrants_to_ccd(**kwargs)
+        data = self._quadrantdata_to_ccddata(**kwargs)
         self.set_data(data)
 
     # --------- #
@@ -1804,12 +1804,11 @@ class CCD( Image, _Collection_):
                                               axis=(-2, -1))
         return qdata
         
-    def get_data(self, rebin=None, 
-                     rebin_quadrant=None,
+    def get_data(self, rebin=None, rebin_quadrant=None,
                      rebin_stat="mean",
-                     rebuild=False, persist=False, **kwargs):
+                     rebuild=False, persist=False,
+                     **kwargs):
         """ get (a copy of) the data
-
 
         Parameters
         ----------
@@ -1863,7 +1862,7 @@ class CCD( Image, _Collection_):
         if self.has_data() and not rebuild and rebin_quadrant is None:
             data_ = self.data#.copy()
         else:
-            data_ = self._quadrants_to_ccd(rebin=rebin_quadrant, **kwargs)
+            data_ = self._quadrantdata_to_ccddata(rebin_quadrant=rebin_quadrant, **kwargs)
            
         if rebin is not None:
             npda = np if not self.use_dask else da
@@ -1992,22 +1991,20 @@ class CCD( Image, _Collection_):
 
     
     # - internal get
-    def _quadrants_to_ccd(self, rebin=None, **kwargs):
+    def _quadrantdata_to_ccddata(self, rebin_quadrant=None, qdata=None, **kwargs):
         """ combine the ccd data into the quadrants"""
         # numpy or dask.array ?
         npda = da if self.use_dask else np
+        if qdata is None:
+            qdata = self.get_quadrantdata(rebin=rebin_quadrant, **kwargs)
         
-        d = self.get_quadrantdata(rebin=rebin, **kwargs)
         # ccd structure
         # q2 | q1
         # q3 | q4
-        ccd_up = npda.concatenate([d[1], d[0]], axis=1)
-        ccd_down = npda.concatenate([d[2], d[3]], axis=1)
+        ccd_up = npda.concatenate([qdata[1], qdata[0]], axis=1)
+        ccd_down = npda.concatenate([qdata[2], qdata[3]], axis=1)
         ccd = npda.concatenate([ccd_down, ccd_up], axis=0)
         return ccd
-
-
-
 
     def show_footprint(self, values="qid", ax=None, 
                         system="ij", cmap="coolwarm",
@@ -2369,7 +2366,7 @@ class FocalPlane(Image, _Collection_):
             
         else:
             if ccdid is None:
-                ccdid = ccd.qid
+                ccdid = ccd.ccdid
                 
             self.ccds[ccdid] = ccd
             self._use_dask  = ccd.use_dask

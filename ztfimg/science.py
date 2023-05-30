@@ -16,16 +16,230 @@ from .utils.astrometry import WCSHolder
 __all__ = ["ScienceQuadrant", "ScienceCCD", "ScienceFocalPlane"]
 
 
-class ScienceQuadrant(Quadrant, WCSHolder):
+class ComplexImage( object ):
+    """ Image that has a mask and enables to get background and noise """
+
+    BITMASK_KEY = ["tracks", "sexsources", "lowresponsivity", "highresponsivity",
+                   "noisy", "ghosts", "spillage", "spikes", "saturated",
+                   "dead", "nan", "psfsources", "brightstarhalo"]
+    
+    def set_mask(self, mask):
+        """ set the mask to this instance.
+
+        = most likely you do not want to use this method =
+
+        Parameters
+        ----------
+        mask: 2d array
+            numpy or dask array.
+        """
+        self._mask = mask
+
+    # --------- #
+    #  GETTER   #
+    # --------- #
+    def get_mask(self, from_sources=None,
+                 tracks=True, ghosts=True, spillage=True, spikes=True,
+                 dead=True, nan=True, saturated=True, brightstarhalo=True,
+                 lowresponsivity=True, highresponsivity=True, noisy=True,
+                 sexsources=False, psfsources=False,
+                 alltrue=False, flip_bits=True,
+                 verbose=False, getflags=False,
+                 rebin=None, rebin_stat="nanmean",
+                 **kwargs):
+        """ get a boolean mask (or associated flags). You have the chooce of
+        what you want to mask out.
+
+        Image pixels to be mask are set to True.
+
+        A pixel is masked if it corresponds to any of the requested entry.
+        For instance if a bitmask is '3', it corresponds to condition 1(2^0) et 2(2^1).
+        Since 0 -> tracks and 1 -> sexsources, if tracks or sexsources (or both) is (are) true,
+        then the pixel will be set to True.
+
+        Uses: astropy.nddata.bitmask.bitfield_to_boolean_mask
+
+        Parameters
+        ----------
+
+        from_source: bool or DataFrame
+            A mask will be extracted from the given source.
+            (This uses, sep.mask_ellipse)
+            Accepted format:
+            - None or False: ignored.
+            - True: this uses the self.sources
+            - DataFrame: this will using this dataframe as source.
+                         this dataframe must contain: x,y,a,b,theta
+
+            => accepted kwargs: 'r' the scale (diameter) of the ellipse (5 default)
+
+        // If from_source is used, rest is ignored.
+
+        // These corresponds to the bitmasking definition for the IPAC pipeline //
+
+        Special parameters
+        alltrue: bool
+            Short cut to set everything to true. Supposedly only background left
+
+        flip_bits: bool
+            This should be True to have the aforementioned masking proceedure.
+            See astropy.nddata.bitmask.bitfield_to_boolean_mask
+
+        verbose: bool
+            Shall this print what you requested ?
+
+        getflags: bool
+            Get the bitmask power of 2 you requested instead of the actual masking.
+
+        Returns
+        -------
+        boolean mask (or list of int, see getflags)
+        """
+        # // BitMasking
+        npda = da if self.use_dask else np
+        if alltrue and not getflags:
+            return self.mask > 0
+
+        locals_ = locals()
+        if verbose:
+            print({k: locals_[k] for k in self.BITMASK_KEY})
+
+        flags = [2**i for i,
+                 k in enumerate(self.BITMASK_KEY) if locals_[k] or alltrue]
+        if getflags:
+            return flags
+
+        if self.use_dask:
+            mask_ = dask.delayed(bitmask.bitfield_to_boolean_mask)(self.mask,
+                                                                   ignore_flags=flags,
+                                                                   flip_bits=flip_bits)
+            mask = da.from_delayed(mask_, self.shape, dtype="bool")
+        else:
+            mask = bitmask.bitfield_to_boolean_mask(self.mask,
+                                                    ignore_flags=flags, flip_bits=flip_bits)
+        # Rebin
+        if rebin is not None:
+            mask = getattr(da if self.use_dask else np, rebin_stat)(
+                rebin_arr(mask, (rebin, rebin), use_dask=self.use_dask), axis=(-2, -1))
+
+        return mask
+        
+    def get_noise(self, method="sep"):
+        """ get a noise image or value
+        
+        Parameters
+        ----------
+        method: str
+            method used to estimate the background
+            - sep or rms: use the sep-background 2d rms image
+            - globalrms: mean sep-background rms (float)
+            - std: std of the source-masked image (nanstd)
+
+        Returns
+        -------
+        array or float
+            dasked or not depending on data.
+            float is method is globalrms
+        """
+        if method in ["std", "nanstd"]:
+            npda = da if self.use_dask else np
+            mask = self.get_mask(psfsources=True, sexsources=True)
+            bkgd = self.get_background(method="sep")
+            data = self.get_data(apply_mask=mask, rm_bkgd=bkgd)
+            noise = npda.nanstd(datam)
+
+        elif method in ["sep", "backgroundrms", "rms"]:
+            sepbackground = self._get_sepbackound()
+            noise = sepbackground.rms()
+            if "delayed" in str( type( noise )):
+                noise = da.from_delayed(noise,
+                                        shape=self.shape,
+                                        dtype="float32")
+            
+        elif method in ["globalrms"]:
+            sepbackground = self._get_sepbackound()
+            noise = sepbackground.globalrms
+        else:
+            raise ValueError(f"which should be nanstd, globalrms or rms ; {which} given")
+        
+        return noise
+    
+    def get_background(self, method="sep", data=None):
+        """ get an estimation of the image's background
+
+        Parameters
+        ----------
+        method: str
+            if None, method ="default"
+            - "default": returns the background store as self.background (see set_background)
+            - "median": gets the median of the fully masked data (self.get_mask(alltrue=True))
+            - "sep": returns the sep estimation of the background image (Sextractor-like)
+
+        rm_bkgd: bool
+            // ignored if method != median //
+            shall the median background estimation be made on default-background subtraced image ?
+
+        Returns
+        -------
+        float/array (see method)
+        """
+        # Ready for additional background methods.
+        print("calling get_background")
+        # Method
+        if method == "sep":
+            print("using sep background")
+            sepbackground = self._get_sepbackound()
+            bkgd = sepbackground.back()
+            if "delayed" in str( type(bkgd) ):
+                bkgd = da.from_delayed(bkgd, shape=self.SHAPE, dtype="float32")
+
+        elif method == "median":
+            print("using median background")
+            if data is None:
+                mask = self.get_mask(psfsources=True, sexsources=True)
+                data = self.get_data(rm_bkgd=False, apply_mask=mask)
+                
+            if "dask" in str( type(data) ):
+                # median no easy to massively //
+                bkgd = data_.map_blocks(np.nanmedian)
+            else:
+                bkgd = np.nanmedian( data )
+                            
+        else:
+            raise NotImplementedError("Only median background implemented")
+
+        return bkgd    
+
+    def _get_sepbackound(self, bw=192, bh=192, update=False, **kwargs):
+        """ """
+        if not hasattr(self, "_sepbackground") or update:
+            print("creating _sepbackground")
+            from sep import Background
+            data = self.get_data().copy().astype("float32")
+            smask = self.get_mask(psfsources=True, sexsources=True)
+            data[smask] = np.NaN
+            bkgs_prop = {**dict(mask=smask, bh=bh, bw=bw), **kwargs}
+            if self.use_dask:
+                self._sepbackground = dask.delayed(Background)(data, **bkgs_prop)
+            else:
+                self._sepbackground = Background(data, **bkgs_prop)
+
+        return self._sepbackground
+
+    # ============== #
+    #   Properties   #
+    # ============== #
+    @property
+    def mask(self):
+        """ mask image. """
+        return self._mask
+
+
+class ScienceQuadrant(Quadrant, WCSHolder, ComplexImage):
 
     # "family"
     _CCDCLASS = "ScienceCCD"
     _FocalPlaneCLASS = "ScienceFocalPlane"
-
-    
-    BITMASK_KEY = ["tracks", "sexsources", "lowresponsivity", "highresponsivity",
-                   "noisy", "ghosts", "spillage", "spikes", "saturated",
-                   "dead", "nan", "psfsources", "brightstarhalo"]
 
     def __init__(self, data=None, mask=None, header=None, meta=None):
         """ Science Quadrant. You most likely want to load it using from_* class method
@@ -156,18 +370,6 @@ class ScienceQuadrant(Quadrant, WCSHolder):
         this._filepath = filepath
         return this
 
-    def set_mask(self, mask):
-        """ set the mask to this instance.
-
-        = most likely you do not want to use this method =
-
-        Parameters
-        ----------
-        mask: 2d array
-            numpy or dask array.
-        """
-        self._mask = mask
-
     def load_wcs(self, header=None):
         """ loads the wcs solution from the header
         
@@ -220,67 +422,52 @@ class ScienceQuadrant(Quadrant, WCSHolder):
         return rawimg
     
     def get_data(self, apply_mask=False, maskvalue=np.NaN,
-                     rm_bkgd=False, whichbkgd="median",
+                     rm_bkgd=False, 
                      rebin=None, rebin_stat="nanmean",
-                     zp=None,
-                     reorder=True,
+                     zp=None, reorder=True,
                      **kwargs):
         """ get a copy of the data affected by background and/or masking.
 
         Parameters
         ---------
-        which: str
-            shortcut to acces the data. This will format the rest of the input.
-            - data: copy of the data.
-            - 
-
-
-        rebin:
-            None
-
-        rebin_stat:
-            "nanmean"
-
-
-        // If not which is None only //
-
-
-        clean: [bool] -optional-
-            shortcut to get_dataclean()
-            // rest is ignored //
-
-        apply_mask: [bool] -optional-
+        apply_mask: bool, array
             Shall a default masking be applied (i.e. all bad pixels to nan)
+            if an array is given, this will be the mask used.
 
-        maskvalue: [float] -optional-
+        maskvalue: float
             Whick values should the masked out data have ?
 
-        rm_bkgd: [bool] -optional-
+        rm_bkgd: bool, array, float
             Should the data be background subtracted ?
+            if something else than a bool is given, 
+            it will be used as background
 
-        whichbkgd: [bool] -optional-
-            // ignored if rm_bkgd=False //
-            which background should this use (see self.get_background())
 
-        **kwargs goes to self.get_mask()
+        **kwargs goes to super().get_data()
 
         Returns
         -------
-        2d array (data)
+        2d array
+            numpy or dask.
+        """  
+        data_ = super().get_data(reorder=reorder, rebin=None, **kwargs)
 
-        """
-        data_ = super().get_data(reorder=reorder, rebin=None)
-
-        if apply_mask:
+        # Mask
+        if apply_mask is not False: # accepts bool or array
+            if type(apply_mask) is bool:
+                apply_mask = self.get_mask()
+                
             data_ = data_.copy() # do not affect current data
-            data_[self.get_mask(**kwargs)] = maskvalue  # OK
-
-        if rm_bkgd:
-            # not data -= to create a copy.
-            data_ = data_-self.get_background(method=whichbkgd, rm_bkgd=False)
-
-        if zp is not None:
+            data_[apply_mask] = maskvalue  # OK
             
+        # Background
+        if rm_bkgd is not False: # accepts bool or array
+            if type(rm_bkgd) is bool:
+                rm_bkgd = self.get_background()
+            data_ = data_ - rm_bkgd
+
+        # ZP            
+        if zp is not None:
             magzp = self.get_value("MAGZP")
             coef = 10 ** (-0.4*(magzp - zp)) # change zp system
             if "delayed" in str( type( coef ) ):
@@ -290,201 +477,28 @@ class ScienceQuadrant(Quadrant, WCSHolder):
                     coef = coef.compute()
             
             data_ = data_*coef
-            
+
+        # rebin            
         if rebin is not None:
             data_ = getattr(da if self.use_dask else np, rebin_stat)(
                 rebin_arr(data_, (rebin, rebin), use_dask=self.use_dask), axis=(-2, -1))
 
         return data_
 
-    def get_mask(self, from_sources=None,
-                 tracks=True, ghosts=True, spillage=True, spikes=True,
-                 dead=True, nan=True, saturated=True, brightstarhalo=True,
-                 lowresponsivity=True, highresponsivity=True, noisy=True,
-                 sexsources=False, psfsources=False,
-                 alltrue=False, flip_bits=True,
-                 verbose=False, getflags=False,
-                 rebin=None, rebin_stat="nanmean",
-                 **kwargs):
-        """ get a boolean mask (or associated flags). You have the chooce of
-        what you want to mask out.
-
-        Image pixels to be mask are set to True.
-
-        A pixel is masked if it corresponds to any of the requested entry.
-        For instance if a bitmask is '3', it corresponds to condition 1(2^0) et 2(2^1).
-        Since 0 -> tracks and 1 -> sexsources, if tracks or sexsources (or both) is (are) true,
-        then the pixel will be set to True.
-
-        Uses: astropy.nddata.bitmask.bitfield_to_boolean_mask
-
-        Parameters
-        ----------
-
-        from_source: bool or DataFrame
-            A mask will be extracted from the given source.
-            (This uses, sep.mask_ellipse)
-            Accepted format:
-            - None or False: ignored.
-            - True: this uses the self.sources
-            - DataFrame: this will using this dataframe as source.
-                         this dataframe must contain: x,y,a,b,theta
-
-            => accepted kwargs: 'r' the scale (diameter) of the ellipse (5 default)
-
-        // If from_source is used, rest is ignored.
-
-
-
-        // These corresponds to the bitmasking definition for the IPAC pipeline //
-
-        Special parameters
-        alltrue: bool
-            Short cut to set everything to true. Supposedly only background left
-
-        flip_bits: bool
-            This should be True to have the aforementioned masking proceedure.
-            See astropy.nddata.bitmask.bitfield_to_boolean_mask
-
-        verbose: bool
-            Shall this print what you requested ?
-
-        getflags: bool
-            Get the bitmask power of 2 you requested instead of the actual masking.
-
-        Returns
-        -------
-        boolean mask (or list of int, see getflags)
-        """
-        # // BitMasking
-        npda = da if self.use_dask else np
-        if alltrue and not getflags:
-            return self.mask > 0
-
-        locals_ = locals()
-        if verbose:
-            print({k: locals_[k] for k in self.BITMASK_KEY})
-
-        flags = [2**i for i,
-                 k in enumerate(self.BITMASK_KEY) if locals_[k] or alltrue]
-        if getflags:
-            return flags
-
-        if self.use_dask:
-            mask_ = dask.delayed(bitmask.bitfield_to_boolean_mask)(self.mask,
-                                                                   ignore_flags=flags,
-                                                                   flip_bits=flip_bits)
-            mask = da.from_delayed(mask_, self.shape, dtype="bool")
-        else:
-            mask = bitmask.bitfield_to_boolean_mask(self.mask,
-                                                    ignore_flags=flags, flip_bits=flip_bits)
-        # Rebin
-        if rebin is not None:
-            mask = getattr(da if self.use_dask else np, rebin_stat)(
-                rebin_arr(mask, (rebin, rebin), use_dask=self.use_dask), axis=(-2, -1))
-
-        return mask
-
-    def get_background(self, method="median", rm_bkgd=False, backup_default="sep"):
-        """ get an estimation of the image's background
-
-        Parameters
-        ----------
-        method: str
-            if None, method ="default"
-            - "default": returns the background store as self.background (see set_background)
-            - "median": gets the median of the fully masked data (self.get_mask(alltrue=True))
-            - "sep": returns the sep estimation of the background image (Sextractor-like)
-
-        rm_bkgd: bool
-            // ignored if method != median //
-            shall the median background estimation be made on default-background subtraced image ?
-
-        backup_default: str
-            If no background has been set yet, which method should be the default backgroud.
-            If no background set and backup_default is None an AttributeError is raised.
-
-        Returns
-        -------
-        float/array (see method)
-        """
-        # Ready for additional background methods.
-        
-        # Method
-        if method == "median":
-            data_ = self.get_data(rm_bkgd=rm_bkgd, apply_mask=True, alltrue=True)
-            if "dask" in str( type(data_) ):
-                # median no easy to massively //
-                bkgd = data_.map_blocks(np.nanmedian)
-            else:
-                bkgd = np.nanmedian( data_ )
-
-        else:
-            raise NotImplementedError("Only median background implemented")
-
-        return bkgd
-
-    def get_dataclean(self):
-        """ """
-        if not hasattr(self, "_dataclean"):
-            self._dataclean = self.get_data(
-                apply_mask=True, rm_bkgd=False) - self.get_source_background()
-
-        return self._dataclean
-
-    def get_noise(self, which="nanstd"):
-        """ """
-        if which == "nanstd":
-            npda = da if self.use_dask else np
-            datamasked = self.get_data(
-                apply_mask=True, rm_bkgd=True, whichbkgd="median", alltrue=True)
-            return npda.nanstd(datamasked)
-
-        if which in ["sep", "sextractor", "globalrms"]:
-            if not hasattr(self, "_back"):
-                self._load_background_()
-            return self._back.globalrms
-
-        if which in ["backgroundrms", "rms"]:
-            if not hasattr(self, "_back"):
-                self._load_background_()
-            if self.use_dask:
-                return da.from_delayed(self._back.rms(),
-                                       shape=self.shape, dtype="float32")
-            return self._back.rms()
-
-        raise ValueError(
-            f"which should be nanstd, globalrms or rms ; {which} given")
-
     def get_source_mask(self, thresh=5, r=8):
         """ """
         if not hasattr(self, "_source_mask"):
             from .utils.tools import extract_sources, get_source_mask
-            data = self.get_data(
-                apply_mask=True, rm_bkgd
-                =True, whichbkgd="median")
             mask = self.get_mask()
-            noise = self.get_noise(which="nanstd")
+            noise = self.get_noise(method="nanstd")
+            bkgd = self.get_background(method="sep")
+            data = self.get_data(apply_mask=mask, rm_bkgd=bkgd)
             sources = extract_sources(
                 data, thresh_=thresh, err=noise, mask=mask, use_dask=self.use_dask)
             self._source_mask = get_source_mask(
                 sources, self.shape, use_dask=self.use_dask, r=r)
 
         return self._source_mask
-
-    def get_source_background(self):
-        """ """
-        if not hasattr(self, "_source_background"):
-            if not hasattr(self, "_back"):
-                self._load_background_()
-                
-            if self.use_dask:
-                self._source_background = da.from_delayed(self._back.back(),
-                                                          shape=self.shape, dtype="float32")
-            else:
-                self._source_background = self._back.back()
-
-        return self._source_background
 
     def get_aperture(self, x0, y0, radius,
                      data=None,
@@ -683,17 +697,6 @@ class ScienceQuadrant(Quadrant, WCSHolder):
     # --------- #
     #  INTERNAL #
     # --------- #
-    def _load_background_(self):
-        """ """
-        from sep import Background
-        data = self.data.copy()
-        smask = self.get_source_mask()
-        data[smask] = np.NaN
-        if self.use_dask:
-            self._back = dask.delayed(Background)(data)
-        else:
-            self._back = Background(data.astype("float32"))
-
     def _setxy_to_cat_(self, cat, drop_outside=True, pixelbuffer=10):
         """ """
         warnings.warn("_setxy_to_cat_ is deprecated")
@@ -714,22 +717,11 @@ class ScienceQuadrant(Quadrant, WCSHolder):
     #  Properties     #
     # =============== #
     @property
-    def dataclean(self):
-        """ shortcut to get_dataclean() """
-        return self.get_dataclean()
-
-    @property
-    def mask(self):
-        """ mask image. """
-        return self._mask
-
-    @property
     def wcs(self):
         """ astropy wcs solution loaded from the header """
         if not hasattr(self, "_wcs"):
             self.load_wcs()
         return self._wcs
-
 
     # // shortcut
     @property
@@ -772,8 +764,7 @@ class ScienceQuadrant(Quadrant, WCSHolder):
         """ observing date with the yyyy-mm-dd format. """
         return "-".join(self.meta[["year", "month", "day"]].values)
 
-
-class ScienceCCD(CCD):
+class ScienceCCD(CCD, ComplexImage):
     
     _COLLECTION_OF = ScienceQuadrant
     # "family" 
@@ -792,6 +783,77 @@ class ScienceCCD(CCD):
 
         return self._meta
 
+    def get_mask(self, **kwargs):
+        """ """
+        # 'calling' is the method actually called by each quadrant query
+        return self.get_data(calling="get_mask", **kwargs)
+    
+    def get_data(self, apply_mask=False, rm_bkgd=False, 
+                     rebin=None, rebin_quadrant=None,
+                     zp=None, **kwargs):
+        """ 
+        
+        Parameters
+        ----------
+        
+        rm_bkgd: bool, str, array
+            Should the data be background subtracted ? 
+            - False: no background subtraction
+            - True: background subtraction at the ccd level
+            - array: 
+                - if shape 4 x quadrant.shape, this mapped at the quadrant-level
+                - if shape ccd.shape, this is applied at the ccd-level
+            - str:
+                - quadrant: removed at the quandrant level (equiv to rm_bkgd=True)
+                - ccd: removed at the ccd-level (equiv to rm_bkgd=ccd.get_background())
+        
+        """
+        # Step 1. parse the background removal that can be
+        # made at the CCD level.
+        if rm_bkgd is not False:
+            if type( rm_bkgd ) is str:
+                if rm_bkgd == "ccd":
+                    rm_bkgd = self.get_background() # CCDSHAPE
+                elif rm_bkgd == "quadrant":
+                    rm_bkgd = self.call_quadrants("get_background") # 4 x QUADRANTSHAPE
+
+            if type( rm_bkgd ) is bool: # means True
+                rm_bkgd = self.get_background() # CCDSHAPE
+
+            # here rm_bkgd should be an array
+            if np.shape(rm_bkgd) == (4, *self.qshape):
+                # 4 x QUADRANTSHAPE -> CCDSHAPE
+                rm_bkgd = self._quadrantdata_to_ccddata(qdata=rm_bkgd) # 
+
+            # here rm_bkgd should be a CCDSHAPE array
+            if not list(np.shape(rm_bkgd)) == list(self.shape):
+                raise ValueError(f"rm_bkgd (ccd) has the wrong shape {np.shape(rm_bkgd)}")
+            
+        # Step 2. call normal get_data using a ccd-shape background if any
+        return super().get_data(rm_bkgd=rm_bkgd, apply_mask=apply_mask,
+                                rebin=rebin, rebin_quadrant=rebin_quadrant,
+                                zp=zp, **kwargs)
+
+    
+    # This defines how the ccddata is built 
+    def _quadrantdata_to_ccddata(self, rm_bkgd=False,
+                                     rebin_quadrant=None, **kwargs):
+        """ combine the ccd data into the quadrants"""
+        # Info:
+        # rebin is rebinning at the quadrant level and thus
+        # corresponds to rebin_quadrant in ccd.get_data()
+
+        # this next has no rm_rbkgd as it calls from CCD, so Quadrant.get_data() not ScienceQuadrant()
+        ccddata = super()._quadrantdata_to_ccddata(rebin_quadrant=rebin_quadrant, **kwargs)
+        if not rm_bkgd is False:
+            ccddata = ccddata - rm_bkgd
+            
+
+        return ccddata
+        
+
+
+    
 
 class ScienceFocalPlane(FocalPlane):
     """ """
