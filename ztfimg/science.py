@@ -297,7 +297,7 @@ class ScienceQuadrant(Quadrant, WCSHolder):
 
         return data_
 
-    def get_mask(self, from_sources=None,
+    def get_mask(self, reorder=True, from_sources=None,
                  tracks=True, ghosts=True, spillage=True, spikes=True,
                  dead=True, nan=True, saturated=True, brightstarhalo=True,
                  lowresponsivity=True, highresponsivity=True, noisy=True,
@@ -383,6 +383,9 @@ class ScienceQuadrant(Quadrant, WCSHolder):
             mask = getattr(da if self.use_dask else np, rebin_stat)(
                 rebin_arr(mask, (rebin, rebin), use_dask=self.use_dask), axis=(-2, -1))
 
+        if reorder : 
+            mask = mask[::-1, ::-1]
+            
         return mask
 
     def get_background(self, method="median", rm_bkgd=False, backup_default="sep"):
