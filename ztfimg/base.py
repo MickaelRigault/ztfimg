@@ -982,7 +982,7 @@ class Quadrant(Image):
         """
         data = super().get_data(rebin=rebin, **kwargs)
         if reorder:
-            data = data[::-1,::-1]
+            data = np.ascontiguousarray(data[::-1,::-1])
             
         return data
 
