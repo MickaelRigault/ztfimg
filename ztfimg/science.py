@@ -124,7 +124,8 @@ class ComplexImage( object ):
             mask = getattr(da if self.use_dask else np, rebin_stat)(
                 rebin_arr(mask, (rebin, rebin), use_dask=self.use_dask), axis=(-2, -1))
 
-        if reorder : 
+        if reorder:
+            print("reorder mask")
             mask = mask[::-1, ::-1]
             
         return mask
@@ -164,6 +165,7 @@ class ComplexImage( object ):
         elif method in ["globalrms"]:
             sepbackground = self._get_sepbackound()
             noise = sepbackground.globalrms
+            
         else:
             raise ValueError(f"which should be nanstd, globalrms or rms ; {which} given")
         
@@ -426,9 +428,10 @@ class ScienceQuadrant(Quadrant, WCSHolder, ComplexImage):
 
         return rawimg
     
-    def get_data(self, apply_mask=False, maskvalue=np.NaN,
+    def get_data(self, apply_mask=False,
                      rm_bkgd=False, 
                      rebin=None, rebin_stat="nanmean",
+                     maskvalue=np.NaN,
                      zp=None, reorder=True,
                      **kwargs):
         """ get a copy of the data affected by background and/or masking.
@@ -439,13 +442,13 @@ class ScienceQuadrant(Quadrant, WCSHolder, ComplexImage):
             Shall a default masking be applied (i.e. all bad pixels to nan)
             if an array is given, this will be the mask used.
 
-        maskvalue: float
-            Whick values should the masked out data have ?
-
         rm_bkgd: bool, array, float
             Should the data be background subtracted ?
             if something else than a bool is given, 
             it will be used as background
+
+        maskvalue: float
+            Whick values should the masked out data have ?
 
 
         **kwargs goes to super().get_data()
@@ -793,9 +796,12 @@ class ScienceCCD(CCD, ComplexImage):
         # 'calling' is the method actually called by each quadrant query
         return self.get_data(calling="get_mask", **kwargs)
     
-    def get_data(self, apply_mask=False, rm_bkgd=False, 
-                     rebin=None, rebin_quadrant=None,
-                     zp=None, **kwargs):
+    def get_data(self, apply_mask=False,
+                     rm_bkgd=False, 
+                     rebin=None, rebin_stat="mean",
+                     maskvalue=np.NaN,
+                     zp=None,
+                     **kwargs):
         """ 
         
         Parameters
@@ -812,6 +818,14 @@ class ScienceCCD(CCD, ComplexImage):
                 - quadrant: removed at the quandrant level (equiv to rm_bkgd=True)
                 - ccd: removed at the ccd-level (equiv to rm_bkgd=ccd.get_background())
         
+
+        rebin_stat: str
+            = applies only if rebin is not None =
+            numpy (dask.array) method used for rebinning the data.
+            For instance, if rebin=4 and rebin_stat = median
+            the median of a 4x4 pixel will be used to form a new pixel.
+            The dimension of the final image will depend on rebin.
+
         """
         # Step 1. parse the background removal that can be
         # made at the CCD level.
@@ -828,36 +842,47 @@ class ScienceCCD(CCD, ComplexImage):
             # here rm_bkgd should be an array
             if np.shape(rm_bkgd) == (4, *self.qshape):
                 # 4 x QUADRANTSHAPE -> CCDSHAPE
-                rm_bkgd = self._quadrantdata_to_ccddata(qdata=rm_bkgd) # 
+                rm_bkgd = self._quadrantdata_to_ccddata(qdata=rm_bkgd)
 
             # here rm_bkgd should be a CCDSHAPE array
             if not list(np.shape(rm_bkgd)) == list(self.shape):
                 raise ValueError(f"rm_bkgd (ccd) has the wrong shape {np.shape(rm_bkgd)}")
-            
-        # Step 2. call normal get_data using a ccd-shape background if any
-        return super().get_data(rm_bkgd=rm_bkgd, apply_mask=apply_mask,
-                                rebin=rebin, rebin_quadrant=rebin_quadrant,
-                                zp=zp, **kwargs)
 
-    
-    # This defines how the ccddata is built 
-    def _quadrantdata_to_ccddata(self, rm_bkgd=False,
-                                     rebin_quadrant=None, **kwargs):
-        """ combine the ccd data into the quadrants"""
-        # Info:
-        # rebin is rebinning at the quadrant level and thus
-        # corresponds to rebin_quadrant in ccd.get_data()
+        # mask
+        if apply_mask is not False:
+            if type( apply_mask ) is bool: # means True
+                apply_mask = self.get_mask() # CCDSHAPE
+                
+            # here rm_bkgd should be an array
+            if np.shape(apply_mask) == (4, *self.qshape):
+                # 4 x QUADRANTSHAPE -> CCDSHAPE
+                apply_mask = self._quadrantdata_to_ccddata(qdata=apply_mask)
 
-        # this next has no rm_rbkgd as it calls from CCD, so Quadrant.get_data() not ScienceQuadrant()
-        ccddata = super()._quadrantdata_to_ccddata(rebin_quadrant=rebin_quadrant, **kwargs)
-        if not rm_bkgd is False:
-            ccddata = ccddata - rm_bkgd
+            # here rm_bkgd should be a CCDSHAPE array
+            if not list(np.shape(apply_mask)) == list(self.shape):
+                raise ValueError(f"apply_mask (ccd) has the wrong shape {np.shape(apply_mask)}")
+
+        
+        # Step 2. get data
+        ccddata = self._quadrantdata_to_ccddata(zp=zp, **kwargs).copy()
+        # background        
+        if not rm_bkgd is False: # accepts array
+            ccddata -= rm_bkgd
             
+        # mask
+        if apply_mask is not False: # accepts array
+            ccddata[apply_mask] = maskvalue  # OK
+
+        # Step 3: Rebin & persisting
+        if rebin is not None:
+            npda = da if "dask" in str( type(ccddata) ) else np
+            ccddata = getattr(npda, rebin_stat)(rebin_arr(ccddata, (rebin, rebin),
+                                                        use_dask=self.use_dask),
+                                              axis=(-2, -1))
+        if "dask" in str( type(ccddata) ) and persist:
+            ccddata = ccddata.persist()
 
         return ccddata
-        
-
-
     
 
 class ScienceFocalPlane(FocalPlane):
