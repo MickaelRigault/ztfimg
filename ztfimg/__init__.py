@@ -1,4 +1,4 @@
-__version__= "0.17.2"
+__version__= "0.18.0"
 
 from .base import *
 from .science import *

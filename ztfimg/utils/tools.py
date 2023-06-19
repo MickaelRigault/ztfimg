@@ -77,7 +77,8 @@ def parse_vmin_vmax(data, vmin, vmax):
     """
     if vmax is None: vmax="99"
     if vmin is None: vmin = "1"
-                
+
+    data = np.asarray(data, dtype="float32")
     if type(vmax) == str:
         vmax=np.nanpercentile(data, float(vmax))
         
