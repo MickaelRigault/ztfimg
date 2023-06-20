@@ -125,7 +125,7 @@ class ComplexImage( object ):
                 rebin_arr(mask, (rebin, rebin), use_dask=self.use_dask), axis=(-2, -1))
 
         if reorder:
-            print("reorder mask")
+            #print("reorder mask")
             mask = mask[::-1, ::-1]
             
         return mask
@@ -191,17 +191,17 @@ class ComplexImage( object ):
         float/array (see method)
         """
         # Ready for additional background methods.
-        print("calling get_background")
+        #print("calling get_background")
         # Method
         if method == "sep":
-            print("using sep background")
+            #print("using sep background")
             sepbackground = self._get_sepbackound()
             bkgd = sepbackground.back()
             if "delayed" in str( type(bkgd) ):
                 bkgd = da.from_delayed(bkgd, shape=self.SHAPE, dtype="float32")
 
         elif method == "median":
-            print("using median background")
+            #print("using median background")
             if data is None:
                 mask = self.get_mask(psfsources=True, sexsources=True)
                 data = self.get_data(rm_bkgd=False, apply_mask=mask)
@@ -220,7 +220,7 @@ class ComplexImage( object ):
     def _get_sepbackound(self, bw=192, bh=192, update=False, **kwargs):
         """ """
         if not hasattr(self, "_sepbackground") or update:
-            print("creating _sepbackground")
+            #print("creating _sepbackground")
             from sep import Background
             data = self.get_data().copy().astype("float32")
             smask = self.get_mask(psfsources=True, sexsources=True)
@@ -884,6 +884,68 @@ class ScienceCCD(CCD, ComplexImage):
 
         return ccddata
     
+    def radec_to_ij(self, ra, dec, reorder=True) :     
+        x,y = np.dstack(self.call_quadrants('radec_to_xy', ra, dec, reorder=reorder))
+
+        condx = ((x < self.quadrants[1].shape[0]) & (x >= 0) & 
+                 (y >= 0) & (y < self.quadrants[1].shape[1]))
+
+
+        idx, qids = condx.nonzero() #Identify quadrants and in FOV data.
+
+        i,j = np.zeros_like(np.atleast_1d(ra)), np.zeros_like(np.atleast_1d(dec))
+        i[:] = -999
+        j[:] = -999
+
+        for qidi in np.unique(qids):
+            cond = qids == qidi #Probably cleaner way to code that
+            condbis = idx[cond] #Ditto
+            i[condbis],j[condbis] =  self.quadrants[qidi+1].xy_to_ij(x[(idx[cond], qids[cond])],
+                                                                           y[(idx[cond], qids[cond])])
+
+        return np.stack([i,j])
+
+
+    def ij_to_radec(self, i, j, reorder=True) : 
+        x,y, qid = self.ij_to_xy_qid(i,j)
+
+        x = x.astype(np.float32)
+        y = y.astype(np.float32)
+
+        for qidi in np.unique(qid): 
+            if qidi == 0 : 
+                continue
+
+            cond = qid == qidi
+            x[cond], y[cond] =  self.quadrants[qidi].xy_to_radec(x[cond], y[cond], reorder=reorder)
+
+        x[qid==0] = -999
+        y[qid==0] = -999
+
+        return np.stack([x,y]) # Now ra, dec
+
+
+    def ij_to_xy_qid(self, i,j):
+        i ,j = np.atleast_1d(i), np.atleast_1d(j)
+
+        quadshape = ScienceQuadrant.SHAPE #This is equiv to hard-coded value beware.
+        qid = np.zeros_like(i).astype(int)
+
+        condi = i > quadshape[1]
+        condj = j > quadshape[0]
+
+        qid[condi & condj] = 1
+        qid[~condi & condj] = 2
+        qid[~(condi & condj)] = 3
+        qid[~condj & condi] = 4
+
+        i[condi] -= quadshape[1]
+        j[condj] -= quadshape[1]
+
+        return np.stack([i,j,qid])
+
+
+        
 
 class ScienceFocalPlane(FocalPlane):
     """ """
