@@ -982,7 +982,7 @@ class Quadrant(Image):
         """
         data = super().get_data(rebin=rebin, **kwargs)
         if reorder:
-            data = np.ascontiguousarray(data[::-1,::-1])
+            data = data[::-1,::-1]
             
         return data
 
@@ -1050,11 +1050,11 @@ class Quadrant(Image):
                                             use_dask=use_dask,
                                             **kwargs)
         # This is inplace.
-        cat = self.add_xy_to_catalog(cat, ra="ra", dec="dec",
+        cat = self.add_coord_to_catalog(cat, coord="xy", ra="ra", dec="dec",
                                        reorder=reorder, in_fov=in_fov)
         return cat
 
-    def add_xy_to_catalog(self, cat, ra="ra", dec="dec", reorder=True, in_fov=False):
+    def add_coord_to_catalog(self, cat, coord='ij', ra="ra", dec="dec", reorder=True, in_fov=False):
         """ add the quadrant xy coordinates to a given catalog if possible.
         
         This assume that radec_to_xy is implemented for this instance.
@@ -1070,6 +1070,9 @@ class Quadrant(Image):
         dec: str
             Dec entry of the input catalog
 
+        coord: str
+            Coord to add to given catalogue. 'ij' or 'xy'
+            
         reorder: bool
             when creating the x and y columns given the 
             catalog ra, dec, should this assume x and y reordered
@@ -1095,13 +1098,15 @@ class Quadrant(Image):
         
         # Adding x, y coordinates
         # convertion available ?
-        if hasattr(self, "radec_to_xy") and ra in cat and dec in cat:
+        if hasattr(self, f"radec_to_{coord}") and ra in cat and dec in cat:
+            transfunc = getattr(self, f"radec_to_{coord}")
+
             if dasked_cat: # dasked catalog
-                x_y = dask.delayed(self.radec_to_xy)(*cat[[ra, dec]].values.T, reorder=reorder)
+                x_y = dask.delayed(transfunc)(*cat[[ra, dec]].values.T, reorder=reorder)
                 x = da.from_delayed(x_y[0], shape=(cat[ra].values.size,), dtype="float32" )
                 y = da.from_delayed(x_y[1], shape=(cat[ra].values.size,), dtype="float32" )
             else:
-                x, y = self.radec_to_xy(*cat[[ra, dec]].values.T, reorder=reorder)
+                x, y = transfunc(*cat[[ra, dec]].values.T, reorder=reorder)
         else:
             if dasked_cat:
                 x, y = da.NaN, da.NaN
@@ -1110,11 +1115,11 @@ class Quadrant(Image):
                 
             in_fov = False
             
-        cat["x"] = x
-        cat["y"] = y
+        cat[coord[0]] = x
+        cat[coord[1]] = y
         if in_fov:
-            cat = cat[cat["x"].between(0, self.shape[-1]) &
-                      cat["y"].between(0, self.shape[0]) ]
+            cat = cat[cat[coord[0]].between(0, self.shape[-1]) &
+                      cat[coord[1]].between(0, self.shape[0]) ]
             
         return cat
         
@@ -2006,6 +2011,75 @@ class CCD( Image, _Collection_):
         ccd = npda.concatenate([ccd_down, ccd_up], axis=0)
         return ccd
 
+    def add_coord_to_catalog(self, cat, coord='ij', ra="ra", dec="dec", reorder=True, in_fov=False):
+        """ add the quadrant xy coordinates to a given catalog if possible.
+        
+        This assume that radec_to_xy is implemented for this instance.
+
+        Parameters
+        ----------
+        cat: pandas.DataFrame or dask.dataframe
+            catalog with at least the ra and dec keys.
+
+        ra: str
+            R.A. entry of the input catalog
+
+        dec: str
+            Dec entry of the input catalog
+
+        coord: str
+            Coord to add to given catalogue. 'ij' or 'xy'
+            
+        reorder: bool
+            when creating the x and y columns given the 
+            catalog ra, dec, should this assume x and y reordered
+            position. 
+            reorder=True matches data from get_data() but not self.data. 
+            (leave to True if unsure).
+
+        in_fov: bool
+            should entries outside the image footprint be droped ?
+            (ignored if x and y column setting fails).
+
+        Returns
+        -------
+        DataFrame
+            pandas or dask. 
+
+        See also
+        --------
+        get_catalog: get a catalog for this instance.
+        """
+        # is catalog dasked ?
+        dasked_cat = "dask" in str( type(cat) )
+        
+        # Adding x, y coordinates
+        # convertion available ?
+        if hasattr(self, f"radec_to_{coord}") and ra in cat and dec in cat:
+            transfunc = getattr(self, f"radec_to_{coord}")
+
+            if dasked_cat: # dasked catalog
+                x_y = dask.delayed(transfunc)(*cat[[ra, dec]].values.T, reorder=reorder)
+                x = da.from_delayed(x_y[0], shape=(cat[ra].values.size,), dtype="float32" )
+                y = da.from_delayed(x_y[1], shape=(cat[ra].values.size,), dtype="float32" )
+            else:
+                x, y = transfunc(*cat[[ra, dec]].values.T, reorder=reorder)
+        else:
+            if dasked_cat:
+                x, y = da.NaN, da.NaN
+            else:
+                x, y = np.NaN, np.NaN
+                
+            in_fov = False
+            
+        cat[coord[0]] = x
+        cat[coord[1]] = y
+        if in_fov:
+            cat = cat[cat[coord[0]].between(0, self.shape[-1]) &
+                      cat[coord[1]].between(0, self.shape[0]) ]
+            
+        return cat
+        
     def show_footprint(self, values="qid", ax=None, 
                         system="ij", cmap="coolwarm",
                         vmin=None, vmax=None, 
