@@ -1869,11 +1869,6 @@ class CCD( Image, _Collection_):
         else:
             data_ = self._quadrantdata_to_ccddata(rebin_quadrant=rebin_quadrant, **kwargs)
            
-        if rebin is not None:
-            npda = np if not self.use_dask else da
-            data_ = getattr(npda, rebin_stat)(rebin_arr(data_, (rebin, rebin),
-                                                        use_dask=self.use_dask),
-                                              axis=(-2, -1))
         if self.use_dask and persist:
             data_ = data_.persist()
             
@@ -1941,7 +1936,7 @@ class CCD( Image, _Collection_):
         # reminder | center is -0.5,-0.5 of q1
         # q2 | q1
         # --------
-        # q3 | q4
+        # q3 | q4s
         if system in ["xy", "ij"]:
             return self.qshape
         
