@@ -85,10 +85,10 @@ class WCSHolder( object ):
             
             qid = self.qid
         
-        if self.qid in [1, 4]:
+        if qid in [1, 4]:
             x = x+self.shape[1]
 
-        if self.qid in [1, 2]:
+        if qid in [1, 2]:
             y = y+self.shape[0]
 
         return np.stack([x, y]) # i, j
@@ -115,7 +115,7 @@ class WCSHolder( object ):
     def radec_to_ij(self, ra, dec, reorder=True, qid=None):
         """ radec to ccd coordinates (i,j) """
         x, y = self.radec_to_xy(ra, dec, reorder=True)
-        return self.xy_to_ij(x, j, qid=qid)
+        return self.xy_to_ij(x, y, qid=qid)
 
     
     # uv
@@ -148,10 +148,10 @@ class WCSHolder( object ):
             
             qid = self.qid
         
-        if self.qid in [1, 4]:
+        if qid in [1, 4]:
             i = i-self.shape[1]
 
-        if self.qid in [1, 2]:
+        if qid in [1, 2]:
             j = j-self.shape[0]
 
         return np.stack([i, j]) #  # x, y
