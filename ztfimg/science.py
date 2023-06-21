@@ -229,7 +229,7 @@ class ComplexImage( object ):
             if self.use_dask:
                 self._sepbackground = dask.delayed(Background)(data, **bkgs_prop)
             else:
-                self._sepbackground = Background(data, **bkgs_prop)
+                self._sepbackground = Background(np.ascontiguousarray(data), **bkgs_prop)
 
         return self._sepbackground
 
