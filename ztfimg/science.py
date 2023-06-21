@@ -926,7 +926,7 @@ class ScienceCCD(CCD, ComplexImage):
 
 
     def ij_to_xy_qid(self, i,j):
-        i ,j = np.atleast_1d(i), np.atleast_1d(j)
+        i ,j = np.atleast_1d(i).copy(), np.atleast_1d(j).copy()
 
         quadshape = ScienceQuadrant.SHAPE #This is equiv to hard-coded value beware.
         qid = np.zeros_like(i).astype(int)
@@ -936,11 +936,11 @@ class ScienceCCD(CCD, ComplexImage):
 
         qid[condi & condj] = 1
         qid[~condi & condj] = 2
-        qid[~(condi & condj)] = 3
+        qid[~condi & ~condj] = 3
         qid[~condj & condi] = 4
 
         i[condi] -= quadshape[1]
-        j[condj] -= quadshape[1]
+        j[condj] -= quadshape[0]
 
         return np.stack([i,j,qid])
 
