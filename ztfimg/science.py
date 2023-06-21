@@ -220,16 +220,20 @@ class ComplexImage( object ):
     def _get_sepbackound(self, bw=192, bh=192, update=False, **kwargs):
         """ """
         if not hasattr(self, "_sepbackground") or update:
-            print("creating _sepbackground")
             from sep import Background
-            data = self.get_data().copy().astype("float32")
+            # does not work with dask yet.
+            data = self.get_data()
             smask = self.get_mask(psfsources=True, sexsources=True)
-            data[smask] = np.NaN
-            bkgs_prop = {**dict(mask=smask, bh=bh, bw=bw), **kwargs}
+            bkgs_prop = {**dict(bh=bh, bw=bw), **kwargs}
+            # C-array            
             if self.use_dask:
-                self._sepbackground = dask.delayed(Background)(data, **bkgs_prop)
+                data = dask.delayed(np.ascontiguousarray)(data).byteswap().newbyteorder() #
+                smask = dask.delayed(np.ascontiguousarray)(smask).byteswap().newbyteorder() #
+                self._sepbackground = dask.delayed(Background)(data, mask=smask, **bkgs_prop)
             else:
-                self._sepbackground = Background(np.ascontiguousarray(data), **bkgs_prop)
+                data = np.ascontiguousarray(data).byteswap().newbyteorder() #
+                smask = np.ascontiguousarray(smask).byteswap().newbyteorder() #
+                self._sepbackground = Background(data, mask=smask, **bkgs_prop)
 
         return self._sepbackground
 
