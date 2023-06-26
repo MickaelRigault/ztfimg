@@ -217,8 +217,14 @@ class ComplexImage( object ):
 
         return bkgd    
 
-    def _get_sepbackound(self, bw=192, bh=192, update=False, **kwargs):
-        """ """
+    def _get_sepbackound(self, bw=192, bh=220, update=False, **kwargs):
+        """ Internal function to set backgroudn 
+        
+        Among the kwargs :
+        bw = 192 (divides 3072) 
+        bh = 220 (closest divisor of 3080)
+        
+        """
         if not hasattr(self, "_sepbackground") or update:
             from sep import Background
             from .utils.tools import numpy_ordering
