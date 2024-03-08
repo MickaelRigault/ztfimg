@@ -982,9 +982,15 @@ class Quadrant(Image):
         """
         data = super().get_data(rebin=rebin, **kwargs)
         if reorder:
-            data = data[::-1,::-1]
+            data = self._reorder_data(data)
             
         return data
+
+    @staticmethod
+    def _reorder_data(data):
+        """ internal tool to reorder data """
+        return data[::-1,::-1]
+        
 
     def get_catalog(self, name, fieldcat=False, radius=0.7, 
                         reorder=True, in_fov=False,

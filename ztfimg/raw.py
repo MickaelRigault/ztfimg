@@ -13,6 +13,9 @@ from .utils.tools import fit_polynome, rebin_arr, parse_vmin_vmax, ccdid_qid_to_
 from .base import Quadrant, CCD, FocalPlane
 from .io import get_nonlinearity_table
 
+from ztfsensors import pocket
+
+
 NONLINEARITY_TABLE = get_nonlinearity_table()
 
 __all__ = ["RawQuadrant", "RawCCD", "RawFocalPlane"]
@@ -243,28 +246,68 @@ class RawQuadrant( Quadrant ):
     # -------- #
     # GETTER   #
     # -------- #
-    def get_data_and_overscan(self):
+    def get_data_and_overscan(self, stacked=True):
         """ hstack of data and oversan with amplifier at (0,0)
-        resulting shape: (quad.SHAPE[0], quad.SHAPE[1]+quad.SHAPE_OVERSCAN[1])
+
+        If stacked, the resulting shape is:
+           (quad.SHAPE[0], quad.SHAPE[1]+quad.SHAPE_OVERSCAN[1])
+
+        Parameters
+        ----------
+        stacked: bool
+            Format of the returned data: 
+            - True: np.hstack([data, overscan]) 
+            - False: [data, overscan]
+            
+        Returns
+        data and overscan
+            array, (see stacked)
         """
-        data = self.data.copy()
-        overscan = self.overscan
+        # force reorder to False as this is sorted later on.
+        data = self._reorder_data(self.data, in_="raw", out_="read")
+        overscan = self._reorder_data(self.overscan, in_="raw", out_="read")
+        if stacked:
+            return self._np_backend.hstack([data, overscan])
+            
+        return data, overscan
 
-        # read-outs are in the corners
-        # left for quadrants 2 and 3
-        if self.qid in [2, 3]:
-            data = data[:,::-1]
-            overscan = overscan[:,::-1]
-
-        # bottom for quadrants 3 and 4
-        if self.qid in [3, 4]:
-            data = data[::-1,:]
-            overscan = overscan[::-1,:]
-
-        # data, then, overscan
-        return np.hstack([data, overscan])
+    def _reorder_data(self, data, in_="raw", out_="sky"):
+        """ 
+        in_ and out_ could be:
+        - raw: as stored in the raw image
+        - sky: as observed in the sky
+        - read: as red to the amp (0,0)= first pixel seen
+        """
+        if in_ == out_: # nothing to do
+            return data
         
-    def get_data(self, corr_overscan=False, corr_nl=False,
+        # raw <-> sky
+        elif (in_ == "raw" and out_ == "sky") or (in_ == "sky" and out_ == "raw"):
+            data = data[::-1,::-1]
+
+        # raw <-> read            
+        elif (in_ == "raw" and out_ == "read") or (in_ == "read" and out_ == "raw"):
+            if self.qid in [2, 3]:
+                data = data[:,::-1]
+
+            # bottom for quadrants 3 and 4
+            if self.qid in [3, 4]:
+                data = data[::-1,:]
+                
+        elif (in_ == "sky" and out_ == "read") or (in_ == "read" and out_ == "sky"):
+            data_raw = self._reorder_data(data, in_=in_, out_="raw")
+            data = self._reorder_data(data_raw, in_="raw", out_=out_)
+            
+        else:
+            warnings.warn("cannot parse the input in_ and out_, nothing happens")
+            
+        return data
+        
+        
+    def get_data(self,
+                     corr_overscan=False,
+                     corr_nl=False,
+                     corr_pocket=False,
                      rebin=None, rebin_stat="nanmean",
                      reorder=True,
                      overscan_prop={}, **kwargs):
@@ -281,6 +324,9 @@ class RawQuadrant( Quadrant ):
 
         corr_nl: bool
             Should data be corrected for non-linearity
+
+        corr_pocket: bool
+            Should data be corrected for the pocket effect ?
             
         rebin: int, None
             Shall the data be rebinned by square of size `rebin` ?
@@ -310,21 +356,50 @@ class RawQuadrant( Quadrant ):
         2d-array
             numpy or dask array
         """
-        # rebin is made later on.
-        data_ = super().get_data(rebin=None, reorder=reorder, **kwargs)
+        format_ = "raw" # ordering format
         
+        # rebin is made later on.
+        if not corr_pocket:
+            data_ = super().get_data(rebin=None, reorder=False, **kwargs)
+            
+        else:
+            data_ = self.get_data_and_overscan(stacked=True)
+            format_ = "read" # ordering format
+            
+        # correct non-linearity
         if corr_nl:
             a, b = self.get_nonlinearity_corr()
             data_ /= (a*data_**2 + b*data_ + 1)
-        
+
+        # remove overscan            
         if corr_overscan:
             os_model = self.get_overscan( **{**dict(which="model"), **overscan_prop} )
             data_ -= os_model[:,None]            
 
-        if rebin is not None:
-            data_ = getattr(da if self._use_dask else np, rebin_stat)(
-                rebin_arr(data_, (rebin,rebin), use_dask=True), axis=(-2,-1) )
+        # Correction for the pocket effect
+        if corr_pocket:
+            if not corr_overscan or not corr_nl:
+                warnings.warn("pocket effect correction is expected to happend post overscan and nl correction")
+
+            data_ = self._reorder_data(data_, in_=format_, out_="read") # make sure it is the good format
+            format_ = "read"
+
+            # this is not dask ready yet
+            n_overscan = self.overscan.shape[1] # overscan pixels            
+            pockelconfig = pocket.get_config(self.ccdid, self.qid).values[0]
+            pockemodel = pocket.PocketModel(**pockelconfig)
+            data_and_overscan = pockemodel.correct_pixels(data_, n_overscan=n_overscan)
+            data_ = data_and_overscan[:,:-n_overscan]
+        
             
+        if rebin is not None:
+            data_ = getattr(self._np_backend, rebin_stat)(
+                rebin_arr(data_, (rebin,rebin), use_dask=True), axis=(-2,-1) )
+
+        # make sure it is re-ordered
+        if reorder:
+            data_ = self._reorder_data(data_, in_=format_, out_="sky")
+
         return data_
 
     def get_nonlinearity_corr(self):
@@ -343,7 +418,7 @@ class RawQuadrant( Quadrant ):
         return NONLINEARITY_TABLE.loc[self.rcid][["a","b"]].astype("float").values
         
     def get_overscan(self, which="data", sigma_clipping=3,
-                         userange=[5,25], stackstat="nanmedian",
+                         userange=[20,30], stackstat="nanmedian",
                          modeldegree=3, specaxis=1,
                          corr_overscan=False, corr_nl=False):
         """ 
@@ -372,7 +447,7 @@ class RawQuadrant( Quadrant ):
             
         specaxis: int
             axis along which you are doing the median 
-            = Careful: after userange applyed = 
+            = Careful: after userange applied = 
             - axis: 1 (default) -> horizontal overscan data spectrum (~3000 pixels)
             - axis: 0 -> vertical stack of the overscan (~30 pixels)
             (see stackstat for stacking statistic (mean, median etc)
@@ -403,14 +478,10 @@ class RawQuadrant( Quadrant ):
         To get the raw overscan vertically stacked spectra, using mean statistic do:
         get_overscan('spec', userange=None, specaxis=0, stackstat='nanmean')
         """
-        try:
-            from scipy.stats import median_abs_deviation as nmad # scipy>1.9
-        except:
-            from scipy.stats import median_absolute_deviation as nmad # scipy<1.9
             
         # raw (or data, that is cleaned raw)            
         if which in ["raw", "data"]:
-            data = self.overscan
+            data = self.overscan.copy()
             if which == "data":
                 # left-right inversion
                 # first overscan is self.get_overscan('data')[:,0]
@@ -626,6 +697,11 @@ class RawQuadrant( Quadrant ):
     # =============== #
     #  Properties     #
     # =============== #
+    @property
+    def _np_backend(self):
+        """ """
+        return da if self._use_dask else np
+    
     @property
     def shape_overscan():
         """ shape of the raw overscan data """
