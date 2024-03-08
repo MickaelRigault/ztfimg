@@ -511,3 +511,30 @@ def deproject(uv, radec0, projection="gnomonic"):
     ra = ra0 + np.arctan2(tandra_num, tandra_denom)
 
     return ra, dec
+
+
+def numpy_ordering(data): 
+    """
+    Check and change numpy ordering 
+    of data for C-Compiled functions
+    
+    Parameters: 
+    ----------
+
+    data: array_like 
+        numpy array
+
+    Returns :  
+    -------
+    array_like : contiguous and little-endian array
+
+    """
+    if not data.data.contiguous : 
+        data = np.ascontiguousarray(data)
+
+    if data.dtype.byteorder not in ['=', '<']:
+        data = data.byteswap().newbyteorder()
+
+    return data
+
+

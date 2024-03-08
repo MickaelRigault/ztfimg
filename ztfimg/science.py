@@ -217,22 +217,29 @@ class ComplexImage( object ):
 
         return bkgd    
 
-    def _get_sepbackound(self, bw=192, bh=192, update=False, **kwargs):
-        """ """
+    def _get_sepbackound(self, bw=192, bh=220, update=False, **kwargs):
+        """ Internal function to set backgroudn 
+        
+        Among the kwargs :
+        bw = 192 (divides 3072) 
+        bh = 220 (closest divisor of 3080)
+        
+        """
         if not hasattr(self, "_sepbackground") or update:
             from sep import Background
+            from .utils.tools import numpy_ordering
             # does not work with dask yet.
             data = self.get_data()
             smask = self.get_mask(psfsources=True, sexsources=True)
             bkgs_prop = {**dict(bh=bh, bw=bw), **kwargs}
             # C-array            
             if self.use_dask:
-                data = dask.delayed(np.ascontiguousarray)(data).byteswap().newbyteorder() #
-                smask = dask.delayed(np.ascontiguousarray)(smask).byteswap().newbyteorder() #
+                data = dask.delayed(numpy_ordering)(data) #
+                smask = dask.delayed(numpy_ordering)(smask) #
                 self._sepbackground = dask.delayed(Background)(data, mask=smask, **bkgs_prop)
             else:
-                data = np.ascontiguousarray(data).byteswap().newbyteorder() #
-                smask = np.ascontiguousarray(smask).byteswap().newbyteorder() #
+                data = numpy_ordering(data) #
+                smask = numpy_ordering(smask) #
                 self._sepbackground = Background(data, mask=smask, **bkgs_prop)
 
         return self._sepbackground
