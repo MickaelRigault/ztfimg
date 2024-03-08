@@ -243,8 +243,30 @@ class RawQuadrant( Quadrant ):
     # -------- #
     # GETTER   #
     # -------- #
+    def get_data_and_overscan(self):
+        """ hstack of data and oversan with amplifier at (0,0)
+        resulting shape: (quad.SHAPE[0], quad.SHAPE[1]+quad.SHAPE_OVERSCAN[1])
+        """
+        data = self.data.copy()
+        overscan = self.overscan
+
+        # read-outs are in the corners
+        # left for quadrants 2 and 3
+        if self.qid in [2, 3]:
+            data = data[:,::-1]
+            overscan = overscan[:,::-1]
+
+        # bottom for quadrants 3 and 4
+        if self.qid in [3, 4]:
+            data = data[::-1,:]
+            overscan = overscan[::-1,:]
+
+        # data, then, overscan
+        return np.hstack([data, overscan])
+        
     def get_data(self, corr_overscan=False, corr_nl=False,
-                     rebin=None, rebin_stat="nanmean", reorder=True,
+                     rebin=None, rebin_stat="nanmean",
+                     reorder=True,
                      overscan_prop={}, **kwargs):
         """ get the image data. 
 
@@ -492,7 +514,6 @@ class RawQuadrant( Quadrant ):
 
         return spec
 
-    
     def get_lastdata_firstoverscan(self, n=1, corr_overscan=False, corr_nl=False, **kwargs):
         """ get the last data and the first overscan columns
         
