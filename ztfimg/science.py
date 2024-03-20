@@ -808,7 +808,7 @@ class ScienceCCD(CCD, ComplexImage):
         return self.get_data(calling="get_mask", **kwargs)
     
     def get_data(self, apply_mask=False,
-                     rm_bkgd=False, 
+                     rm_bkgd=False, persist=False,
                      rebin=None, rebin_stat="mean",
                      maskvalue=np.NaN,
                      zp=None,
