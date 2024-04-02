@@ -2407,7 +2407,7 @@ class FocalPlane(Image, _Collection_):
         """
         import re
         ccdids = range(1, 17)
-        ccds = [cls._ccdclass.from_single_filename(re.sub("_c(\d\d)_*", f"_c{i:02d}_", filename),
+        ccds = [cls._ccdclass.from_single_filename(re.sub(r"_c(\d\d)_*", f"_c{i:02d}_", filename),
                                                    as_path=as_path, use_dask=use_dask,
                                                    persist=persist, **kwargs)
                 for i in ccdids]
