@@ -1,16 +1,15 @@
 [build-system]
-requires = ["setuptools>=42", "setuptools_scm[toml]>=3.4"]
+requires = ["setuptools>=42"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "ztfimg"
-version = "0.20.1"
 authors = [
     {name = "Mickael Rigault", email = "m.rigault@ipnl.in2p3.fr"},
 ]
 description = "ZTF Images tools"
 readme = "README.md"
-requires-python = ">=3.9"
+requires-python = ">=3.8"
 license = {text = "BSD-3-Clause"}
 classifiers = [
     "Intended Audience :: Science/Research",
@@ -30,7 +29,7 @@ dependencies = [
     # "ztfquery",
     # "ztfsensors",
 ]
-# dynamic = ["version"]
+dynamic = ["version"]
 
 [project.optional-dependencies]
 docs = ["nbsphinx", "numpydoc", "sphinx-book-theme", "sphinx_copybutton"]
@@ -40,6 +39,9 @@ repository = "https://gitlab.lam.fr/plato/planetpipe/planetpipe"
 
 [tool.setuptools]
 include-package-data = true
+
+[tool.setuptools.dynamic]
+version = {attr = "ztfimg.__version__"}
 
 [tool.setuptools.packages.find]
 include = ["ztfimg*"]
