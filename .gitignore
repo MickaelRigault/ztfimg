@@ -1,6 +1,5 @@
 
-build/lib/ztfimg/
-
+build/
 dist/
-
-ztfimg.egg-info/
+*.egg-info/
+_version.py
