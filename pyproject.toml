@@ -32,6 +32,9 @@ dependencies = [
 ]
 # dynamic = ["version"]
 
+[project.optional-dependencies]
+docs = ["nbsphinx", "numpydoc", "sphinx-book-theme", "sphinx_copybutton"]
+
 [project.urls]
 repository = "https://gitlab.lam.fr/plato/planetpipe/planetpipe"
 
