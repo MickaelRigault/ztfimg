@@ -14,6 +14,7 @@ from .base import Quadrant, CCD, FocalPlane
 from .io import get_nonlinearity_table
 
 from ztfsensors import pocket
+from ztfsensors.correct import correct_pixels
 
 
 NONLINEARITY_TABLE = get_nonlinearity_table()
@@ -388,7 +389,7 @@ class RawQuadrant( Quadrant ):
             n_overscan = self.overscan.shape[1] # overscan pixels            
             pockelconfig = pocket.get_config(self.ccdid, self.qid).values[0]
             pockemodel = pocket.PocketModel(**pockelconfig)
-            data_and_overscan = pockemodel.correct_pixels(data_, n_overscan=n_overscan)
+            data_and_overscan = correct_pixels(pockemodel, data_, n_overscan=n_overscan)
             data_ = data_and_overscan[:,:-n_overscan]
         
             
