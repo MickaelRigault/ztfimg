@@ -1,0 +1,51 @@
+[build-system]
+requires = ["setuptools>=42"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ztfimg"
+authors = [
+    {name = "Mickael Rigault", email = "m.rigault@ipnl.in2p3.fr"},
+]
+description = "ZTF Images tools"
+readme = "README.md"
+requires-python = ">=3.8"
+license = {text = "BSD-3-Clause"}
+classifiers = [
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: BSD License",
+    "Programming Language :: Python :: 3",
+    "Topic :: Scientific/Engineering :: Astronomy",
+]
+dependencies = [
+    "astropy",
+    "dask",
+    "matplotlib",
+    "numpy",
+    "pandas",
+    "scipy",
+    "sep",
+    "ztfquery",
+    # "ztfquery",
+    # "ztfsensors",
+]
+dynamic = ["version"]
+
+[project.optional-dependencies]
+docs = ["nbsphinx", "numpydoc", "sphinx-book-theme", "sphinx_copybutton"]
+
+[project.urls]
+repository = "https://gitlab.lam.fr/plato/planetpipe/planetpipe"
+
+[tool.setuptools]
+include-package-data = true
+
+[tool.setuptools.dynamic]
+version = {attr = "ztfimg.__version__"}
+
+[tool.setuptools.packages.find]
+include = ["ztfimg*"]
+
+[tool.setuptools_scm]
+write_to = "ztfimg/_version.py"
+
