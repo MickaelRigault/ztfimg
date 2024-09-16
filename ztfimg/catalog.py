@@ -224,13 +224,13 @@ def download_vizier_catalog(name,
         catdata["ra"] = catdata[rakey]
     else:
         warnings.warn(f"no {rakey} column in cat. ra columns set to NaN")
-        catdata["ra"] = np.NaN if not use_dask else dask.array.NaN
+        catdata["ra"] = np.nan if not use_dask else dask.array.NaN
     
     if deckey in catdata:
         catdata["dec"] = catdata[deckey]
     else:
         warnings.warn(f"no {deckey} column in cat. dec columns set to NaN")
-        catdata["dec"] = np.NaN if not use_dask else dask.array.NaN
+        catdata["dec"] = np.nan if not use_dask else dask.array.NaN
 
     # out
     return catdata

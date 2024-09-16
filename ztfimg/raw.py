@@ -582,7 +582,7 @@ class RawQuadrant( Quadrant ):
             mad_  = nmad( spec, axis=0)
             # Symmetric to avoid bias, even though only positive outlier are expected.
             flag_out = (spec>(med_+sigma_clipping*mad_)) +(spec<(med_-sigma_clipping*mad_))
-            spec[flag_out] = np.NaN
+            spec[flag_out] = np.nan
 
         return spec
 
@@ -728,7 +728,7 @@ class RawQuadrant( Quadrant ):
     @property
     def gain(self):
         """ gain [adu/e-] """
-        return self.get_value("GAIN", np.NaN, attr_ok=False) # avoid loop
+        return self.get_value("GAIN", np.nan, attr_ok=False) # avoid loop
 
     @property
     def darkcurrent(self):

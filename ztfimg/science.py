@@ -442,7 +442,7 @@ class ScienceQuadrant(Quadrant, WCSHolder, ComplexImage):
     def get_data(self, apply_mask=False,
                      rm_bkgd=False, 
                      rebin=None, rebin_stat="nanmean",
-                     maskvalue=np.NaN,
+                     maskvalue=np.nan,
                      zp=None, reorder=True,
                      **kwargs):
         """ get a copy of the data affected by background and/or masking.
@@ -810,7 +810,7 @@ class ScienceCCD(CCD, ComplexImage):
     def get_data(self, apply_mask=False,
                      rm_bkgd=False, persist=False,
                      rebin=None, rebin_stat="mean",
-                     maskvalue=np.NaN,
+                     maskvalue=np.nan,
                      zp=None,
                      **kwargs):
         """ 
