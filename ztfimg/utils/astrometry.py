@@ -1,7 +1,9 @@
 """ WCS Class handler """
 
+import warnings
+
 import numpy as np
-from astropy.wcs import WCS as astropyWCS
+from astropy.wcs import FITSFixedWarning, WCS as astropyWCS
 import pandas
 from . import tools
 
@@ -25,7 +27,10 @@ class WCSHolder( object ):
     def load_wcs(self, header, pointingkey=["RA","DEC"]):
         """ """
         # - wcs
-        self.set_wcs( astropyWCS(header), pointingkey=pointingkey)
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", FITSFixedWarning)
+            wcs = astropyWCS(header)
+        self.set_wcs(wcs, pointingkey=pointingkey)
         
         try: 
             # - pointing        
