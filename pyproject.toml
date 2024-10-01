@@ -35,7 +35,7 @@ dynamic = ["version"]
 docs = ["nbsphinx", "numpydoc", "sphinx-book-theme", "sphinx_copybutton"]
 
 [project.urls]
-repository = "https://gitlab.lam.fr/plato/planetpipe/planetpipe"
+repository = "https://github.com/MickaelRigault/ztfimg"
 
 [tool.setuptools]
 include-package-data = true
@@ -46,6 +46,5 @@ version = {attr = "ztfimg.__version__"}
 [tool.setuptools.packages.find]
 include = ["ztfimg*"]
 
-[tool.setuptools_scm]
-write_to = "ztfimg/_version.py"
-
+[tool.setuptools.package-data]
+"*" = [ "data/*" ]
