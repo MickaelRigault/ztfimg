@@ -17,7 +17,6 @@ from ztfsensors import pocket
 from ztfsensors.correct import correct_pixels
 
 
-NONLINEARITY_TABLE = get_nonlinearity_table()
 
 __all__ = ["RawQuadrant", "RawCCD", "RawFocalPlane"]
 
@@ -416,6 +415,9 @@ class RawQuadrant( Quadrant ):
         ------
         data
         """
+        obsdate = np.datetime64('-'.join(self.meta[['year', 'month', 'day']].values))
+        NONLINEARITY_TABLE = get_nonlinearity_table(obsdate)
+
         return NONLINEARITY_TABLE.loc[self.rcid][["a","b"]].astype("float").values
         
     def get_overscan(self, which="data", sigma_clipping=3,
@@ -704,9 +706,9 @@ class RawQuadrant( Quadrant ):
         return da if self._use_dask else np
     
     @property
-    def shape_overscan():
+    def shape_overscan(self):
         """ shape of the raw overscan data """
-        return self.SHAPE_OVERSCANE
+        return self.SHAPE_OVERSCAN
     
     @property
     def overscan(self):
@@ -955,15 +957,15 @@ class RawFocalPlane( FocalPlane ):
         
         """
         this = cls()
-        for file_ in ccd_filenames:
+        for file_ in filenames:
             ccd_ = cls._ccdclass.from_filename(file_, as_path=as_path,
                                                    use_dask=use_dask, persist=persist,
                                                    **kwargs)
             this.set_ccd(ccd_, ccdid=ccd_.ccdid)
 
-        this._filenames = ccd_filenames
+        this._filenames = filenames
         if as_path:
-            this._filepaths = ccd_filenames
+            this._filepaths = filenames
             
         return this
 
@@ -998,7 +1000,7 @@ class RawFocalPlane( FocalPlane ):
             raise IOError(f"No local raw data found for filefracday: {filefracday}")
         
         if len(filenames)>16:
-            raise IOError(f"Very strange: more than 16 local raw data found for filefracday: {filefracday}", filename)
+            raise IOError(f"Very strange: more than 16 local raw data found for filefracday: {filefracday}", filenames)
         
         if len(filenames)<16:
             warnings.warn(f"Less than 16 local raw data found for filefracday: {filefracday}")
