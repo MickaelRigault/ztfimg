@@ -1,22 +1,16 @@
-import os
-from astropy.io import fits
-import numpy as np
-from scipy import stats
-import pandas
 import warnings
+
 import dask
 import dask.array as da
+import numpy as np
+import pandas
+from astropy.io import fits
 
 from ztfquery import io
-        
-from .utils.tools import fit_polynome, rebin_arr, parse_vmin_vmax, ccdid_qid_to_rcid, rcid_to_ccdid_qid
-from .base import Quadrant, CCD, FocalPlane
+
+from .base import CCD, FocalPlane, Quadrant
 from .io import get_nonlinearity_table
-
-from ztfsensors import pocket
-from ztfsensors.correct import correct_pixels
-
-
+from .utils.tools import fit_polynome, rcid_to_ccdid_qid, rebin_arr
 
 __all__ = ["RawQuadrant", "RawCCD", "RawFocalPlane"]
 
@@ -378,6 +372,9 @@ class RawQuadrant( Quadrant ):
 
         # Correction for the pocket effect
         if corr_pocket:
+            from ztfsensors import pocket
+            from ztfsensors.correct import correct_pixels
+
             if not corr_overscan or not corr_nl:
                 warnings.warn("pocket effect correction is expected to happend post overscan and nl correction")
 
@@ -573,9 +570,9 @@ class RawQuadrant( Quadrant ):
 
 
         try:
-            from scipy.stats import median_abs_deviation as nmad # scipy>1.9
+            from scipy.stats import median_abs_deviation as nmad  # scipy>1.9
         except:
-            from scipy.stats import median_absolute_deviation as nmad # scipy<1.9
+            from scipy.stats import median_absolute_deviation as nmad  # scipy<1.9
 
         # numpy based
         spec = getattr(np,stackstat)(data, axis=axis)
@@ -644,8 +641,9 @@ class RawQuadrant( Quadrant ):
         if use_dask is None:
             use_dask = self.use_dask
             
-        from .science import ScienceQuadrant
         from ztfquery.buildurl import get_scifile_of_filename
+
+        from .science import ScienceQuadrant
         # 
         filename = get_scifile_of_filename(self.filename, qid=self.qid, source="local")
         return ScienceQuadrant.from_filename(filename, use_dask=use_dask, as_path=False, **kwargs)
@@ -893,8 +891,9 @@ class RawCCD( CCD ):
         if use_dask is None:
             use_dask = self.use_dask
 
-        from .science import ScienceQuadrant            
         from ztfquery.buildurl import get_scifile_of_filename
+
+        from .science import ScienceQuadrant
         # Specific quadrant
         prop = {"as_path":False}
         

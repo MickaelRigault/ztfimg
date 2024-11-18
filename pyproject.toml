@@ -26,11 +26,11 @@ dependencies = [
     "scipy",
     "sep",
     "ztfquery",
-    # "ztfsensors",
 ]
 dynamic = ["version"]
 
 [project.optional-dependencies]
+pocket = ["ztfsensors"]  # not on PyPI yet
 docs = ["nbsphinx", "numpydoc", "sphinx-book-theme", "sphinx_copybutton"]
 
 [project.urls]
