@@ -1,3 +1,5 @@
+import sys
+
 import numpy as np
 from astropy import constants
 
@@ -532,8 +534,9 @@ def numpy_ordering(data):
     if not data.data.contiguous : 
         data = np.ascontiguousarray(data)
 
-    if data.dtype.byteorder not in ['=', '<']:
-        data = data.byteswap().newbyteorder()
+    if sys.byteorder == "little" and data.dtype.byteorder == ">":
+        data = data.byteswap()
+        data = data.view(data.dtype.newbyteorder("="))
 
     return data
 
