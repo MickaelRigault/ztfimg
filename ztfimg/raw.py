@@ -357,41 +357,55 @@ class RawQuadrant( Quadrant ):
             numpy or dask array
         """
         format_ = "raw" # ordering format
+
+        # ------------ #
+        # Data access  #
+        # ------------ #
         
         # rebin is made later on.
         if not corr_pocket:
             data_ = super().get_data(rebin=None, reorder=False, **kwargs)
             
-        else:
+        else: # pocket effect need to overscan attached | this changes the "format".
             data_ = self.get_data_and_overscan(stacked=True)
             format_ = "read" # ordering format
             
+        # ------------ #
+        # processing   #
+        # ------------ #
         # correct non-linearity
+        if corr_overscan:
+            os_model = self.get_overscan( **{**dict(which="mode"), **overscan_prop} )
+            data_ -= os_model[:,None]            
+
+        # remove overscan                        
         if corr_nl:
             a, b = self.get_nonlinearity_corr()
             data_ /= (a*data_**2 + b*data_ + 1)
 
-        # remove overscan            
-        if corr_overscan:
-            os_model = self.get_overscan( **{**dict(which="model"), **overscan_prop} )
-            data_ -= os_model[:,None]            
 
         # Correction for the pocket effect
         if corr_pocket:
             if not corr_overscan or not corr_nl:
                 warnings.warn("pocket effect correction is expected to happend post overscan and nl correction")
 
+            # make sure this in "read" format as requested by PocketModel
+            # _reorder_data will do nothing if in_ == out_
             data_ = self._reorder_data(data_, in_=format_, out_="read") # make sure it is the good format
             format_ = "read"
-
-            # this is not dask ready yet
-            n_overscan = self.overscan.shape[1] # overscan pixels            
+            n_overscan = self.overscan.shape[1] # overscan pixels
+            
             pockelconfig = pocket.get_config(self.ccdid, self.qid).values[0]
             pockemodel = pocket.PocketModel(**pockelconfig)
+            # this is not dask ready yet            
             data_and_overscan = pockemodel.correct_pixels(data_, n_overscan=n_overscan)
+            
+            # keep only the image and remove the overscan
             data_ = data_and_overscan[:,:-n_overscan]
         
-            
+        # ------------ #
+        #  Formating   #
+        # ------------ #
         if rebin is not None:
             data_ = getattr(self._np_backend, rebin_stat)(
                 rebin_arr(data_, (rebin,rebin), use_dask=True), axis=(-2,-1) )
