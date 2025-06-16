@@ -1,5 +1,5 @@
 # ztfimg
-ZTF Images tools 
+ZTF Images tools
 
 # Installation
 
@@ -10,12 +10,12 @@ or git:
 ```
 git clone https://github.com/MickaelRigault/ztfimg.git
 cd ztfim
-pyton setup.py install
+pip install .
 ```
 
 #### Dependencies
 
-- This package uses `sep` for source extraction, background estimation and aperture photometry. [sep](https://sep.readthedocs.io/en/v1.0.x/api/sep.extract.html) is a python version of sextractor.  
+- This package uses `sep` for source extraction, background estimation and aperture photometry. [sep](https://sep.readthedocs.io/en/v1.0.x/api/sep.extract.html) is a python version of sextractor.
 - This packages uses ztfquery for accessing ztf image product. [ztfquery](https://github.com/MickaelRigault/ztfquery)
 
 ***

@@ -1,22 +1,16 @@
-import os
-from astropy.io import fits
-import numpy as np
-from scipy import stats
-import pandas
 import warnings
+
 import dask
 import dask.array as da
+import numpy as np
+import pandas
+from astropy.io import fits
 
 from ztfquery import io
-        
-from .utils.tools import fit_polynome, rebin_arr, parse_vmin_vmax, ccdid_qid_to_rcid, rcid_to_ccdid_qid
-from .base import Quadrant, CCD, FocalPlane
+
+from .base import CCD, FocalPlane, Quadrant
 from .io import get_nonlinearity_table
-
-from ztfsensors import pocket
-
-
-NONLINEARITY_TABLE = get_nonlinearity_table()
+from .utils.tools import fit_polynome, rcid_to_ccdid_qid, rebin_arr
 
 __all__ = ["RawQuadrant", "RawCCD", "RawFocalPlane"]
 
@@ -386,6 +380,9 @@ class RawQuadrant( Quadrant ):
 
         # Correction for the pocket effect
         if corr_pocket:
+            from ztfsensors import pocket
+            from ztfsensors.correct import correct_pixels
+
             if not corr_overscan or not corr_nl:
                 warnings.warn("pocket effect correction is expected to happend post overscan and nl correction")
 
@@ -397,10 +394,7 @@ class RawQuadrant( Quadrant ):
             
             pockelconfig = pocket.get_config(self.ccdid, self.qid).values[0]
             pockemodel = pocket.PocketModel(**pockelconfig)
-            # this is not dask ready yet            
-            data_and_overscan = pockemodel.correct_pixels(data_, n_overscan=n_overscan)
-            
-            # keep only the image and remove the overscan
+            data_and_overscan = correct_pixels(pockemodel, data_, n_overscan=n_overscan)
             data_ = data_and_overscan[:,:-n_overscan]
         
         # ------------ #
@@ -429,6 +423,9 @@ class RawQuadrant( Quadrant ):
         ------
         data
         """
+        obsdate = np.datetime64('-'.join(self.meta[['year', 'month', 'day']].values))
+        NONLINEARITY_TABLE = get_nonlinearity_table(obsdate)
+
         return NONLINEARITY_TABLE.loc[self.rcid][["a","b"]].astype("float").values
         
     def get_overscan(self, which="data", sigma_clipping=3,
@@ -584,9 +581,9 @@ class RawQuadrant( Quadrant ):
 
 
         try:
-            from scipy.stats import median_abs_deviation as nmad # scipy>1.9
+            from scipy.stats import median_abs_deviation as nmad  # scipy>1.9
         except:
-            from scipy.stats import median_absolute_deviation as nmad # scipy<1.9
+            from scipy.stats import median_absolute_deviation as nmad  # scipy<1.9
 
         # numpy based
         spec = getattr(np,stackstat)(data, axis=axis)
@@ -595,7 +592,7 @@ class RawQuadrant( Quadrant ):
             mad_  = nmad( spec, axis=0)
             # Symmetric to avoid bias, even though only positive outlier are expected.
             flag_out = (spec>(med_+sigma_clipping*mad_)) +(spec<(med_-sigma_clipping*mad_))
-            spec[flag_out] = np.NaN
+            spec[flag_out] = np.nan
 
         return spec
 
@@ -655,8 +652,9 @@ class RawQuadrant( Quadrant ):
         if use_dask is None:
             use_dask = self.use_dask
             
-        from .science import ScienceQuadrant
         from ztfquery.buildurl import get_scifile_of_filename
+
+        from .science import ScienceQuadrant
         # 
         filename = get_scifile_of_filename(self.filename, qid=self.qid, source="local")
         return ScienceQuadrant.from_filename(filename, use_dask=use_dask, as_path=False, **kwargs)
@@ -717,9 +715,9 @@ class RawQuadrant( Quadrant ):
         return da if self._use_dask else np
     
     @property
-    def shape_overscan():
+    def shape_overscan(self):
         """ shape of the raw overscan data """
-        return self.SHAPE_OVERSCANE
+        return self.SHAPE_OVERSCAN
     
     @property
     def overscan(self):
@@ -741,7 +739,7 @@ class RawQuadrant( Quadrant ):
     @property
     def gain(self):
         """ gain [adu/e-] """
-        return self.get_value("GAIN", np.NaN, attr_ok=False) # avoid loop
+        return self.get_value("GAIN", np.nan, attr_ok=False) # avoid loop
 
     @property
     def darkcurrent(self):
@@ -904,8 +902,9 @@ class RawCCD( CCD ):
         if use_dask is None:
             use_dask = self.use_dask
 
-        from .science import ScienceQuadrant            
         from ztfquery.buildurl import get_scifile_of_filename
+
+        from .science import ScienceQuadrant
         # Specific quadrant
         prop = {"as_path":False}
         
@@ -968,15 +967,15 @@ class RawFocalPlane( FocalPlane ):
         
         """
         this = cls()
-        for file_ in ccd_filenames:
+        for file_ in filenames:
             ccd_ = cls._ccdclass.from_filename(file_, as_path=as_path,
                                                    use_dask=use_dask, persist=persist,
                                                    **kwargs)
             this.set_ccd(ccd_, ccdid=ccd_.ccdid)
 
-        this._filenames = ccd_filenames
+        this._filenames = filenames
         if as_path:
-            this._filepaths = ccd_filenames
+            this._filepaths = filenames
             
         return this
 
@@ -1011,7 +1010,7 @@ class RawFocalPlane( FocalPlane ):
             raise IOError(f"No local raw data found for filefracday: {filefracday}")
         
         if len(filenames)>16:
-            raise IOError(f"Very strange: more than 16 local raw data found for filefracday: {filefracday}", filename)
+            raise IOError(f"Very strange: more than 16 local raw data found for filefracday: {filefracday}", filenames)
         
         if len(filenames)<16:
             warnings.warn(f"Less than 16 local raw data found for filefracday: {filefracday}")
