@@ -327,12 +327,12 @@ class Image( object ):
 
         # This is the normal case
         if self.has_data() and rebin is None and data=="data":
-            data_ = self.data#.copy()
+            data_ = self.data.copy()
         
         else:
             if type(data) == str:
                 if data == "data":
-                    data_ = self.data#.copy()
+                    data_ = self.data.copy()
                 elif hasattr(self, data):
                     data_ = npda.ones(self.shape) * getattr(self, data)
                 else:
@@ -342,7 +342,7 @@ class Image( object ):
             elif type(data) in [int, float]:
                 data_ = npda.ones(self.shape) * data
             else:
-                data_ = data#.copy()
+                data_ = data.copy()
 
         if rebin is not None:
             data_ = getattr(npda, rebin_stat)(
@@ -1871,7 +1871,7 @@ class CCD( Image, _Collection_):
         """
         # the normal case
         if self.has_data() and not rebuild and rebin_quadrant is None:
-            data_ = self.data#.copy()
+            data_ = self.data.copy()
         else:
             data_ = self._quadrantdata_to_ccddata(rebin_quadrant=rebin_quadrant, **kwargs)
            
