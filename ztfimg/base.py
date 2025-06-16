@@ -132,9 +132,9 @@ class Image( object ):
         from ztfquery import io
         # Look for it
         prop = dict(show_progress=False, maxnprocess=1)
-        if use_dask:
+        if use_dask: # if backend == "dask"
             filename  = dask.delayed(io.get_file)(filename, **prop)
-        else:
+        else: # jax, numpy ?
             filename  = io.get_file(filename, **prop)
 
         return filename
