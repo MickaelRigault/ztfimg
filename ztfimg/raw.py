@@ -367,12 +367,12 @@ class RawQuadrant( Quadrant ):
         # ------------ #
         # processing   #
         # ------------ #
-        # correct non-linearity
+        # remove overscan
         if corr_overscan:
-            os_model = self.get_overscan( **{**dict(which="mode"), **overscan_prop} )
+            os_model = self.get_overscan( **{**dict(which="model"), **overscan_prop} )
             data_ -= os_model[:,None]            
 
-        # remove overscan                        
+        # correct non-linearity                        
         if corr_nl:
             a, b = self.get_nonlinearity_corr()
             data_ /= (a*data_**2 + b*data_ + 1)
