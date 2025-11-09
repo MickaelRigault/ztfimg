@@ -1,7 +1,9 @@
 """ WCS Class handler """
 
+import warnings
+
 import numpy as np
-from astropy.wcs import WCS as astropyWCS
+from astropy.wcs import FITSFixedWarning, WCS as astropyWCS
 import pandas
 from . import tools
 
@@ -25,15 +27,25 @@ class WCSHolder( object ):
     def load_wcs(self, header, pointingkey=["RA","DEC"]):
         """ """
         # - wcs
-        self.set_wcs( astropyWCS(header), pointingkey=pointingkey)
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", FITSFixedWarning)
+            wcs = astropyWCS(header)
+        self.set_wcs(wcs, pointingkey=pointingkey)
         
-        # - pointing        
-        pra, pdec = header.get(pointingkey[0], None), header.get(pointingkey[1], None)
-        if pra is None or pdec is None:
-            return None
+        try: 
+            # - pointing        
+            pra, pdec = header.get(pointingkey[0], None), header.get(pointingkey[1], None)
+            if pra is None or pdec is None:
+                return None
             
-        from astropy import coordinates, units
-        sc = coordinates.SkyCoord(pra, pdec, unit=(units.hourangle, units.deg))
+            from astropy import coordinates, units
+            sc = coordinates.SkyCoord(pra, pdec, unit=(units.hourangle, units.deg))
+        except coordinates.errors.IllegalHourError : 
+            pra, pdec = header.get("OBJRA", None), header.get("OBJDEC", None)
+            if pra is None or pdec is None:
+                return None
+
+            sc = coordinates.SkyCoord(pra, pdec, unit=(units.hourangle, units.deg))
 
         self.set_pointing(sc.ra.value, sc.dec.value)
         
@@ -114,7 +126,7 @@ class WCSHolder( object ):
 
     def radec_to_ij(self, ra, dec, reorder=True, qid=None):
         """ radec to ccd coordinates (i,j) """
-        x, y = self.radec_to_xy(ra, dec, reorder=True)
+        x, y = self.radec_to_xy(ra, dec, reorder=reorder)
         return self.xy_to_ij(x, y, qid=qid)
 
     
@@ -132,8 +144,8 @@ class WCSHolder( object ):
 
     def uv_to_ij(self, u, v, reorder=True, qid=None):
         """ get the i,j ccd pixel coordinates given the tangent plane coordinates u, v """
-        x, y = self.uv_to_xy(u, v, reorder=True)
-        return self.xy_to_ij(x, y, qid=None)
+        x, y = self.uv_to_xy(u, v, reorder=reorder)
+        return self.xy_to_ij(x, y, qid=qid)
 
     # ij
     def ij_to_xy(self, i, j, qid=None):
@@ -159,7 +171,7 @@ class WCSHolder( object ):
     def ij_to_radec(self, i, j, reorder=True, qid=None):
         """ get the (ra,dec) sky coordinates from the i,j ccd coordinates """
         x, y = self.ij_to_xy(i,j, qid=qid)
-        return self.xy_to_radec(x,y, reorder=True)
+        return self.xy_to_radec(x,y, reorder=reorder)
 
     def ij_to_uv(self, i, j, reorder=True, qid=None):
         """ get the tangent plane coordinates from the i,j ccd coordinates """

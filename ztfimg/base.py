@@ -132,9 +132,9 @@ class Image( object ):
         from ztfquery import io
         # Look for it
         prop = dict(show_progress=False, maxnprocess=1)
-        if use_dask:
+        if use_dask: # if backend == "dask"
             filename  = dask.delayed(io.get_file)(filename, **prop)
-        else:
+        else: # jax, numpy ?
             filename  = io.get_file(filename, **prop)
 
         return filename
@@ -327,12 +327,12 @@ class Image( object ):
 
         # This is the normal case
         if self.has_data() and rebin is None and data=="data":
-            data_ = self.data#.copy()
+            data_ = self.data.copy()
         
         else:
             if type(data) == str:
                 if data == "data":
-                    data_ = self.data#.copy()
+                    data_ = self.data.copy()
                 elif hasattr(self, data):
                     data_ = npda.ones(self.shape) * getattr(self, data)
                 else:
@@ -342,7 +342,7 @@ class Image( object ):
             elif type(data) in [int, float]:
                 data_ = npda.ones(self.shape) * data
             else:
-                data_ = data#.copy()
+                data_ = data.copy()
 
         if rebin is not None:
             data_ = getattr(npda, rebin_stat)(
@@ -722,7 +722,7 @@ class Image( object ):
     @property
     def exptime(self):
         """ Exposure time of the image (from header) """
-        return self.get_value("EXPTIME", np.NaN, attr_ok=False) # avoid loop
+        return self.get_value("EXPTIME", np.nan, attr_ok=False) # avoid loop
 
     @property
     def obsjd(self):
@@ -1117,7 +1117,7 @@ class Quadrant(Image):
             if dasked_cat:
                 x, y = da.NaN, da.NaN
             else:
-                x, y = np.NaN, np.NaN
+                x, y = np.nan, np.nan
                 
             in_fov = False
             
@@ -1871,7 +1871,7 @@ class CCD( Image, _Collection_):
         """
         # the normal case
         if self.has_data() and not rebuild and rebin_quadrant is None:
-            data_ = self.data#.copy()
+            data_ = self.data.copy()
         else:
             data_ = self._quadrantdata_to_ccddata(rebin_quadrant=rebin_quadrant, **kwargs)
            
@@ -2069,7 +2069,7 @@ class CCD( Image, _Collection_):
             if dasked_cat:
                 x, y = da.NaN, da.NaN
             else:
-                x, y = np.NaN, np.NaN
+                x, y = np.nan, np.nan
                 
             in_fov = False
             
@@ -2407,7 +2407,7 @@ class FocalPlane(Image, _Collection_):
         """
         import re
         ccdids = range(1, 17)
-        ccds = [cls._ccdclass.from_single_filename(re.sub("_c(\d\d)_*", f"_c{i:02d}_", filename),
+        ccds = [cls._ccdclass.from_single_filename(re.sub(r"_c(\d\d)_*", f"_c{i:02d}_", filename),
                                                    as_path=as_path, use_dask=use_dask,
                                                    persist=persist, **kwargs)
                 for i in ccdids]
@@ -2526,7 +2526,7 @@ class FocalPlane(Image, _Collection_):
         return df
 
     @staticmethod
-    def _get_datagap(which, rebin=None, fillna=np.NaN):
+    def _get_datagap(which, rebin=None, fillna=np.nan):
         """ horizontal (or row) = between rows """
         # recall: CCD.SHAPE 3080*2, 3072*2
         if which in ["horizontal", "row", "rows"]:
@@ -2590,41 +2590,41 @@ class FocalPlane(Image, _Collection_):
             
         else:
             line_1 = getattr(npda, "concatenate")((self.get_ccd(4).get_data(**prop)*ccd_coef[3],
-                                                    da.ones(self._get_datagap("columns", rebin=rebin))*np.NaN,
+                                                    da.ones(self._get_datagap("columns", rebin=rebin))*np.nan,
                                                    self.get_ccd(3).get_data(**prop)*ccd_coef[2],
-                                                    da.ones(self._get_datagap("columns", rebin=rebin))*np.NaN,
+                                                    da.ones(self._get_datagap("columns", rebin=rebin))*np.nan,
                                                    self.get_ccd(2).get_data(**prop)*ccd_coef[1],
-                                                    da.ones(self._get_datagap("columns", rebin=rebin))*np.NaN,
+                                                    da.ones(self._get_datagap("columns", rebin=rebin))*np.nan,
                                                    self.get_ccd(1).get_data(**prop)*ccd_coef[0],
                                                        ),
                                                     axis=1)
             
             line_2 = getattr(npda, "concatenate")((self.get_ccd(8).get_data(**prop)*ccd_coef[7],
-                                                    da.ones(self._get_datagap("columns", rebin=rebin))*np.NaN,
+                                                    da.ones(self._get_datagap("columns", rebin=rebin))*np.nan,
                                                    self.get_ccd(7).get_data(**prop)*ccd_coef[6],
-                                                    da.ones(self._get_datagap("columns", rebin=rebin))*np.NaN,
+                                                    da.ones(self._get_datagap("columns", rebin=rebin))*np.nan,
                                                    self.get_ccd(6).get_data(**prop)*ccd_coef[5],
-                                                    da.ones(self._get_datagap("columns", rebin=rebin))*np.NaN,
+                                                    da.ones(self._get_datagap("columns", rebin=rebin))*np.nan,
                                                    self.get_ccd(5).get_data(**prop)*ccd_coef[4]
                                                     ),
                                                     axis=1)
             
             line_3 = getattr(npda, "concatenate")((self.get_ccd(12).get_data(**prop)*ccd_coef[11],
-                                                    da.ones(self._get_datagap("columns", rebin=rebin))*np.NaN,
+                                                    da.ones(self._get_datagap("columns", rebin=rebin))*np.nan,
                                                    self.get_ccd(11).get_data(**prop)*ccd_coef[10],
-                                                    da.ones(self._get_datagap("columns", rebin=rebin))*np.NaN,
+                                                    da.ones(self._get_datagap("columns", rebin=rebin))*np.nan,
                                                    self.get_ccd(10).get_data(**prop)*ccd_coef[9],
-                                                    da.ones(self._get_datagap("columns", rebin=rebin))*np.NaN,
+                                                    da.ones(self._get_datagap("columns", rebin=rebin))*np.nan,
                                                    self.get_ccd(9).get_data(**prop)*ccd_coef[8]
                                                        ),
                                                     axis=1)
             
             line_4 = getattr(npda, "concatenate")((self.get_ccd(16).get_data(**prop)*ccd_coef[15],
-                                                   da.ones(self._get_datagap("columns", rebin=rebin))*np.NaN,
+                                                   da.ones(self._get_datagap("columns", rebin=rebin))*np.nan,
                                                    self.get_ccd(15).get_data(**prop)*ccd_coef[14],
-                                                   da.ones(self._get_datagap("columns", rebin=rebin))*np.NaN,
+                                                   da.ones(self._get_datagap("columns", rebin=rebin))*np.nan,
                                                    self.get_ccd(14).get_data(**prop)*ccd_coef[13],
-                                                   da.ones(self._get_datagap("columns", rebin=rebin))*np.NaN,
+                                                   da.ones(self._get_datagap("columns", rebin=rebin))*np.nan,
                                                    self.get_ccd(13).get_data(**prop)*ccd_coef[12]
                                                     ),
                                                     axis=1)
@@ -2632,13 +2632,13 @@ class FocalPlane(Image, _Collection_):
             size_shape = self._get_datagap("rows", rebin=rebin)[0]
             mosaic = getattr(npda, "concatenate")((line_1,
                                                    da.ones(
-                                                      (size_shape, line_1.shape[1]))*np.NaN,
+                                                      (size_shape, line_1.shape[1]))*np.nan,
                                                    line_2,
                                                    da.ones(
-                                                      (size_shape, line_1.shape[1]))*np.NaN,
+                                                      (size_shape, line_1.shape[1]))*np.nan,
                                                    line_3,
                                                    da.ones(
-                                                      (size_shape, line_1.shape[1]))*np.NaN,
+                                                      (size_shape, line_1.shape[1]))*np.nan,
                                                    line_4),
                                                     axis=0)
         if self.use_dask and persist:
