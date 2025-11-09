@@ -27,7 +27,6 @@ class ComplexImage( object ):
         """ set the mask to this instance.
 
         = most likely you do not want to use this method =
-
         Parameters
         ----------
         mask: 2d array
