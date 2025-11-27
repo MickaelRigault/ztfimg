@@ -305,7 +305,7 @@ class RawQuadrant( Quadrant ):
                      rebin=None, rebin_stat="nanmean",
                      reorder=True,
                      overscan_prop={}, **kwargs):
-        """ get the image data.
+        """get the image data.
 
         returned data can be affected by different effects.
 
@@ -319,8 +319,11 @@ class RawQuadrant( Quadrant ):
         corr_nl: bool
             Should data be corrected for non-linearity
 
-        corr_pocket: bool
-            Should data be corrected for the pocket effect ?
+        corr_pocket: bool or dict
+            Should data be corrected for the pocket effect ? If a dict,
+            provides explicit parameters for pocket effect correction, the dict
+            is (str: float) and must contains the following keys: alpha, cmax,
+            beta, nmax. See ztfsensors.pocket.PocketModel for details.
 
         rebin: int, None
             Shall the data be rebinned by square of size `rebin` ?
@@ -349,6 +352,7 @@ class RawQuadrant( Quadrant ):
         -------
         2d-array
             numpy or dask array
+
         """
         format_ = "raw" # ordering format
 
@@ -392,9 +396,18 @@ class RawQuadrant( Quadrant ):
             format_ = "read"
             n_overscan = self.overscan.shape[1] # overscan pixels
 
-            pockelconfig = pocket.get_config(self.ccdid, self.qid).values[0]
-            pockemodel = pocket.PocketModel(**pockelconfig)
-            data_and_overscan = correct_pixels(pockemodel, data_, n_overscan=n_overscan)
+            if isinstance(corr_pocket, dict):
+                # pocket effect parameters are given explicitely, ensure the
+                # expected values are here
+                if missing := (set(("cmax", "nmax", "alpha", "beta")) - corr_pocket.keys()):
+                    raise ValueError(f"pocket effect correction parameters are missing: {', '.join(missing)}")
+                if extra := (set(corr_pocket.keys()) - set(("cmax", "nmax", "alpha", "beta"))):
+                    warnings.warn(f"ignoring extra parameters given to corr_pocket: {', '.join(extra)}")
+                pocket_config = {k: float(corr_pocket[k]) for k in ("cmax", "nmax", "alpha", "beta")}
+            else:
+                pocket_config = pocket.get_config(self.ccdid, self.qid).values[0]
+            pocket_model = pocket.PocketModel(**pocket_config)
+            data_and_overscan = correct_pixels(pocket_model, data_, n_overscan=n_overscan)
             data_ = data_and_overscan[:,:-n_overscan]
 
         # ------------ #
