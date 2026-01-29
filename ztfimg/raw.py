@@ -304,7 +304,9 @@ class RawQuadrant( Quadrant ):
                      corr_pocket=False,
                      rebin=None, rebin_stat="nanmean",
                      reorder=True,
-                     overscan_prop={}, **kwargs):
+                     overscan_prop={},
+                     pocket_prop={},
+                     **kwargs):
         """ get the image data. 
 
         returned data can be affected by different effects.
@@ -380,6 +382,7 @@ class RawQuadrant( Quadrant ):
 
         # Correction for the pocket effect
         if corr_pocket:
+            # if we are here, data_ is actually data_and_overscan (see few lines above)
             from ztfsensors import pocket
             from ztfsensors.correct import correct_pixels
             
@@ -392,10 +395,15 @@ class RawQuadrant( Quadrant ):
             format_ = "read"
             n_overscan = self.overscan.shape[1] # overscan pixels
 
-            pockelconfig = pocket.get_config(self.ccdid, self.qid).values[0]
+            pocket_prop = {pixels=data_, n_overscan=n_overscan,
+                            # ccdid and qid are likely to be removed one per-image.
+                               ccdid=self.ccdid, qid=self.qid,
+                               use_global_parameters=True} | pocket_prop
+
+            pockelconfig = pocket.get_config( **default_pocket_prop ).values[0]
+            
             pockemodel = pocket.PocketModel(**pockelconfig)
-            print(data_.shape)
-            data_and_overscan = correct_pixels(pockemodel, data_, n_overscan=n_overscan)
+            data_and_overscan = correct_pixels(pockemodel, pixels=data_, n_overscan=n_overscan)
             data_ = data_and_overscan[:,:-n_overscan]
         
         # ------------ #
