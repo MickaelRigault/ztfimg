@@ -400,7 +400,7 @@ class RawQuadrant( Quadrant ):
                                ccdid=self.ccdid, qid=self.qid,
                                use_global_parameters=True) | pocket_prop
 
-            pockelconfig = pocket.get_config( **default_pocket_prop ).values[0]
+            pockelconfig = pocket.get_config( **pocket_prop ).values[0]
             
             pockemodel = pocket.PocketModel(**pockelconfig)
             data_and_overscan = correct_pixels(pockemodel, pixels=data_, n_overscan=n_overscan)
