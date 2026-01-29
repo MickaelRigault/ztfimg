@@ -395,10 +395,10 @@ class RawQuadrant( Quadrant ):
             format_ = "read"
             n_overscan = self.overscan.shape[1] # overscan pixels
 
-            pocket_prop = {pixels=data_, n_overscan=n_overscan,
+            pocket_prop = dict(pixels=data_, n_overscan=n_overscan,
                             # ccdid and qid are likely to be removed one per-image.
                                ccdid=self.ccdid, qid=self.qid,
-                               use_global_parameters=True} | pocket_prop
+                               use_global_parameters=True) | pocket_prop
 
             pockelconfig = pocket.get_config( **default_pocket_prop ).values[0]
             
