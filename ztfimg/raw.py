@@ -382,7 +382,7 @@ class RawQuadrant( Quadrant ):
         if corr_pocket:
             from ztfsensors import pocket
             from ztfsensors.correct import correct_pixels
-
+            
             if not corr_overscan or not corr_nl:
                 warnings.warn("pocket effect correction is expected to happend post overscan and nl correction")
 
@@ -391,9 +391,10 @@ class RawQuadrant( Quadrant ):
             data_ = self._reorder_data(data_, in_=format_, out_="read") # make sure it is the good format
             format_ = "read"
             n_overscan = self.overscan.shape[1] # overscan pixels
-            
+
             pockelconfig = pocket.get_config(self.ccdid, self.qid).values[0]
             pockemodel = pocket.PocketModel(**pockelconfig)
+            print(data_.shape)
             data_and_overscan = correct_pixels(pockemodel, data_, n_overscan=n_overscan)
             data_ = data_and_overscan[:,:-n_overscan]
         
