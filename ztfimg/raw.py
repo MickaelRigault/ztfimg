@@ -1,4 +1,4 @@
-import warnings
+OBimport warnings
 
 import dask
 import dask.array as da
@@ -380,6 +380,7 @@ class RawQuadrant( Quadrant ):
 
         # Correction for the pocket effect
         if corr_pocket:
+            # if we are here, data_ is actually data_and_overscan (see few lines above)
             from ztfsensors import pocket
             from ztfsensors.correct import correct_pixels
 
@@ -391,10 +392,15 @@ class RawQuadrant( Quadrant ):
             data_ = self._reorder_data(data_, in_=format_, out_="read") # make sure it is the good format
             format_ = "read"
             n_overscan = self.overscan.shape[1] # overscan pixels
+
+            pockelconfig = pocket.get_config(pixels=data_, n_overscan=n_overscan,
+                                             # ccdid and qid are likely to be removed one per-image.
+                                             ccdid=self.ccdid, qid=self.qid,
+                                             use_global_parameters=True # to be set to False
+                                             ).values[0]
             
-            pockelconfig = pocket.get_config(self.ccdid, self.qid).values[0]
             pockemodel = pocket.PocketModel(**pockelconfig)
-            data_and_overscan = correct_pixels(pockemodel, data_, n_overscan=n_overscan)
+            data_and_overscan = correct_pixels(pockemodel, pixels=data_, n_overscan=n_overscan)
             data_ = data_and_overscan[:,:-n_overscan]
         
         # ------------ #
