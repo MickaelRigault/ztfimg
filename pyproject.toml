@@ -47,4 +47,3 @@ include = ["ztfimg*"]
 
 [tool.setuptools_scm]
 write_to = "ztfimg/_version.py"
-

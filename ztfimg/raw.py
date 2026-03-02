@@ -15,6 +15,8 @@ from .utils.tools import fit_polynome, rcid_to_ccdid_qid, rebin_arr
 __all__ = ["RawQuadrant", "RawCCD", "RawFocalPlane"]
 
 
+
+
 class RawQuadrant( Quadrant ):
 
     SHAPE_OVERSCAN = 3080, 30
@@ -240,7 +242,9 @@ class RawQuadrant( Quadrant ):
     # -------- #
     # GETTER   #
     # -------- #
-    def get_data_and_overscan(self, stacked=True):
+    def get_data_and_overscan(self, stacked=True,
+                              corr_overscan=False, corr_glow=False,
+                              nfirsts_glow=300):
         """ hstack of data and oversan with amplifier at (0,0)
 
         If stacked, the resulting shape is:
@@ -260,10 +264,23 @@ class RawQuadrant( Quadrant ):
         # force reorder to False as this is sorted later on.
         data = self._reorder_data(self.data, in_="raw", out_="read")
         overscan = self._reorder_data(self.overscan, in_="raw", out_="read")
+
+
+        if corr_overscan:
+            overscan_model = self.get_overscan("model")
+            overscan = overscan - overscan_model[:, None]
+            data = data - overscan_model[:, None]
+
+        if corr_glow:
+            from .utils.rawglow import SideGlow
+            glowmodel = SideGlow(data)
+            data = glowmodel.get_corrected_data()
+
         if stacked:
             return self._np_backend.hstack([data, overscan])
             
         return data, overscan
+
 
     def _reorder_data(self, data, in_="raw", out_="sky"):
         """ 
