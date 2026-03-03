@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "ztfimg"
 authors = [
-    {name = "Mickael Rigault", email = "m.rigault@ipnl.in2p3.fr"},
+    {name = "Mickael Rigault", email = "m.rigault@ip2i.in2p3.fr"},
 ]
 description = "ZTF Images tools"
 readme = "README.md"
