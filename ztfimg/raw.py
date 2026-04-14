@@ -783,7 +783,7 @@ class RawCCD( CCD ):
     _COLLECTION_OF = RawQuadrant
     # "family"
     _QUADRANTCLASS = RawQuadrant
-    _FocalPlaneCLASS = RawFocalPlane
+    _FocalPlaneCLASS = "RawFocalPlane"
     
     
     @classmethod
