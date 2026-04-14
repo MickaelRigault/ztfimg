@@ -2265,6 +2265,7 @@ class CCD( Image, _Collection_):
                 return eval( cls._QUADRANTCLASS )
             except: # from the library 
                 exec(f"from .__init__ import {cls._QUADRANTCLASS}")
+                print("this has been executed")
                 return eval( cls._QUADRANTCLASS )
 
         return cls._QUADRANTCLASS
