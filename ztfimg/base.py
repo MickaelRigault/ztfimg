@@ -710,7 +710,12 @@ class Image( object ):
     def filepath(self):
         """ If this method was loaded from a file, this is it's filename. None otherwise """
         if not hasattr(self, "_filepath"):
-            return None
+            if hasattr(self, "_filename") and self._filename is not None:
+                import ztfquery
+                self._filepath = ztfquery.get_file(self._filename, downloadit=True)
+            else:
+                return None
+            
         return self._filepath
     
 
