@@ -363,6 +363,7 @@ class Image( object ):
         """
         if "dask" in str( type( self.header) ) and compute:
             return self.header.compute()
+
         
         return self.header
 
@@ -689,6 +690,10 @@ class Image( object ):
     def header(self):
         """ header of the data."""
         if not hasattr(self, "_header"):
+            if self.filepath is not None:
+                from astropy.io import fits
+                self._header = fits.getheader(self.filepath)
+                
             return None
 
         return self._header
