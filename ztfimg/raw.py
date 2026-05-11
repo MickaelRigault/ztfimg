@@ -444,20 +444,24 @@ class RawQuadrant(Quadrant):
             # MJD and CCD/cryo temperature
             # as of now, the pocket training uses the key HEADTEMP
             # we should use that key
-            header = self.get_header()
-            if header is None:
-                raise ValueError(
-                    f"Unable to fetch header for ccdid={self.ccdid} qid={self.qid} file={self.filename}"
-                )
+            if self.filepath is None:
+                raise ValueError(f"unable to load main header; self.filepath is None")
+            main_header = fits.getheader(self.filepath)
+
+            # header = self.get_header()
+            # if header is None:
+            #    raise ValueError(
+            #        f"Unable to fetch header for ccdid={self.ccdid} qid={self.qid} file={self.filename}"
+            #    )
             try:
-                mjd = float(header["OBSMJD"])
+                mjd = float(main_header["OBSMJD"])
             except KeyError:
                 raise KeyError(
                     f"Missing OBSMJD key in header for ccdid={self.ccdid} qid={self.qid} file={self.filename}"
                 ) from None
 
             try:
-                temperature = float(header["HEADTEMP"])
+                temperature = float(main_header["HEADTEMP"])
             except KeyError:
                 raise KeyError(
                     f"Missing HEADTEMP key in header for ccdid={self.ccdid} qid={self.qid} file={self.filename}"
