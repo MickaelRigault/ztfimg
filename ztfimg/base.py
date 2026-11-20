@@ -8,6 +8,22 @@ import dask.dataframe as dd
 from .utils.tools import rebin_arr, parse_vmin_vmax, ccdid_qid_to_rcid, rcid_to_ccdid_qid
 from .utils.decorators import classproperty
 
+
+def _resolve_class(name):
+    """ return the class named `name`, looked up in this module then in ztfimg.
+
+    `name` may already be a class, it is then returned as is. Class names are used in
+    class attributes (e.g. _QUADRANTCLASS = "RawQuadrant") to refer to classes defined
+    later or in other modules of ztfimg.
+    """
+    if not isinstance(name, str):
+        return name
+    if name in globals():  # from this .py
+        return globals()[name]
+    import ztfimg  # from the library
+    return getattr(ztfimg, name)
+
+
 __all__ = ["Image", "Quadrant", "CCD", "FocalPlane"]
 
 
@@ -1322,27 +1338,12 @@ class Quadrant(Image):
     @classproperty
     def _ccdclass(cls):
         """ """
-        if type(cls._CCDCLASS) is str:
-            try: # from this .py
-                return eval( cls._CCDCLASS )
-            except: # from the library 
-                exec(f"from .__init__ import {cls._CCDCLASS}")
-                return eval( cls._CCDCLASS )
-        
-        return cls._CCDCLASS
+        return _resolve_class(cls._CCDCLASS)
 
     @classproperty
     def _focalplaneclass(cls):
         """ """
-        if type(cls._FocalPlaneCLASS) is str:
-            try: # from this .py
-                return eval( cls._FocalPlaneCLASS )
-            except: # from the library 
-                exec(f"from .__init__ import {cls._FocalPlaneCLASS}")
-                return eval( cls._FocalPlaneCLASS )
-
-        
-        return cls._FocalPlaneCLASS
+        return _resolve_class(cls._FocalPlaneCLASS)
     
 # -------------- #
 #                #
@@ -2272,28 +2273,12 @@ class CCD( Image, _Collection_):
     @classproperty
     def _quadrantclass(cls):
         """ """
-        if type( cls._QUADRANTCLASS ) is str:            
-            try: # from this .py
-                return eval( cls._QUADRANTCLASS )
-            except: # from the library 
-                exec(f"from .__init__ import {cls._QUADRANTCLASS}")
-                print("this has been executed")
-                return eval( cls._QUADRANTCLASS )
-
-        return cls._QUADRANTCLASS
+        return _resolve_class(cls._QUADRANTCLASS)
 
     @classproperty
     def _focalplaneclass(cls):
         """ """
-        if type(cls._FocalPlaneCLASS) is str:
-            try: # from this .py
-                return eval( cls._FocalPlaneCLASS )
-            except: # from the library 
-                exec(f"from .__init__ import {cls._FocalPlaneCLASS}")
-                return eval( cls._FocalPlaneCLASS )
-
-        
-        return cls._FocalPlaneCLASS
+        return _resolve_class(cls._FocalPlaneCLASS)
     
 # -------------- #
 #                #
@@ -2866,11 +2851,4 @@ class FocalPlane(Image, _Collection_):
     @classproperty
     def _ccdclass(cls):
         """ """
-        if type( cls._CCDCLASS ) is str:
-            try: # from this .py
-                return eval( cls._CCDCLASS )
-            except: # from the library 
-                exec(f"from .__init__ import {cls._CCDCLASS}")
-                return eval( cls._CCDCLASS )
-
-        return cls._CCDCLASS
+        return _resolve_class(cls._CCDCLASS)
